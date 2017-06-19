@@ -1,0 +1,243 @@
+/**
+ * Main style sheet (.scss) for Battles in the North roguelike game.
+ * All partials are included by this sheet. gulp checks only this file.
+ */
+@font-face {
+  font-family: 'Josefin Sans';
+  font-style: normal;
+  font-weight: 400;
+  src: local("Josefin Sans"), local("JosefinSans"), url("public/fonts/Josefin.ttf"), url("https://fonts.gstatic.com/s/josefinsans/v9/xgzbb53t8j-Mo-vYa23n5onF5uFdDttMLvmWuJdhhgs.ttf") format("truetype"); }
+
+@font-face {
+  font-family: 'VT323';
+  font-style: normal;
+  font-weight: 400;
+  src: local("VT323 Regular"), local("VT323-Regular"), url("public/fonts/VT323.ttf"), url("https://fonts.gstatic.com/s/vt323/v8/CfvjE7QXPaQqLo02SkpIgA.ttf") format("truetype"); }
+
+/* All color definitions for Battles. Use only these variables in other
+ * stylesheets.*/
+/** Elements, classes and IDs. */
+body {
+  font-family: 'Josefin Sans', sans-serif; }
+
+.container {
+  margin: 0; }
+
+#mov-buttons-table {
+  border: 1px solid #000;
+  font-size: 16px;
+  padding: 5px; }
+
+.select-label {
+  width: 100px; }
+
+/* All color definitions for Battles. Use only these variables in other
+ * stylesheets.*/
+.cell-actor-default {
+  background-color: #00f;
+  color: #ff0; }
+
+.cell-actor-animal {
+  background-color: #a52a2a;
+  color: #fff; }
+
+.cell-actor-player {
+  background-color: #008000;
+  color: #fff; }
+
+.cell-actor-monster {
+  background-color: #800080;
+  color: #fff; }
+
+.cell-actor-summoner {
+  background-color: #ff0;
+  color: #000; }
+
+.cell-actor-winter {
+  background-color: #e6e6e6;
+  color: #00f; }
+
+.cell-actor-spirit {
+  background-color: #800080;
+  color: #fff; }
+
+.cell-elements {
+  color: white;
+  background-color: purple; }
+
+.cell-dark {
+  background-color: #101010; }
+
+.cell-not-explored {
+  background-color: black;
+  color: black; }
+
+.cell-element-door {
+  color: #a52a2a;
+  background-color: white; }
+
+.cell-element-floor {
+  background-color: #808080; }
+
+.cell-element-ice-wall {
+  background-color: blue;
+  color: white; }
+
+.cell-element-shop {
+  color: white;
+  background-color: #006666; }
+
+.cell-element-snow {
+  background-color: #fff;
+  color: black; }
+
+.cell-element-wall {
+  background-color: #f00; }
+
+.cell-element-water {
+  background-color: white;
+  color: blue; }
+
+.cell-element-tree {
+  background-color: #808080;
+  color: #00e600; }
+
+.cell-element-grass {
+  background-color: #808080;
+  color: #00e600; }
+
+.cell-element-stone {
+  background-color: #a52a2a;
+  color: #808080; }
+
+.cell-item-default {
+  background-color: brown; }
+
+.cell-item-potion {
+  background-color: white;
+  color: purple; }
+
+.cell-item-armour {
+  background-color: green;
+  color: white; }
+
+.cell-item-food {
+  background-color: yellow;
+  color: black; }
+
+.cell-item-melee-weapon {
+  background-color: blue;
+  color: white; }
+
+.cell-item-missile {
+  background-color: white;
+  color: red; }
+
+.cell-item-leather {
+  background-color: brown;
+  color: white; }
+
+.cell-item-iron {
+  background-color: Silver;
+  color: white; }
+
+.cell-item-ruby-glass {
+  background-color: #111;
+  color: #e11; }
+
+.cell-item-ice {
+  background-color: #e6e6e6;
+  color: blue; }
+
+.cell-item-magic {
+  background-color: purple;
+  color: white; }
+
+.cell-item-spiritgem {
+  background-color: purple;
+  color: white; }
+
+.cell-target-selected {
+  background-color: #ff0;
+  color: #000; }
+
+#mount-point {
+  margin-top: 10px; }
+
+.game-messages {
+  background-color: #cccccc;
+  border: 1px solid #000;
+  border-radius: 5px;
+  font-size: 18px;
+  height: 60px;
+  margin-bottom: 10px;
+  overflow: auto;
+  padding-left: 5px;
+  padding-top: 2px; }
+
+.game-stats {
+  background-color: #cccccc;
+  border: 1px solid #000;
+  border-radius: 5px;
+  padding: 10px; }
+
+.game-stats-list {
+  list-style-type: none; }
+
+.game-board-player-view {
+  font-family: monospace;
+  font-size: 16px; }
+
+.cell-row-div-player-view {
+  margin-bottom: -5px; }
+
+.game-board-map-view {
+  font-family: monospace;
+  font-size: 8px; }
+
+.cell-row-div-map-view {
+  margin-bottom: 0; }
+
+#game-board {
+  cursor: crosshair;
+  margin-left: 10px;
+  margin-right: 10px; }
+  #game-board span:hover {
+    background-color: rgba(255, 255, 255, 0.5);
+    color: #000; }
+
+.ctrl-bottom {
+  background-color: #cccccc;
+  border: 1px solid #000;
+  border-radius: 5px;
+  padding: 10px;
+  margin-top: 10px; }
+
+.radio-buttons button {
+  margin-bottom: 5px;
+  margin-right: 2px; }
+
+.player-list-item {
+  border: 1px solid #000;
+  border-radius: 5px;
+  margin-bottom: 2px;
+  padding: 2px; }
+
+.help-info-buttons {
+  font-size: 20px; }
+
+.inv-item-slot {
+  border: 1px solid #000;
+  border-radius: 5px;
+  margin-bottom: 2px;
+  padding: 2px; }
+
+.inv-equip-slot {
+  border: 1px solid #000;
+  border-radius: 5px;
+  margin-bottom: 2px;
+  padding: 2px; }
+
+#items-box {
+  height: 400px;
+  overflow: auto; }
