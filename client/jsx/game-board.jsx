@@ -84,6 +84,11 @@ const GameBoard = React.createClass({
                 this.props.viewportY, map);
             shownCells.getCellsInViewPort(playX, playY, map);
         }
+        else {
+            shownCells = new GUI.Viewport(map.cols,
+                map.rows, map);
+            shownCells.getCellsInViewPort(playX, playY, map);
+        }
 
         const cellRows = [];
         const charRows = [];
@@ -119,8 +124,7 @@ const GameBoard = React.createClass({
         // Finally return the full rendered board
         return (
             <div
-                className={this.props.boardClassName}
-                id='game-board'
+                className={`game-board ${this.props.boardClassName}`}
                 >
                 {rowsHTML}
             </div>

@@ -1,6 +1,6 @@
 {
   "name": "battles",
-  "version": "1.0.0",
+  "version": "0.0.1",
   "description": "Roguelike game situated in cold north",
   "dependencies": {
     "babel-preset-es2015": "^6.22.0",
@@ -47,12 +47,15 @@
   },
   "scripts": {
     "build": "gulp build-js",
+    "build:production": "NODE_ENV=production ./browserify ./client/jsx/app.jsx --extension .jsx -t babelify > ./build/bundle.js",
     "clean": "rm build/*",
     "coverage": "perl bin/cov_test.pl",
     "coveralls": "cat ./coverage/lcov.info | ./node_modules/.bin/coveralls",
     "hooks": "perl bin/deploy_hooks",
     "server": "python -m SimpleHTTPServer",
-    "test": "mocha --recursive tests/client/src"
+    "test": "mocha --recursive tests/client/src",
+    "test:functional": "mocha --recursive tests/client/functional/",
+    "test:all": "npm run test && npm run test:functional"
   },
   "license": "MIT",
   "bugs": {

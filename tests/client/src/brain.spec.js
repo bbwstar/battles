@@ -69,8 +69,29 @@ describe('Brain.Player', function() {
         brain.decideNextAction({cmd: 'missile', target: cell});
         expect(brain.energy).to.equal(RG.energy.MISSILE);
 
-        brain.decideNextAction({cmd: 'use', item: {}});
+        const sword = new RG.Item.Weapon('sword');
+        brain.decideNextAction({cmd: 'use', item: sword});
         expect(brain.energy).to.equal(0);
+    });
+
+    it('has commands for dropping, equipping and unequipping items', () => {
+        const brain = new Brain.Player(player);
+        const sword = new RG.Item.Weapon('sword');
+        player.getInvEq().addItem(sword);
+        const dropCmd = {cmd: 'drop', item: sword};
+        expect(level.getItems()).to.have.length(0);
+        brain.decideNextAction(dropCmd);
+        expect(level.getItems()).to.have.length(1);
+
+        const dagger = new RG.Item.Weapon('dagger');
+        const equipCmd = { cmd: 'equip', item: dagger };
+        player.getInvEq().addItem(dagger);
+        brain.decideNextAction(equipCmd);
+        expect(player.getWeapon().getName()).to.equal(dagger.getName());
+
+        const unequipCmd = {cmd: 'unequip', slot: 'hand'};
+        brain.decideNextAction(unequipCmd);
+        expect(player.getWeapon()).to.equal(null);
     });
 
     it('Has different fighting modes', function() {
@@ -187,4 +208,19 @@ describe('RG.Brain.Rogue', function() {
         expect(cells).to.have.length(4);
     });
 
+});
+
+describe('Brain.Summoner', () => {
+    it('can summon help when seeing enemies', () => {
+        const summoner = new RG.Actor.Rogue('summoner');
+        const brain = new RG.Brain.Summoner(summoner);
+        const level = RG.FACT.createLevel('arena', 10, 10);
+        const player = new RG.Actor.Rogue('Player');
+        player.setIsPlayer(true);
+        level.addActor(summoner, 1, 1);
+        level.addActor(player, 3, 3);
+        while (!brain.summonedMonster()) {continue;}
+        expect(level.getActors(), 'There should be one actor added')
+            .to.have.length(3);
+    });
 });

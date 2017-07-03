@@ -335,6 +335,17 @@ RG.ObjectShellParser = function() {
 
         if (shell.hasOwnProperty('use')) {this.addUseEffects(shell, newObj);}
 
+        if (shell.hasOwnProperty('equip')) {
+            this.addEquippedItems(shell, newObj);
+        }
+
+        if (shell.hasOwnProperty('inv')) {
+            this.addInventoryItems(shell, newObj);
+        }
+
+        if (shell.hasOwnProperty('loot')) {
+            this.addLootComponents(shell, newObj);
+        }
         // TODO map different props to function calls
         return newObj;
     };
@@ -359,6 +370,51 @@ RG.ObjectShellParser = function() {
         else {
             _addUseEffectToItem(shell, newObj, shell.use);
         }
+    };
+
+    /* Adds equipped items given with shell.equip into the actor. */
+    this.addEquippedItems = function(shell, actor) {
+        const equip = shell.equip;
+        equip.forEach(item => {
+            const itemObj = this.createActualObj(RG.TYPE_ITEM, item);
+            if (itemObj) {
+                actor.getInvEq().addItem(itemObj);
+                if (!actor.getInvEq().equipItem(itemObj)) {
+                    RG.err('ObjectShellParser', 'addEquippedItems',
+                        `Cannot equip: ${item} to ${actor.getName()}`);
+                }
+            }
+            else {
+                RG.err('ObjectShellParser', 'addEquippedItems',
+                    `itemObj for ${item} is null. Actor: ${actor.getName()}`);
+            }
+        });
+    };
+
+    // TODO addInventoryItems
+    this.addInventoryItems = function(shell, actor) {
+        const inv = shell.inv;
+        inv.forEach(item => {
+            const name = item.name || item;
+            const count = item.count || 1;
+            const itemObj = this.createActualObj(RG.TYPE_ITEM, name);
+            if (itemObj) {
+                itemObj.count = count;
+                actor.getInvEq().addItem(itemObj);
+            }
+            else {
+                RG.err('ObjectShellParser', 'addInventoryItems',
+                    `itemObj for ${name} is null. Actor: ${actor.getName()}`);
+            }
+        });
+    };
+
+    // TODO addLootComponents
+    this.addLootComponents = function(shell, actor) {
+        const loot = shell.loot;
+        const lootItem = this.createActualObj(RG.TYPE_ITEM, loot);
+        const lootComp = new RG.Component.Loot(lootItem);
+        actor.add('Loot', lootComp);
     };
 
     const _addUseEffectToItem = function(shell, item, useName) {
@@ -446,6 +502,8 @@ RG.ObjectShellParser = function() {
                 switch (subtype) {
                     case 'armour': return new RG.Item.Armour(obj.name);
                     case 'food': return new RG.Item.Food(obj.name);
+                    case 'gold': return new RG.Item.Gold(obj.name);
+                    case 'goldcoin' : return new RG.Item.GoldCoin(obj.name);
                     case 'missile': return new RG.Item.Missile(obj.name);
                     case 'potion': return new RG.Item.Potion(obj.name);
                     case 'spiritgem': return new RG.Item.SpiritGem(obj.name);
@@ -540,41 +598,14 @@ RG.ObjectShellParser = function() {
 
     };
 
-    //----------------------------------------------------------------------
-    // RANDOMIZED METHODS for procedural generation
-    //----------------------------------------------------------------------
-
-    /* Returns stuff randomly from db. For example, {categ: "actors", num: 2}
-     * returns two random actors (can be the same). Ex2: {danger: 3, num:1}
-     * returns randomly one entry which has danger 3.*/
-    this.dbGetRand = function(query) {
-        const danger = query.danger;
-        const categ = query.categ;
-        if (typeof danger !== 'undefined') {
-            if (typeof categ !== 'undefined') {
-                if (dbDanger.hasOwnProperty(danger)) {
-                    const entries = dbDanger[danger][categ];
-                    return this.getRandFromObj(entries);
-                }
-            }
-        }
-        return null;
-    };
-
-    /* Returns a property from an object, selected randomly. For example,
-     * given object {a: 1, b: 2, c: 3}, may return 1,2 or 3 with equal
-     * probability.*/
-    this.getRandFromObj = function(obj) {
-        const keys = Object.keys(obj);
-        const len = keys.length;
-        const randIndex = Math.floor( Math.random() * len);
-        return obj[keys[randIndex]];
-    };
-
     /* Filters given category with a function. Func gets each object as arg,
-     * and must return either true or false.*/
+     * and must return either true or false. Function can be for example:
+     *   1.func(obj) {if (obj.name === 'wolf') return true;} Or
+     *   2.func(obj) {if (obj.hp > 25) return true;}.
+     *   And it can be as complex as needed of course.
+     * */
     this.filterCategWithFunc = function(categ, func) {
-        const objects = this.dbGet({categ: categ});
+        const objects = this.dbGet({categ});
         const res = [];
         const keys = Object.keys(objects);
 
@@ -590,12 +621,35 @@ RG.ObjectShellParser = function() {
 
     };
 
+    //----------------------------------------------------------------------
+    // RANDOMIZED METHODS for procedural generation
+    //----------------------------------------------------------------------
+
+    /* Returns random object from the db. For example, {categ: "actors",
+     * danger: 2}
+     * returns a random actors with these constrains.
+     * Ex2: {danger: 3, num:1}
+     * returns randomly one entry which has danger 3.*/
+    this.dbGetRand = function(query) {
+        const danger = query.danger;
+        const categ = query.categ;
+        if (typeof danger !== 'undefined') {
+            if (typeof categ !== 'undefined') {
+                if (dbDanger.hasOwnProperty(danger)) {
+                    const entries = dbDanger[danger][categ];
+                    return this.getRandFromObj(entries);
+                }
+            }
+        }
+        return null;
+    };
+
     /* Creates a random actor based on danger value or a filter function.*/
     this.createRandomActor = function(obj) {
         let randShell = null;
         if (obj.hasOwnProperty('danger')) {
             const danger = obj.danger;
-            randShell = this.dbGetRand({danger: danger, categ: 'actors'});
+            randShell = this.dbGetRand({danger, categ: 'actors'});
             if (randShell !== null) {
                 return this.CreateFromShell('actors', randShell);
             }
@@ -605,7 +659,7 @@ RG.ObjectShellParser = function() {
         }
         else if (obj.hasOwnProperty('func')) {
             const res = this.filterCategWithFunc('actors', obj.func);
-            randShell = this.arrayGetRand(res);
+            randShell = RG.RAND.arrayGetRand(res);
             return this.CreateFromShell('actors', randShell);
         }
         return null;
@@ -620,7 +674,7 @@ RG.ObjectShellParser = function() {
             _cache.actorWeights[key] = RG.getDangerProb(min, max);
         }
         const danger = ROT.RNG.getWeightedValue(_cache.actorWeights[key]);
-        const actor = this.createRandomActor({danger: danger});
+        const actor = this.createRandomActor({danger});
         if (RG.isNullOrUndef([actor])) {
             if (!RG.isNullOrUndef([obj])) {
                 return this.createRandomActor(obj);
@@ -639,7 +693,7 @@ RG.ObjectShellParser = function() {
     this.createRandomItem = function(obj) {
         if (obj.hasOwnProperty('func')) {
             const res = this.filterCategWithFunc('items', obj.func);
-            const randShell = this.arrayGetRand(res);
+            const randShell = RG.RAND.arrayGetRand(res);
             return this.CreateFromShell('items', randShell);
         }
         else {
@@ -648,11 +702,13 @@ RG.ObjectShellParser = function() {
         return null;
     };
 
-    /* Returns a random entry from the array.*/
-    this.arrayGetRand = function(arr) {
-        const len = arr.length;
-        const randIndex = Math.floor(Math.random() * len);
-        return arr[randIndex];
+    /* Returns a property from an object, selected randomly. For example,
+     * given object {a: 1, b: 2, c: 3}, may return 1,2 or 3 with equal
+     * probability.*/
+    this.getRandFromObj = function(obj) {
+        const keys = Object.keys(obj);
+        const randIndex = RG.RAND.randIndex(keys);
+        return obj[keys[randIndex]];
     };
 
 };

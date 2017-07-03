@@ -47,7 +47,6 @@ RG.Map.Cell.prototype.hasDoor = function() {
     return this.hasPropType('door');
 };
 
-
 /* Return stairs in this cell, or null if there are none.*/
 RG.Map.Cell.prototype.getStairs = function() {
     if (this.hasPropType('stairsUp')) {
@@ -137,6 +136,25 @@ RG.Map.Cell.prototype.toString = function() {
         }
     });
     return str;
+};
+
+RG.Map.Cell.prototype.toJSON = function() {
+    const json = {
+        type: this._baseElem.getType(),
+        x: this._x,
+        y: this._y,
+        explored: this._explored
+    };
+    if (this._p.hasOwnProperty(RG.TYPE_ELEM)) {
+        const elements = [];
+        this._p[RG.TYPE_ELEM].forEach(elem => {
+            if (/(tree|grass|stone|water)/.test(elem.getType())) {
+                elements.push(elem.toJSON());
+            }
+        });
+        json.elements = elements;
+    }
+    return json;
 };
 
 /* Returns true if any cell property has the given type. Ie.
@@ -358,9 +376,17 @@ RG.Map.CellList = function(cols, rows) { // {{{2
 }; // }}} Map.CellList
 
 RG.Map.CellList.prototype.toJSON = function() {
+    const map = [];
+    for (let x = 0; x < this.cols; x++) {
+        map.push([]);
+        for (let y = 0; y < this.rows; y++) {
+            map[x][y] = this.getCell(x, y).toJSON();
+        }
+    }
     return {
         cols: this.cols,
-        rows: this.rows
+        rows: this.rows,
+        cells: map
     };
 };
 
@@ -378,9 +404,8 @@ RG.Map.Generator = function() { // {{{2
     let _wall = 1;
 
     this.getRandType = function() {
-        const len = _types.length;
-        const nRand = Math.floor(Math.random() * len);
-        return _types[nRand];
+        const index = RG.RAND.randIndex(_types);
+        return _types[index];
     };
 
     let _nHouses = 5;
@@ -422,7 +447,7 @@ RG.Map.Generator = function() { // {{{2
                 map.setBaseElemXY(x, y, new RG.Element.Base('floor'));
             }
         });
-        const obj = {map: map};
+        const obj = {map};
         if (_mapType === 'uniform' || _mapType === 'digger') {
             obj.rooms = _mapGen.getRooms(); // ROT.Map.Feature.Room
             obj.corridors = _mapGen.getCorridors(); // ROT.Map.Feature.Corridor
@@ -488,13 +513,13 @@ RG.Map.Generator = function() { // {{{2
 
             let houseCreated = false;
             let tries = 0;
-            const xSize = Math.floor(Math.random() * (maxX - minX)) + minX;
-            const ySize = Math.floor(Math.random() * (maxY - minY)) + minY;
+            const xSize = RG.RAND.getUniformInt(minX, maxX);
+            const ySize = RG.RAND.getUniformInt(minY, maxY);
 
             // Select random starting point, try to build house there
             while (!houseCreated && tries < maxTriesHouse) {
-                const x0 = Math.floor(Math.random() * cols);
-                const y0 = Math.floor(Math.random() * rows);
+                const x0 = RG.RAND.getUniformInt(0, cols - 1);
+                const y0 = RG.RAND.getUniformInt(0, rows - 1);
                 houseCreated = this.createHouse(
                     map, x0, y0, xSize, ySize, doors, wallsHalos);
                 ++tries;
@@ -503,7 +528,7 @@ RG.Map.Generator = function() { // {{{2
             if (houseCreated) {houses.push(houseCreated);}
 
         }
-        return {map: map, houses: houses};
+        return {map, houses};
     };
 
     /* Creates a house into a given map to a location x0,y0 with given
@@ -560,8 +585,9 @@ RG.Map.Generator = function() { // {{{2
         }
 
         // Finally randomly insert the door for the house
-        const coordLength = wallCoords.length - 1;
-        const doorIndex = Math.floor(Math.random() * coordLength);
+        // const coordLength = wallCoords.length - 1;
+        // const doorIndex = Math.floor(Math.random() * coordLength);
+        const doorIndex = RG.RAND.randIndex(wallCoords);
         const doorX = wallCoords[doorIndex][0];
         const doorY = wallCoords[doorIndex][1];
         wallCoords.slice(doorIndex, 1);
@@ -600,7 +626,7 @@ RG.Map.Generator = function() { // {{{2
         const map = new RG.Map.CellList(this.cols, this.rows);
         _mapGen.create(function(x, y, val) {
             map.setBaseElemXY(x, y, new RG.Element.Base('floor'));
-            const createTree = Math.random() <= ratio;
+            const createTree = RG.RAND.getUniform() <= ratio;
             if (val === 1 && createTree) {
                 map.setElemXY(x, y, new RG.Element.Tree('tree'));
             }
@@ -608,18 +634,18 @@ RG.Map.Generator = function() { // {{{2
                 map.setElemXY(x, y, new RG.Element.Grass('grass'));
             }
         });
-        return {map: map};
+        return {map};
     };
 
     this.createMountain = function() {
         const map = new RG.Map.CellList(this.cols, this.rows);
         _mapGen.create(function(x, y, val) {
             map.setBaseElemXY(x, y, new RG.Element.Base('floor'));
-            if (val === 1) {
+            if (val === _wall) {
                 map.setElemXY(x, y, new RG.Element.Stone('stone'));
             }
         });
-        return {map: map};
+        return {map};
     };
 
 }; // }}} Map.Generator
@@ -628,7 +654,7 @@ RG.Map.Generator = function() { // {{{2
 RG.Map.Generator.prototype.addRandomSnow = function(map, ratio) {
     const freeCells = map.getFree();
     for (let i = 0; i < freeCells.length; i++) {
-        const addSnow = Math.random();
+        const addSnow = RG.RAND.getUniform();
         if (addSnow <= ratio) {
             freeCells[i].setBaseElem(new RG.Element.Base('snow'));
         }
@@ -640,6 +666,7 @@ RG.Map.Generator.prototype.addRandomSnow = function(map, ratio) {
 RG.Map.Level = function() { // {{{2
     let _map = null;
     let _id = RG.Map.Level.prototype.idCount++;
+    let _parent = null; // Reference to dungeon,city,mountain...
 
     // Level properties
     const _p = {
@@ -654,6 +681,9 @@ RG.Map.Level = function() { // {{{2
 
     this.getID = function() {return _id;};
     this.setID = function(id) {_id = id;};
+
+    this.getParent = function() {return _parent;};
+    this.setParent = function(parent) {_parent = parent;};
 
     this.getActors = function() {return _p.actors;};
     this.getItems = function() {return _p.items;};
@@ -690,6 +720,20 @@ RG.Map.Level = function() { // {{{2
             }
         }
         return null;
+    };
+
+    //---------------------------------------------------------------------
+    // GENERIC ADD METHOD
+    //---------------------------------------------------------------------
+    this.addToRandomCell = function(obj) {
+        const cell = this.getFreeRandCell();
+        switch (obj.getPropType()) {
+            case RG.TYPE_ITEM:
+                this.addItem(obj, cell.getX(), cell.getY());
+                break;
+            default: RG.err('Map.Level', 'addToRandomCell',
+                `No known propType |${obj.getPropType()}|`);
+        }
     };
 
     //---------------------------------------------------------------------
@@ -764,7 +808,7 @@ RG.Map.Level = function() { // {{{2
             const item = cell.getProp(RG.TYPE_ITEM)[0];
             if (actor.getInvEq().canCarryItem(item)) {
                 actor.getInvEq().addItem(item);
-                cell.removeProp(RG.TYPE_ITEM, item);
+                this.removeItem(item, x, y);
                 RG.gameMsg(actor.getName() + ' picked up ' + item.getName());
             }
             else {
@@ -831,8 +875,8 @@ RG.Map.Level = function() { // {{{2
                 obj.setLevel(this);
             }
             _map.setProp(x, y, propType, obj);
-            RG.POOL.emitEvent(RG.EVT_LEVEL_PROP_ADDED, {level: this, obj: obj,
-                propType: propType});
+            RG.POOL.emitEvent(RG.EVT_LEVEL_PROP_ADDED, {level: this, obj,
+                propType});
             return true;
         }
         else {
@@ -855,7 +899,7 @@ RG.Map.Level = function() { // {{{2
                     obj.unsetLevel();
                 }
                 RG.POOL.emitEvent(RG.EVT_LEVEL_PROP_REMOVED,
-                    {level: this, obj: obj, propType: propType});
+                    {level: this, obj, propType});
                 return _map.removeProp(x, y, propType, obj);
             }
             else {
@@ -914,19 +958,21 @@ RG.Map.Level = function() { // {{{2
     this.setOnExit = function(cb) {_callbacks.OnExit = cb;};
     this.setOnFirstExit = function(cb) {_callbacks.OnFirstExit = cb;};
 
-    let _onFirstEnterDone = false;
-    let _onFirstExitDone = false;
+    const _cbState = {
+        onFirstEnterDone: false,
+        onFirstExitDone: false
+    };
 
     this.onEnter = function() {
         if (_callbacks.hasOwnProperty('OnEnter')) {_callbacks.OnEnter(this);}
     };
 
     this.onFirstEnter = function() {
-        if (!_onFirstEnterDone) {
+        if (!_cbState.onFirstEnterDone) {
             if (_callbacks.hasOwnProperty('OnFirstEnter')) {
                 _callbacks.OnFirstEnter(this);
             }
-            _onFirstEnterDone = true;
+            _cbState.onFirstEnterDone = true;
         }
     };
 
@@ -935,11 +981,11 @@ RG.Map.Level = function() { // {{{2
     };
 
     this.onFirstExit = function() {
-        if (!_onFirstExitDone) {
+        if (!_cbState.onFirstExitDone) {
             if (_callbacks.hasOwnProperty('OnFirstExit')) {
                 _callbacks.OnFirstExit(this);
             }
-            _onFirstExitDone = true;
+            _cbState.onFirstExitDone = true;
         }
     };
 
@@ -947,9 +993,8 @@ RG.Map.Level = function() { // {{{2
     this.getFreeRandCell = function() {
         const freeCells = this.getMap().getFree();
         if (freeCells.length > 0) {
-            const maxFree = freeCells.length;
-            const randCell = Math.floor(Math.random() * maxFree);
-            return freeCells[randCell];
+            const index = RG.RAND.randIndex(freeCells);
+            return freeCells[index];
         }
         return null;
     };
@@ -958,9 +1003,8 @@ RG.Map.Level = function() { // {{{2
     this.getEmptyRandCell = function() {
         const emptyCells = this.getMap().getEmptyCells();
         if (emptyCells.length > 0) {
-            const maxEmpty = emptyCells.length;
-            const randCell = Math.floor(Math.random() * maxEmpty);
-            return emptyCells[randCell];
+            const index = RG.RAND.randIndex(emptyCells);
+            return emptyCells[index];
         }
         return null;
     };
@@ -973,26 +1017,31 @@ RG.Map.Level = function() { // {{{2
             actors: [],
             items: [],
             elements: [],
-            map: this.getMap().toJSON()
+            map: this.getMap().toJSON(),
+            cbState: JSON.stringify(_cbState)
         };
+
+        const parent = this.getParent();
+        if (parent) {
+            obj.parent = parent;
+        }
 
         // Must store x, y for each prop as well
         const props = ['actors', 'items', 'elements'];
         props.forEach(propType => {
-            _p[propType].forEach(elem => {
-                // TODO: sort this out
-                // if (elem.hasOwnProperty('toJSON')) {
-                    const elemObj = {
-                        x: elem.getX(),
-                        y: elem.getY(),
-                        obj: elem.toJSON()
-                    };
-                    obj[propType].push(elemObj);
-                /* }
-                else {
-                    RG.err('Map.Level', 'toJSON',
-                        `Cannot serialize object ${JSON.stringify(elem)}`);
-                }*/
+            _p[propType].forEach(prop => {
+                const propObj = {
+                    x: prop.getX(),
+                    y: prop.getY(),
+                    obj: prop.toJSON()
+                };
+                // Avoid storing player twice (stored in Game.Main already)
+                if (!propType === 'actors') {
+                    obj[propType].push(propObj);
+                }
+                else if (propObj.obj.type !== 'player') {
+                    obj[propType].push(propObj);
+                }
             });
         });
 

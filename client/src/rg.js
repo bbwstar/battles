@@ -109,7 +109,7 @@ const RG = { // {{{2
         // const finder = new ROT.Path.Dijkstra(x1, y1, passableCallback);
         const finder = new ROT.Path.AStar(x1, y1, passableCallback);
         finder.compute(x0, y0, function(x, y) {
-            coords.push({x: x, y: y});
+            coords.push({x, y});
         });
         return coords;
     },
@@ -292,12 +292,12 @@ const RG = { // {{{2
             newMsg = msg.msg;
             newMsg = newMsg[0].toUpperCase() + newMsg.substring(1);
 
-            const msgObject = {cell: cell, msg: newMsg, style: style};
+            const msgObject = {cell, msg: newMsg, style};
             this.POOL.emitEvent(this.EVT_MSG, msgObject);
         }
         else {
             newMsg = msg[0].toUpperCase() + msg.substring(1);
-            this.POOL.emitEvent(this.EVT_MSG, {msg: newMsg, style: style});
+            this.POOL.emitEvent(this.EVT_MSG, {msg: newMsg, style});
         }
 
     },
@@ -529,6 +529,16 @@ RG.getFoodWeightDistr = function() {
     return {0.1: 20, 0.2: 10, 0.3: 5, 0.4: 3, 0.5: 1};
 };
 
+/* Returns the count distribution for gold coins. */
+RG.getGoldCoinCountDistr = function(nLevel) {
+    const maxVal = nLevel + 1;
+    const dist = {};
+    for (let i = 1; i <= maxVal; i++) {
+        dist[i] = nLevel;
+    }
+    return dist;
+};
+
 /* Converts abstract value into gold weight. */
 RG.valueToGoldWeight = function(value) {
     let currVal = value;
@@ -757,7 +767,7 @@ RG.Die = function(num, dice, mod) {
     this.roll = function() {
         let res = 0;
         for (let i = 0; i < _num; i++) {
-            res += Math.floor(Math.random() * (_dice)) + 1;
+            res += RG.RAND.getUniformInt(1, _dice);
         }
         return res + _mod;
     };
@@ -892,11 +902,12 @@ RG.MessageHandler = function() { // {{{2
 
 RG.Entity = function() {
 
-    const _id = RG.Entity.prototype.idCount++;
+    let _id = RG.Entity.prototype.idCount++;
 
     const _comps = {};
 
     this.getID = function() {return _id;};
+    this.setID = function(id) {_id = id;};
 
     this.get = function(name) {
         if (_comps.hasOwnProperty(name)) {return _comps[name];}

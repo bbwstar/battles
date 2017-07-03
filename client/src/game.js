@@ -1,5 +1,5 @@
 
-var RG = require('./rg.js');
+const RG = require('./rg.js');
 RG.System = require('./system.js');
 RG.Map = require('./map.js');
 RG.Time = require('./time.js');
@@ -16,6 +16,7 @@ RG.Game.Engine = function() {
     this.nextActor = null;
     this.simIntervalID = null;
 
+    const _levelMap = {}; // All levels, ID -> level
     const _activeLevels = []; // Only these levels are simulated
     const _scheduler = new RG.Time.Scheduler();
     const _msg = new RG.MessageHandler();
@@ -88,8 +89,8 @@ RG.Game.Engine = function() {
 
     /* Adds an event to the scheduler.*/
     this.addEvent = function(gameEvent) {
-        var repeat = gameEvent.getRepeat();
-        var offset = gameEvent.getOffset();
+        const repeat = gameEvent.getRepeat();
+        const offset = gameEvent.getOffset();
         _scheduler.add(gameEvent, repeat, offset);
     };
 
@@ -123,7 +124,7 @@ RG.Game.Engine = function() {
                         this.doGUICommand(code);
                     }
                     else {
-                        this.updateGameLoop({code: code});
+                        this.updateGameLoop({code});
                     }
                 }
                 else {
@@ -205,7 +206,6 @@ RG.Game.Engine = function() {
 
     this.numActiveLevels = function() {return _activeLevels.length;};
 
-    const _levelMap = {};
 
     this.hasLevel = function(level) {
         return _levelMap.hasOwnProperty(level.getID());
@@ -213,7 +213,7 @@ RG.Game.Engine = function() {
 
     /* Adds one level to the game database.*/
     this.addLevel = function(level) {
-        var id = level.getID();
+        const id = level.getID();
         if (!_levelMap.hasOwnProperty(id)) {
             _levelMap[level.getID()] = level;
         }
@@ -226,8 +226,8 @@ RG.Game.Engine = function() {
 
     /* Adds an active level. Only these levels are simulated.*/
     this.addActiveLevel = function(level) {
-        var levelID = level.getID();
-        var index = _activeLevels.indexOf(levelID);
+        const levelID = level.getID();
+        const index = _activeLevels.indexOf(levelID);
 
         // Check if a level must be removed
         if (_activeLevels.length === (RG.MAX_ACTIVE_LEVELS)) {
@@ -269,7 +269,7 @@ RG.Game.Engine = function() {
 
 
     this.isActiveLevel = function(level) {
-        var index = _activeLevels.indexOf(level.getID());
+        const index = _activeLevels.indexOf(level.getID());
         return index >= 0;
     };
 
@@ -399,6 +399,11 @@ RG.Game.Main = function() {
     };
     _engine.isGameOver = this.isGameOver;
 
+    this.getLevels = function() {return _levels;};
+    this.getPlaces = function() {
+        return _places;
+    };
+
     /* Returns player(s) of the game.*/
     this.getPlayer = function() {
         if (_players.length === 1) {
@@ -408,8 +413,6 @@ RG.Game.Main = function() {
             return _players;
         }
         else {
-            RG.err('Game.Main', 'getPlayer',
-                'There are no players in the game.');
             return null;
         }
     };
@@ -417,16 +420,16 @@ RG.Game.Main = function() {
     /* Adds player to the game. By default, it's added to the first level if
      * player has no level yet.*/
     this.addPlayer = function(player, obj) {
-        var levelOK = false;
+        let levelOK = false;
         if (!RG.isNullOrUndef([player.getLevel()])) {
             levelOK = true;
         }
         else if (RG.isNullOrUndef([obj])) {
-                levelOK = _addPlayerToFirstLevel(player, _levels);
-            }
-            else {
-                levelOK = _addPlayerToPlace(player, obj);
-            }
+            levelOK = _addPlayerToFirstLevel(player, _levels);
+        }
+        else {
+            levelOK = _addPlayerToPlace(player, obj);
+        }
 
         if (levelOK) {
             _engine.nextActor = player;
@@ -463,7 +466,7 @@ RG.Game.Main = function() {
         if (obj.hasOwnProperty('place')) {
             const place = obj.place;
             if (_places.hasOwnProperty(place)) {
-                const levels = _places[place];
+                const levels = _places[place].getLevels();
                 return _addPlayerToFirstLevel(player, levels);
             }
             else {
@@ -509,10 +512,16 @@ RG.Game.Main = function() {
             const name = place.getName();
             if (!_places.hasOwnProperty(name) ) {
                 const levels = place.getLevels();
-                for (let i = 0; i < levels.length; i++) {
-                    this.addLevel(levels[i]);
+                if (levels.length > 0) {
+                    for (let i = 0; i < levels.length; i++) {
+                        this.addLevel(levels[i]);
+                    }
                 }
-                _places[name] = levels;
+                else {
+                    RG.err('Game.Main', 'addPlace',
+                        `Place ${name} has no levels!`);
+                }
+                _places[name] = place;
             }
             else {
                 RG.err('Game.Main', 'addPlace',
@@ -566,7 +575,37 @@ RG.Game.Main = function() {
         _engine.addActiveLevel(level);
     };
 
-}; // }}} Game
+    this.toJSON = function() {
+        const levels = [];
+        _levels.forEach(level => {
+            levels.push(level.toJSON());
+        });
+
+        const places = { };
+        Object.keys(_places).forEach(name => {
+            const place = _places[name];
+            places[name] = place.toJSON();
+        });
+
+        // TODO places should store their own levels
+
+        const obj = {
+            engine: {},
+            levels,
+            places,
+            lastLevelID: RG.Map.Level.prototype.idCount,
+            lastEntityID: RG.Entity.prototype.idCount
+        };
+
+        const player = this.getPlayer();
+        if (player !== null) {
+            obj.player = player.toJSON();
+        }
+
+        return obj;
+    };
+
+}; // }}} Game.Main
 
 /* Army is a collection of actors.*/
 RG.Game.Army = function(name) {
@@ -707,7 +746,7 @@ RG.Game.Battle = function(name) {
 /* An object for saving the game in specified storage (local/etc..) */
 RG.Game.Save = function() {
     let _storageRef = null;
-    const _fromJSON = new RG.Game.FromJSON();
+    let _fromJSON = new RG.Game.FromJSON();
 
     // Contains names of players for restore selection
     const _playerList = '_battles_player_data_';
@@ -720,18 +759,14 @@ RG.Game.Save = function() {
 
     /* Main function which saves the full game.*/
     this.save = function(game, conf) {
-        const player = game.getPlayer();
-        this.savePlayer(player, conf);
+        this.savePlayer(game, conf);
     };
 
     /* Restores game/player with the given name.*/
     this.restore = function(name) {
         if (!RG.isNullOrUndef([name])) {
-            const player = this.restorePlayer(name);
-            const obj = {
-                player: player
-            };
-            return obj;
+            const game = this.restorePlayer(name);
+            return game;
         }
         else {
             RG.err('Game.Save', 'restore', 'No name given (or null/undef).');
@@ -772,15 +807,17 @@ RG.Game.Save = function() {
     };
 
     /* Saves a player object. */
-    this.savePlayer = function(player, conf) {
+    this.savePlayer = function(game, conf) {
         _checkStorageValid();
-        const name = player.getName();
-        const storedObj = player.toJSON();
-        storedObj.dungeonLevel = player.getLevel().getLevelNumber();
-        const dbObj = {player: storedObj};
-        const dbString = JSON.stringify(dbObj);
-        _storageRef.setItem('_battles_player_' + name, dbString);
-        _savePlayerInfo(name, storedObj, conf);
+        const player = game.getPlayer();
+        if (!RG.isNullOrUndef([player])) {
+            const name = player.getName();
+            _savePlayerInfo(name, player.toJSON(), conf);
+        }
+        else {
+            RG.err('Game.Save', 'savePlayer',
+                'Cannot save null player. Forgot game.addPlayer?');
+        }
     };
 
     /* Restores a player with given name. */
@@ -790,8 +827,9 @@ RG.Game.Save = function() {
         if (playersObj.hasOwnProperty(name)) {
             const dbString = _storageRef.getItem('_battles_player_' + name);
             const dbObj = JSON.parse(dbString);
-            const player = _fromJSON.createPlayerObj(dbObj.player);
-            return player;
+            _fromJSON = new RG.Game.FromJSON();
+            const game = _fromJSON.createGame(dbObj.game);
+            return game;
         }
         else {
             RG.err('Game.Save', 'restorePlayer',
@@ -800,13 +838,13 @@ RG.Game.Save = function() {
         }
     };
 
-    /* Saves name and level of the player into a list.*/
+    /* Saves name and level of the player into a list of players/save games.*/
     const _savePlayerInfo = function(name, obj, conf) {
         let dbString = _storageRef.getItem(_playerList);
         let dbObj = JSON.parse(dbString);
         if (dbObj === null) {dbObj = {};}
         dbObj[name] = {
-            name: name,
+            name,
             expLevel: obj.components.Experience.setExpLevel,
             dungeonLevel: obj.dungeonLevel
         };
@@ -834,21 +872,13 @@ RG.Game.FromJSON = function() {
 
     // Lookup table for mapping level ID to Map.Level object
     const id2level = {};
+    const id2entity = {};
 
     // Stores connection information for stairs
     const stairsInfo = {};
 
     this.getDungeonLevel = function() {
         return _dungeonLevel;
-    };
-
-    /* Creates the full game from serialized format. */
-    this.createGame = function() {
-        // Build levels (items, actors, elements) + world topo
-
-        // game json must contain everything
-
-        // Connect levels using id2level + stairsInfo
     };
 
     /* Handles creation of restored player from JSON.*/
@@ -863,18 +893,65 @@ RG.Game.FromJSON = function() {
         return player;
     };
 
+    this.createEntity = function(obj) {
+        if (obj.type) {
+            let entity = null;
+            switch (obj.type) {
+                case 'spirit': entity = new RG.Actor.Spirit(obj.name); break;
+                default: entity = new RG.Actor.Rogue(obj.name);
+            }
+            entity.setType(obj.type);
+            this.addCompsToEntity(entity, obj.components);
+            this.createInventory(obj, entity);
+            this.createEquipment(obj, entity);
+            this.createBrain(obj.brain, entity);
+            return entity;
+        }
+        else {
+            RG.err('FromJSON', 'createEntity',
+                `obj.type null, obj: ${JSON.stringify(obj)}`);
+        }
+        return null;
+    };
+
     this.addCompsToEntity = function(ent, comps) {
         for (const name in comps) {
             if (name) {
                 const comp = comps[name];
                 const newCompObj = new RG.Component[name]();
                 for (const fname in comp) {
-                    if (fname) {
+                    if (typeof newCompObj[fname] === 'function') {
                         newCompObj[fname](comp[fname]);
+                    }
+                    else {
+                        RG.err('FromJSON', 'addCompsToEntity',
+                            `${fname} not a function in ${name}`);
+
                     }
                 }
                 ent.add(name, newCompObj);
             }
+        }
+    };
+
+    this.createBrain = function(brain, ent) {
+        const type = brain.type;
+        const typeUc = type[0].toUpperCase() + type.substring(1);
+        if (RG.Brain[typeUc]) {
+            const brain = new RG.Brain[typeUc](ent);
+            ent.setBrain(brain);
+            // TODO addEnemyType called in Actor.Rogue, find better solution
+            // Maybe Brain.Enemy, with hate against player?
+            // And rename Brain.Rogue -> Brain.Base.
+            if (type === 'rogue') {
+                brain.getMemory().addEnemyType('player');
+            }
+            // TODO reconstruct memory
+        }
+        else {
+            RG.err('FromJSON', 'createBrain',
+                `Cannot find RG.Brain.${typeUc}`);
+
         }
     };
 
@@ -885,6 +962,9 @@ RG.Game.FromJSON = function() {
         for (const func in item) {
             if (func === 'setSpirit') {
                 newObj[func](this.createSpirit(item[func]));
+            }
+            else if (func === 'components') {
+                this.addCompsToEntity(newObj, obj.components);
             }
             else {
                 newObj[func](item[func]); // Use setter
@@ -923,6 +1003,7 @@ RG.Game.FromJSON = function() {
 
     this.getItemObjectType = function(item) {
         if (item.setType === 'spiritgem') {return 'SpiritGem';}
+        if (item.setType === 'goldcoin') {return 'GoldCoin';}
         if (!RG.isNullOrUndef([item])) {
             if (!RG.isNullOrUndef([item.setType])) {
                 return item.setType.capitalize();
@@ -940,7 +1021,8 @@ RG.Game.FromJSON = function() {
         return null;
     };
 
-    /* Creates a Map.Level object from a json object. */
+    /* Creates a Map.Level object from a json object. NOTE: This method cannot
+    * connect stairs to other levels, but only create the stairs elements. */
     this.createLevel = function(json) {
         const level = new RG.Map.Level();
         level.setID(json.id);
@@ -949,14 +1031,39 @@ RG.Game.FromJSON = function() {
         const mapObj = this.createCellList(json.map);
         level.setMap(mapObj);
 
+        // Create actors
+        json.actors.forEach(actor => {
+            const actorObj = this.createActor(actor.obj);
+            if (actorObj !== null) {
+                level.addActor(actorObj, actor.x, actor.y);
+            }
+            else {
+                RG.err('FromJSON', 'createLevel',
+                    `Actor ${JSON.stringify(actor)} returned null`);
+            }
+        });
+
+        // Create elements such as stairs
         json.elements.forEach(elem => {
-            const elemObj = this.createElement(elem.obj);
+            const elemObj = this.createElement(elem);
             if (elemObj !== null) {
                 level.addElement(elemObj, elem.x, elem.y);
             }
             else {
                 RG.err('FromJSON', 'createLevel',
                     `Elem ${JSON.stringify(elem)} returned null`);
+            }
+        });
+
+        // Create items
+        json.items.forEach(item => {
+            const itemObj = this.createItem(item.obj);
+            if (itemObj !== null) {
+                level.addItem(itemObj, item.x, item.y);
+            }
+            else {
+                RG.err('FromJSON', 'createLevel',
+                    `Actor ${JSON.stringify(item)} returned null`);
             }
         });
 
@@ -971,11 +1078,41 @@ RG.Game.FromJSON = function() {
         return level;
     };
 
+    /* Creates elements such as stairs, doors and shop. */
     this.createElement = function(elem) {
-        if (/stairs/.test(elem.type)) {
+        const elemObj = elem.obj;
+        const type = elemObj.type;
+        if (/stairs/.test(type)) {
             return this.createUnconnectedStairs(elem);
         }
+        else if (type === 'shop') {
+            const shopElem = new RG.Element.Shop();
+            let shopkeeper = null;
+            if (!RG.isNullOrUndef([elemObj.shopkeeper])) {
+                shopkeeper = id2entity[elemObj.shopkeeper];
+                if (shopkeeper) {
+                    shopElem.setShopkeeper(shopkeeper);
+                }
+                else {
+                    RG.err('Game.FromJSON', 'createElement',
+                        `Shopkeeper with ID ${elemObj.shopkeeper} not found`);
+                }
+            }
+            shopElem.setCostFactor(elemObj.costFactorBuy,
+                elemObj.costFactorSell);
+            return shopElem;
+        }
+        else if (type === 'door') {
+            return new RG.Element.Door(elemObj.closed);
+        }
         return null;
+    };
+
+    this.createActor = function(actor) {
+        const entity = this.createEntity(actor);
+        entity.setID(actor.id);
+        id2entity[entity.getID()] = entity;
+        return entity;
     };
 
     /* Tricky one. The target level should exist before connections. The object
@@ -983,16 +1120,139 @@ RG.Game.FromJSON = function() {
      * targetLevel (level ID) and targetStairs (x, y coordinates).
      */
     this.createUnconnectedStairs = function(elem) {
-        const sObj = new RG.Element.Stairs(elem.isDown);
-        stairsInfo[sObj] = {targetLevel: elem.targetLevel,
-            targetStairs: elem.targetStairs};
+        const x = elem.x;
+        const y = elem.y;
+        const id = elem.obj.srcLevel;
+        const stairsId = `${id},${x},${y}`;
+        const elemObj = elem.obj;
+        const sObj = new RG.Element.Stairs(elemObj.isDown);
+        stairsInfo[stairsId] = {targetLevel: elemObj.targetLevel,
+            targetStairs: elemObj.targetStairs};
         return sObj;
     };
 
     this.createCellList = function(map) {
         const mapObj = new RG.Map.CellList(map.cols, map.rows);
+        map.cells.forEach((col, x) => {
+            col.forEach((cell, y) => {
+                const baseElem = this.createBaseElem(cell);
+                mapObj.setBaseElemXY(x, y, baseElem);
+                if (cell.explored) {
+                    mapObj.getCell(x, y).setExplored(true);
+                }
+                if (cell.elements) {
+                    cell.elements.forEach(elem => {
+                        mapObj.setElemXY(x, y, this.createBaseElem(elem));
+                    });
+                }
+            });
+        });
         return mapObj;
     };
+
+    this.createBaseElem = function(cell) {
+        switch (cell.type) {
+            case '#': // wall
+            case 'wall': return new RG.Element.Base('wall');
+            case '.': // floor
+            case 'floor': return new RG.Element.Base('floor');
+            case 'tree': return new RG.Element.Tree('tree');
+            case 'grass': return new RG.Element.Grass('grass');
+            case 'stone': return new RG.Element.Stone('stone');
+            case 'water': return new RG.Element.Water('water');
+            default: {
+                RG.err('Game.fromJSON', 'createBaseElem',
+                    `Unknown type ${cell.type}`);
+            }
+        }
+        return null;
+    };
+
+    this.createGame = function(json) {
+        const game = new RG.Game.Main();
+
+        // Levels must be created before the actual world, because the World
+        // object contains only level IDs
+        json.levels.forEach(levelJson => {
+            const level = this.createLevel(levelJson);
+            if (!levelJson.parent) {
+                game.addLevel(level); // remove once world is properly created
+            }
+        });
+
+        Object.keys(json.places).forEach(name => {
+            const place = json.places[name];
+            const placeObj = this.createPlace(place);
+            game.addPlace(placeObj);
+        });
+
+        // Connect levels using id2level + stairsInfo
+        this.connectGameLevels(game);
+
+        // Player created separately from other actors for now
+        if (json.player) {
+            const player = this.createPlayerObj(json.player);
+            const id = json.player.levelID;
+            const level = game.getLevels().find(item => item.getID() === id);
+            if (level) {
+                const x = json.player.x;
+                const y = json.player.y;
+                level.addActor(player, x, y);
+                game.addPlayer(player);
+            }
+            else {
+                RG.err('Game.FromJSON', 'createGame',
+                    `Cannot find player level object with level ID ${id}`);
+            }
+        }
+
+        // Restore the ID counters for levels and entities, otherwise duplicate
+        // IDs will appear when new levels/entities are created
+        // RG.Map.Level.prototype.idCount = json.lastLevelID;
+        // RG.Entity.prototype.idCount = json.lastEntityID;
+
+        return game;
+    };
+
+    this.connectGameLevels = function(game) {
+        const levels = game.getLevels();
+        levels.forEach(level => {
+            const stairsList = level.getStairs();
+
+            stairsList.forEach(s => {
+                const connObj = stairsInfo[s.getID()];
+                const targetLevel = id2level[connObj.targetLevel];
+                const targetStairsXY = connObj.targetStairs;
+                const x = targetStairsXY.x;
+                const y = targetStairsXY.y;
+                if (targetLevel) {
+                    s.setTargetLevel(targetLevel);
+                    const targetStairs = targetLevel
+                        .getMap().getCell(x, y).getStairs();
+                    if (targetStairs) {
+                        s.connect(targetStairs);
+                    }
+                    else {
+                        RG.err('Game.FromJSON', 'connectGameLevels',
+                            'Target stairs was null. Cannot connect.');
+                    }
+                }
+                else {
+                    RG.err('Game.FromJSON', 'connectGameLevels',
+                        'Target level null. Cannot connect.');
+                }
+            });
+        });
+    };
+
+    /* Assume the place is World object for now. */
+    this.createPlace = function(place) {
+        const fact = new RG.Factory.World();
+        fact.setId2Level(id2level);
+        const world = fact.createWorld(place);
+        return world;
+    };
+
 };
 
 module.exports = RG.Game;

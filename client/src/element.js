@@ -3,8 +3,7 @@
  * elements like stairs.
  */
 
-var RG = require('./rg.js');
-
+const RG = require('./rg.js');
 RG.Object = require('./object.js');
 
 RG.Element = {};
@@ -12,14 +11,20 @@ RG.Element = {};
 /* Element is a wall or other obstacle or a feature in the map. It's not
  * necessarily blocking movement.  */
 RG.Element.Base = function(elemType) { // {{{2
-    RG.Object.Locatable.call(this);
-    this.setPropType('elements');
-    this.setType(elemType);
+    RG.Object.Typed.call(this, RG.TYPE_ELEM, elemType);
 };
-RG.extend2(RG.Element.Base, RG.Object.Locatable);
+RG.extend2(RG.Element.Base, RG.Object.Typed);
 
 RG.Element.Base.prototype.isPassable = function() {
     return this.getType() !== 'wall';
+};
+
+/* Should be enough for stateless elements. Does not work for doors or stairs
+ * etc. */
+RG.Element.Base.prototype.toJSON = function() {
+    return {
+        type: this.getType()
+    };
 };
 
 // }}} Element
@@ -29,6 +34,7 @@ RG.Element.Base.prototype.isPassable = function() {
 RG.Element.Stairs = function(down, srcLevel, targetLevel) {
     if (down) {RG.Element.Base.call(this, 'stairsDown');}
     else {RG.Element.Base.call(this, 'stairsUp');}
+    RG.Object.Locatable.call(this);
 
     const _down = down;
     let _srcLevel = srcLevel;
@@ -43,9 +49,9 @@ RG.Element.Stairs = function(down, srcLevel, targetLevel) {
             if (_srcLevel.removeActor(actor)) {
                 if (_targetLevel.addActor(actor, newX, newY)) {
                     RG.POOL.emitEvent(RG.EVT_LEVEL_CHANGED,
-                        {target: _targetLevel, src: _srcLevel, actor: actor});
+                        {target: _targetLevel, src: _srcLevel, actor});
                     RG.POOL.emitEvent(RG.EVT_LEVEL_ENTERED,
-                        {actor: actor, target: targetLevel});
+                        {actor, target: targetLevel});
                     return true;
                 }
             }
@@ -101,10 +107,21 @@ RG.Element.Stairs = function(down, srcLevel, targetLevel) {
     this.connect = function(stairs) {
         this.setTargetStairs(stairs);
         stairs.setTargetStairs(this);
+        this.setTargetLevel(stairs.getSrcLevel());
+        stairs.setTargetLevel(this.getSrcLevel());
+    };
+
+    /* Unique ID can be formed by levelID,x,y. */
+    this.getID = function() {
+        const x = this.getX();
+        const y = this.getY();
+        const id = _srcLevel.getID();
+        return `${id},${x},${y}`;
     };
 
 };
 RG.extend2(RG.Element.Stairs, RG.Element.Base);
+RG.extend2(RG.Element.Stairs, RG.Object.Locatable);
 
 /* Serializes the Stairs object. */
 RG.Element.Stairs.prototype.toJSON = function() {
@@ -136,10 +153,12 @@ RG.Element.Stairs.prototype.toJSON = function() {
 /* Name says it all, be it open or closed.*/
 RG.Element.Door = function(closed) {
     RG.Element.Base.call(this, 'door');
+    RG.Object.Locatable.call(this);
     this._closed = closed || true;
 
 };
 RG.extend2(RG.Element.Door, RG.Element.Base);
+RG.extend2(RG.Element.Door, RG.Object.Locatable);
 
 RG.Element.Door.prototype.isOpen = function() {
     return !this._closed;
@@ -161,20 +180,30 @@ RG.Element.Door.prototype.isPassable = function() {
     return !this._closed;
 };
 
+RG.Element.Door.prototype.toJSON = function() {
+    return {
+        type: 'door',
+        closed: this._closed
+    };
+};
+
 /* A shop element is added to each cell inside a shop.*/
 RG.Element.Shop = function() {
     RG.Element.Base.call(this, 'shop');
+    RG.Object.Locatable.call(this);
 
     this._shopkeeper = null;
-    this._costFactor = 1.0;
+    this._costFactorSell = 1.0;
+    this._costFactorBuy = 0.5;
 
 };
 RG.extend2(RG.Element.Shop, RG.Element.Base);
+RG.extend2(RG.Element.Shop, RG.Object.Locatable);
 
 /* Returns the price in gold coins for item in the cell.*/
 RG.Element.Shop.prototype.getItemPriceForBuying = function(item) {
     if (item.has('Unpaid')) {
-        const value = item.getValue() * this._costFactor;
+        const value = item.getValue() * this._costFactorSell;
         const goldWeight = RG.valueToGoldWeight(value);
         const ncoins = RG.getGoldInCoins(goldWeight);
         return ncoins;
@@ -184,6 +213,14 @@ RG.Element.Shop.prototype.getItemPriceForBuying = function(item) {
             'Item ' + item.getName() + ' is not Unpaid item');
     }
     return null;
+};
+
+/* Returns the price for selling the item. */
+RG.Element.Shop.prototype.getItemPriceForSelling = function(item) {
+    const value = item.getValue() * this._costFactorBuy;
+    const goldWeight = RG.valueToGoldWeight(value);
+    const ncoins = RG.getGoldInCoins(goldWeight);
+    return ncoins;
 };
 
 RG.Element.Shop.prototype.hasEnoughGold = function(actor, goldWeight) {
@@ -203,7 +240,7 @@ RG.Element.Shop.prototype.hasEnoughGold = function(actor, goldWeight) {
 /* Function for buying an item.*/
 RG.Element.Shop.prototype.buyItem = function(item, buyer) {
     const buyerCell = buyer.getCell();
-    const value = item.getValue() * this._costFactor;
+    const value = item.getValue() * this._costFactorSell;
     const goldWeight = RG.valueToGoldWeight(value);
     const nCoins = RG.getGoldInCoins(goldWeight);
 
@@ -228,8 +265,13 @@ RG.Element.Shop.prototype.buyItem = function(item, buyer) {
 
 /* Function for selling an item.*/
 RG.Element.Shop.prototype.sellItem = function(item, seller) {
+    if (!seller) {
+        RG.err('Element.Shop', 'sellItem',
+            'Seller is null or undefined.');
+    }
+
     const sellerCell = seller.getCell();
-    const value = item.getValue() / this._costFactor;
+    const value = item.getValue() * this._costFactorBuy;
     const goldWeight = RG.valueToGoldWeight(value);
     const nCoins = RG.getGoldInCoins(goldWeight);
 
@@ -239,12 +281,13 @@ RG.Element.Shop.prototype.sellItem = function(item, seller) {
             coins.count = nCoins;
             seller.getInvEq().addItem(coins);
             item.add('Unpaid', new RG.Component.Unpaid());
-            RG.gameMsg({cell: sellerCell, msg: seller.getName +
+            RG.gameMsg({cell: sellerCell, msg: seller.getName() +
                 ' sold ' + item.getName() + ' for ' + nCoins + ' coins.'});
             return true;
         }
     }
     else {
+        console.log('No money for keeper');
         const name = this._shopkeeper.getName();
         RG.gameMsg({cell: this._shopkeeper.getCell(),
             msg: 'Keeper ' + name + " doesn't have enough gold to buy it."});
@@ -255,7 +298,13 @@ RG.Element.Shop.prototype.sellItem = function(item, seller) {
 
 /* Sets the shopkeeper.*/
 RG.Element.Shop.prototype.setShopkeeper = function(keeper) {
-    this._shopkeeper = keeper;
+    if (!RG.isNullOrUndef([keeper])) {
+        this._shopkeeper = keeper;
+    }
+    else {
+        RG.err('Element.Shop', 'setShopkeeper',
+            'Shopkeeper must be non-null and defined.');
+    }
 };
 
 /* Returns the shopkeeper.*/
@@ -263,14 +312,39 @@ RG.Element.Shop.prototype.getShopkeeper = function() {
     return this._shopkeeper;
 };
 
-/* Sets the shopkeeper.*/
-RG.Element.Shop.prototype.setCostFactor = function(factor) {
-    this._costFactor = factor;
+/* Sets the cost factors for selling and buying. .*/
+RG.Element.Shop.prototype.setCostFactor = function(buy, sell) {
+    if (!RG.isNullOrUndef([buy, sell])) {
+        this._costFactorSell = sell;
+        this._costFactorBuy = buy;
+    }
+    else {
+        RG.err('Element.Shop', 'setCostFactor',
+            'Args buy/sell must be non-null and defined!');
+    }
 };
 
-/* Returns the shopkeeper.*/
-RG.Element.Shop.prototype.getShopkeeper = function() {
-    return this._costFactor;
+/* Returns the cost factor for selling. .*/
+RG.Element.Shop.prototype.getCostFactorSell = function() {
+    return this._costFactorSell;
+};
+
+/* Returns the cost factor for buying. .*/
+RG.Element.Shop.prototype.getCostFactorBuy = function() {
+    return this._costFactorBuy;
+};
+
+RG.Element.Shop.prototype.toJSON = function() {
+    let shopkeeperID = null;
+    if (this._shopkeeper) {
+        shopkeeperID = this._shopkeeper.getID();
+    }
+    return {
+        type: 'shop',
+        costFactorSell: this._costFactorSell,
+        costFactorBuy: this._costFactorBuy,
+        shopkeeper: shopkeeperID
+    };
 };
 
 /* A tree element. */
@@ -290,5 +364,16 @@ RG.Element.Stone = function() {
     RG.Element.Base.call(this, 'stone');
 };
 RG.extend2(RG.Element.Stone, RG.Element.Base);
+
+/* A water element. */
+RG.Element.Water = function() {
+    RG.Element.Base.call(this, 'water');
+};
+RG.extend2(RG.Element.Water, RG.Element.Base);
+
+RG.Element.Water.prototype.isPassable = function() {
+    return false;
+};
+
 
 module.exports = RG.Element;

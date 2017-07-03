@@ -27,6 +27,7 @@ RG.Brain.getCellsAround = function(actor) {
 RG.Brain.Player = function(actor) { // {{{2
     const _actor = actor;
     const _guiCallbacks = {}; // For attaching GUI callbacks
+    const _type = 'player';
 
     /* For given code, adds a GUI callback. When this keycode is given, a GUI
      * callback is called instead. */
@@ -51,6 +52,8 @@ RG.Brain.Player = function(actor) { // {{{2
         _actor.get('StatsMods').setSpeed(0);
     };
 
+    this.getType = function() {return _type;};
+
     this.isRunModeEnabled = function() {return _runModeEnabled;};
 
     this.cmdNotPossible = function(msg) {
@@ -70,6 +73,10 @@ RG.Brain.Player = function(actor) { // {{{2
         }
 
         const code = obj.code;
+        if (!code) {
+            RG.err('Brain.Player', 'decideNextAction',
+                `obj.code must exist. Got obj: ${JSON.stringify(obj)}`);
+        }
 
         // Stop here, if action must be confirmed by player by pressing Y
         if (_wantConfirm && _confirmCallback !== null) {
@@ -347,17 +354,110 @@ RG.Brain.Player = function(actor) { // {{{2
         else if (obj.cmd === 'use') {
             if (obj.hasOwnProperty('item')) {
                 const item = obj.item;
+                let result = false;
+                let msg = `You failed to use ${item.getName()}.`;
                 if (item.hasOwnProperty('useItem')) {
                     this.energy = RG.energy.USE;
                     item.useItem({target: obj.target});
+                    result = true;
                 }
-                else {
+
+                if (obj.hasOwnProperty('callback')) {
+                    if (result) {
+                        msg = `You used ${item.getName()}!`;
+                    }
+                    obj.callback({msg: msg, result});
+                }
+                else if (!result) {
                     return this.cmdNotPossible('You cannot use that item.');
                 }
             }
             else {
                 RG.err('Brain.Player', 'handleCommand', 'obj has no item');
             }
+        }
+        else if (obj.cmd === 'drop') {
+            const invEq = _actor.getInvEq();
+            const actorCell = _actor.getCell();
+            let result = false;
+            let msg = `Failed to drop ${obj.item.getName()}`;
+            if (actorCell.hasShop()) {
+                const shopElem = actorCell.getPropType('shop')[0];
+                const price = shopElem.getItemPriceForSelling(obj.item);
+
+                _wantConfirm = true;
+                _confirmCallback = function() {
+                    const sellOk = shopElem.sellItem(obj.item, _actor);
+                    if (obj.hasOwnProperty('callback')) {
+                        if (sellOk) {
+                            msg = `${obj.item.getName()} was sold.`;
+                        }
+                        else {
+                            msg = `Cannot sell ${obj.item.getName()}.`;
+                        }
+                        obj.callback({msg: msg, result: sellOk});
+                    }
+                };
+
+                msg = `Press y to sell item for ${price} gold coins.`;
+                if (obj.hasOwnProperty('callback')) {
+                    obj.callback({msg: msg, result});
+                }
+            }
+            else if (invEq.dropItem(obj.item)) {
+                result = true;
+                msg = 'Item dropped!';
+            }
+            if (obj.hasOwnProperty('callback')) {
+                obj.callback({msg: msg, result});
+            }
+        }
+        else if (obj.cmd === 'equip') {
+            const invEq = _actor.getInvEq();
+            const item = obj.item;
+            let result = false;
+            let msg = `Failed to equip ${item.getName()}`;
+            if (item.getType() === 'missile') {
+                if (invEq.equipNItems(item, item.count)) {
+                    result = true;
+                }
+            }
+            else if (invEq.equipItem(item)) {
+                result = true;
+            }
+            if (obj.hasOwnProperty('callback')) {
+                if (result) {
+                    msg = `Equipping ${item.getName()} succeeded!`;
+                }
+                obj.callback({msg: msg, result});
+            }
+        }
+        else if (obj.cmd === 'unequip') {
+            const name = obj.slot;
+            const invEq = _actor.getInvEq();
+            let result = false;
+            let msg = `Failed to remove item from slot ${name}.`;
+
+            if (name === 'missile') {
+                const eqItem = invEq.getEquipment().getItem('missile');
+
+                if (eqItem !== null) {
+                    if (invEq.unequipItem(name, eqItem.count)) {
+                        result = true;
+                    }
+                }
+            }
+            else if (invEq.unequipItem(name)) {
+                result = true;
+            }
+
+            if (obj.hasOwnProperty('callback')) {
+                if (result) {
+                    msg = `Unequipping from ${name} succeeded!`;
+                }
+                obj.callback({msg: msg, result});
+            }
+
         }
         return function() {};
     };
@@ -426,6 +526,12 @@ RG.Brain.Player = function(actor) { // {{{2
     /* Required for damage dealing. Does nothing for the player.*/
     this.addEnemy = function() {};
 
+    this.toJSON = function() {
+        return {
+            type: this.getType()
+        };
+    };
+
 }; // }}} Brain.Player
 
 /* Memory is used by the actor to hold information about enemies, items etc.
@@ -438,7 +544,9 @@ RG.Brain.Memory = function() {
 
     // TODO add memory of player closing a door/using stairs
 
-    this.addEnemyType = function(type) {_enemyTypes.push(type);};
+    this.addEnemyType = function(type) {
+        _enemyTypes.push(type);
+    };
 
     /* Checks if given actor is an enemy. */
     this.isEnemy = function(actor) {
@@ -480,8 +588,12 @@ RG.Brain.Memory = function() {
 RG.Brain.Rogue = function(actor) { // {{{2
     let _actor = actor; // Owner of the brain
     const _explored = {}; // Memory of explored cells
+    let _type = 'rogue';
 
     const _memory = new RG.Brain.Memory(this);
+
+    this.getType = function() {return _type;};
+    this.setType = function(type) {_type = type;};
 
     this.getMemory = function() {return _memory;};
 
@@ -568,7 +680,7 @@ RG.Brain.Rogue = function(actor) { // {{{2
         }
 
         if (index === -1) { // Everything explored, choose random cell
-            index = Math.floor(Math.random() * (seenCells.length));
+            index = RG.RAND.randIndex(seenCells);
         }
         return this.tryToMoveTowardsCell(seenCells[index]);
 
@@ -650,11 +762,18 @@ RG.Brain.Rogue = function(actor) { // {{{2
         return path;
     };
 
+    this.toJSON = function() {
+        return {
+            type: this.getType()
+        };
+    };
+
 }; // }}} RogueBrain
 
 /* Brain used by most of the animals. TODO: Add some corpse eating behaviour. */
 RG.Brain.Animal = function(actor) {
     RG.Brain.Rogue.call(this, actor);
+    this.setType('animal');
 
     const _memory = this.getMemory();
     _memory.addEnemyType('player');
@@ -676,6 +795,7 @@ RG.extend2(RG.Brain.Animal, RG.Brain.Rogue);
 /* Brain used by most of the animals. TODO: Add some corpse eating behaviour. */
 RG.Brain.Demon = function(actor) {
     RG.Brain.Rogue.call(this, actor);
+    this.setType('demon');
 
     const _memory = this.getMemory();
     _memory.addEnemyType('player');
@@ -698,12 +818,14 @@ RG.extend2(RG.Brain.Demon, RG.Brain.Rogue);
 
 RG.Brain.Zombie = function(actor) {
     RG.Brain.Rogue.call(this, actor);
+    this.setType('zombie');
 };
 RG.extend2(RG.Brain.Zombie, RG.Brain.Rogue);
 
 /* Brain used by summoners. */
 RG.Brain.Summoner = function(actor) {
     RG.Brain.Rogue.call(this, actor);
+    this.setType('summoner');
 
     const _actor = actor;
     this.numSummoned = 0;
@@ -733,7 +855,7 @@ RG.Brain.Summoner = function(actor) {
     this.summonedMonster = function() {
         if (this.numSummoned === this.maxSummons) {return false;}
 
-        const summon = Math.random();
+        const summon = RG.RAND.getUniform();
         if (summon > 0.8) {
             const level = _actor.getLevel();
             const cellsAround = this.getFreeCellsAround();
@@ -774,6 +896,7 @@ RG.extend2(RG.Brain.Summoner, RG.Brain.Rogue);
 /* This brain is used by humans who are not hostile to the player.*/
 RG.Brain.Human = function(actor) {
     RG.Brain.Rogue.call(this, actor);
+    this.setType('human');
 
     this.getMemory().addEnemyType('demon');
 
@@ -785,7 +908,7 @@ RG.Brain.Human = function(actor) {
         const memory = this.getMemory();
 
         // If actor cannot communicate, always attack if possible
-        let communicateOrAttack = Math.random();
+        let communicateOrAttack = RG.RAND.getUniform();
         if (RG.isNullOrUndef([friendCell])) {
             communicateOrAttack = 1.0;
         }
@@ -801,22 +924,20 @@ RG.Brain.Human = function(actor) {
             return this.actionTowardsEnemy(enemyCell);
         }
         else if (friendActor !== null) { // Communicate enemies
-                if (!memory.hasCommunicatedWith(friendActor)) {
-                    const comComp = new RG.Component.Communication();
-                    const enemies = memory.getEnemies();
-                    const msg = {type: 'Enemies', enemies: enemies};
-                    comComp.addMsg(msg);
-                    if (!friendActor.has('Communication')) {
-                        friendActor.add('Communication', comComp);
-                        memory.addCommunicationWith(friendActor);
-                        return function() {};
-                    }
+            if (!memory.hasCommunicatedWith(friendActor)) {
+                const comComp = new RG.Component.Communication();
+                const enemies = memory.getEnemies();
+                const msg = {type: 'Enemies', enemies, src: this.getActor()};
+                comComp.addMsg(msg);
+                if (!friendActor.has('Communication')) {
+                    friendActor.add('Communication', comComp);
+                    memory.addCommunicationWith(friendActor);
+                    return function() {};
                 }
             }
+        }
         return this.exploreLevel(seenCells);
-
     };
-
 
 };
 RG.extend2(RG.Brain.Human, RG.Brain.Rogue);
@@ -824,6 +945,7 @@ RG.extend2(RG.Brain.Human, RG.Brain.Rogue);
 /* Brain object used by Spirit objects.*/
 RG.Brain.Spirit = function(actor) {
     RG.Brain.Rogue.call(this, actor);
+    this.setType('spirit');
 
     /* Returns the next action for the spirit.*/
     this.decideNextAction = function() {

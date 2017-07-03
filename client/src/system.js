@@ -89,7 +89,7 @@ RG.System.Attack = function(type, compTypes) {
                 const totalDefense = def.getDefense();
                 const hitChange = totalAttack / (totalAttack + totalDefense);
 
-                if (hitChange > Math.random()) {
+                if (hitChange > RG.RAND.getUniform()) {
                     const totalDamage = att.getDamage();
                     if (totalDamage > 0) {this.doDamage(att, def, totalDamage);}
                     else {
@@ -205,7 +205,7 @@ RG.System.Missile = function(type, compTypes) {
         const attack = mComp.getAttack();
         const defense = target.get('Combat').getDefense();
         const hitProp = attack / (attack + defense);
-        const hitRand = Math.random();
+        const hitRand = RG.RAND.getUniform();
         if (hitProp > hitRand) {return true;}
         return false;
     };
@@ -241,6 +241,7 @@ RG.System.Damage = function(type, compTypes) {
                         const entCell = ent.getCell();
                         ent.get('Loot').dropLoot(entCell);
                     }
+                    _dropInvAndEq(ent);
 
                     const src = ent.get('Damage').getSource();
                     _killActor(src, ent);
@@ -276,6 +277,22 @@ RG.System.Damage = function(type, compTypes) {
         return totalDmg;
     };
 
+    const _dropInvAndEq = function(actor) {
+        const cell = actor.getCell();
+        const x = cell.getX();
+        const y = cell.getY();
+        const invEq = actor.getInvEq();
+        const items = invEq.getInventory().getItems();
+        items.forEach(item => {
+            if (invEq.removeItem(item)) {
+                const rmvItem = invEq.getRemovedItem();
+                actor.getLevel().addItem(rmvItem, x, y);
+            }
+        });
+
+        // TODO remove equipped items and drop to ground.
+    };
+
     /* Removes actor from current level and emits Actor killed event.*/
     const _killActor = function(src, actor) {
         const dmgComp = actor.get('Damage');
@@ -287,15 +304,15 @@ RG.System.Damage = function(type, compTypes) {
             }
             const dmgType = dmgComp.getDamageType();
             if (dmgType === 'poison') {
-RG.gameDanger({cell: cell,
+                RG.gameDanger({cell,
                     msg: actor.getName() + ' dies horribly of poisoning!'});
-}
+            }
 
             let killMsg = actor.getName() + ' was killed';
             if (src !== null) {killMsg += ' by ' + src.getName();}
 
-            RG.gameDanger({cell: cell, msg: killMsg});
-            RG.POOL.emitEvent(RG.EVT_ACTOR_KILLED, {actor: actor});
+            RG.gameDanger({cell, msg: killMsg});
+            RG.POOL.emitEvent(RG.EVT_ACTOR_KILLED, {actor});
         }
         else {
             RG.err('System.Combat', 'killActor', "Couldn't remove actor");
@@ -341,7 +358,8 @@ RG.ExpPointsSystem = function(type, compTypes) {
 
             if (exp >= reqExp) { // Required exp points exceeded
                 RG.levelUpActor(ent, nextLevel);
-                RG.gameSuccess(ent.getName() + ' advanced to level ' + nextLevel);
+                RG.gameSuccess(ent.getName() + ' advanced to level '
+                    + nextLevel);
             }
             ent.remove('ExpPoints');
         }
@@ -400,20 +418,44 @@ RG.System.Movement = function(type, compTypes) {
         return false;
     };
 
-    // If player moved to the square, checks if any messages must be emitted.
+    /* If player moved to the square, checks if any messages must
+     * be emitted. */
     this.checkMessageEmits = function(cell) {
-        if (cell.hasStairs()) {RG.gameMsg('You see stairs here');}
+        if (cell.hasStairs()) {
+            const stairs = cell.getStairs();
+            const level = stairs.getTargetLevel();
+            let msg = 'You see stairs here';
+            if (level.getParent()) {
+                const name = level.getParent();
+                msg += `. They seem to be leading to ${name}`;
+            }
+            RG.gameMsg(msg);
+        }
         if (cell.hasProp('items')) {
             const items = cell.getProp('items');
             const topItem = items[0];
-            const topItemName = topItem.getName();
+            let topItemName = topItem.getName();
+            if (topItem.count > 1) {
+                topItemName = topItem.count + ` ${topItemName}`;
+                if (!(/s$/).test(topItemName)) {
+                    topItemName += 's';
+                }
+            }
+
             if (items.length > 1) {
-                RG.gameMsg('There are several items here. You see ' + topItemName + ' on top');
+                RG.gameMsg('There are several items here. ' +
+                    `You see ${topItemName} on top`);
+            }
+            else if (topItem.count > 1) {
+                RG.gameMsg(`There are ${topItemName} on the floor`);
             }
             else {
                 RG.gameMsg(topItemName + ' is on the floor');
             }
-            if (topItem.has('Unpaid')) {RG.gameMsg('It is for sale');}
+            if (topItem.has('Unpaid')) {
+                if (topItem.count > 1) {RG.gameMsg('They are for sale');}
+                else {RG.gameMsg('It is for sale');}
+            }
         }
     };
 
@@ -458,7 +500,8 @@ RG.System.Hunger = function(type, compTypes) {
             hungerComp.decrEnergy(actionComp.getEnergy());
             actionComp.resetEnergy();
             if (hungerComp.isStarving()) {
-                const takeDmg = Math.random(); // Don't make hunger damage too obvious
+                // Don't make hunger damage too obvious
+                const takeDmg = RG.RAND.getUniform();
                 if (ent.has('Health') && takeDmg < 0.10) {
                     const dmg = new RG.Component.Damage(1, 'hunger');
                     ent.add('Damage', dmg);
@@ -502,9 +545,14 @@ RG.System.Communication = function(type, compTypes) {
 
     this.processEnemies = function(ent, msg) {
         const enemies = msg.enemies;
+        const srcName = msg.src.getName();
         for (let i = 0; i < enemies.length; i++) {
             ent.addEnemy(enemies[i]);
         }
+        const msgObj = {cell: ent.getCell(),
+            msg: `${srcName} seems to communicate with ${ent.getName()}`
+        };
+        RG.gameDanger(msgObj);
     };
 
     // Dispatch table for different messages
@@ -580,12 +628,12 @@ RG.System.TimeEffects = function(type, compTypes) {
                 }
             }
         }
-        else if (Math.random() < poison.getProb()) {
-                const poisonDmg = poison.getDamage();
-                const dmg = new RG.Component.Damage(poisonDmg, 'poison');
-                dmg.setSource(poison.getSource());
-                ent.add('Damage', dmg);
-            }
+        else if (RG.RAND.getUniform() < poison.getProb()) {
+            const poisonDmg = poison.getDamage();
+            const dmg = new RG.Component.Damage(poisonDmg, 'poison');
+            dmg.setSource(poison.getSource());
+            ent.add('Damage', dmg);
+        }
     };
 
     _dtable.Poison = _applyPoison;

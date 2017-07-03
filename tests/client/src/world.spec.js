@@ -20,7 +20,7 @@ describe('World.Branch', function() {
         stairs = levels[0].getStairsToLevel(levels[2]);
         expect(stairs === null).to.equal(true);
         const entrance = branch.getEntrance();
-        expect(entrance === null).to.equal(false);
+        expect(entrance, 'Entrance null unless set').to.be.null;
     });
 });
 
@@ -46,6 +46,8 @@ describe('World.Dungeon', function() {
             dungeon.addBranch(branch);
             branches.push(branch);
             branchNames.push(brName);
+            const entrStairs = new RG.Element.Stairs(false);
+            branch.setEntrance(entrStairs, 0);
         }
         expect(branches[0].getDungeon()).to.equal(dungeon);
 
@@ -99,6 +101,17 @@ describe('World.AreaTile', function() {
         expect(level11.getStairs(level21) === null).to.equal(false);
         expect(level12.getStairs(level11) === null).to.equal(false);
     });
+
+    it('can be serialized to JSON', () => {
+        const testArea = new World.Area('TestArea', 1, 2);
+        const areaTile = new World.AreaTile(0, 1, testArea);
+        const tileLevel = RG.FACT.createLevel('ruins', 10, 10);
+        areaTile.setLevel(tileLevel);
+        const json = areaTile.toJSON();
+        expect(json.level).to.equal(tileLevel.getID());
+        expect(json.x).to.equal(0);
+        expect(json.y).to.equal(1);
+    });
 });
 
 
@@ -115,6 +128,14 @@ describe('World.Area', function() {
         expect(tiles[2][4].isEastEdge()).to.equal(false);
         expect(levels).to.have.length(20);
     });
+
+    it('can be serialized to JSON', () => {
+        const area = new World.Area('SwampArea', 1, 2);
+        const json = area.toJSON();
+        expect(json.tiles[0][0]).to.exist;
+        expect(json.tiles[0][1]).to.exist;
+        expect(json.name).to.equal('SwampArea');
+    });
 });
 
 describe('World.Mountain', function() {
@@ -124,6 +145,8 @@ describe('World.Mountain', function() {
         const face = new RG.World.MountainFace('northFace');
         const level = RG.FACT.createLevel('arena', 30, 30);
         face.addLevel(level);
+        expect(face.getEntrance()).to.be.null;
+        face.addEntrance(0);
         expect(face.getEntrance().getType()).to.match(/stairs/);
         expect(face.getLevels()).to.have.length(1);
 
@@ -132,5 +155,17 @@ describe('World.Mountain', function() {
         expect(mountain.getLevels()).to.have.length(1);
     });
 
+});
+
+describe('World.City', () => {
+    it('contains levels and entrances', () => {
+        const city = new RG.World.City('City1');
+        expect(city.getName()).to.equal('City1');
+
+        const level = RG.FACT.createLevel('arena', 20, 20);
+        city.addLevel(level);
+        city.addEntrance(0);
+        expect(city.getEntrances()).to.have.length(1);
+    });
 });
 

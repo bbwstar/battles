@@ -16,6 +16,8 @@ const GameMessages = require('./game-messages');
 const GameStats = require('./game-stats');
 const GameBoard = require('./game-board');
 
+const Persist = require('../src/persist');
+
 const worldConf = require('../data/conf.world');
 
 /* Top-level component which renders all other components. Keeps also track
@@ -89,9 +91,12 @@ class BattlesTop extends React.Component {
         this.game = null;
         this.gameSave = new RG.Game.Save();
 
-        this.intervalID = null;
+        // Used for request animation frame
+        this.frameID = null;
+
         // Holds game-state specific info for GUI (see resetGameState)
         this.gameState = {};
+        this.resetGameState();
 
         this.viewportPlayerX = 35; // * 2
         this.viewportPlayerY = 12; // * 2
@@ -125,16 +130,30 @@ class BattlesTop extends React.Component {
 
         this.state = {
             boardClassName: 'game-board-player-view',
+            creatingGame: false,
+            equipSelected: null,
+            invMsg: '',
+            loadInProgress: false,
             mapShown: false,
-            selectedCell: null,
-            selectedItem: null,
+            invMsgStyle: '',
             render: true,
-            renderFullScreen: false
+            renderFullScreen: false,
+            saveInProgress: false,
+            selectedCell: null,
+            selectedGame: null,
+            selectedItem: null
         };
 
         // Binding of callbacks
         this.bindCallbacks();
         this.initGUICommandTable();
+        ROT.RNG.setSeed(0); // TODO
+        RG.RAND.setSeed(0);
+    }
+
+    selectSaveGame(name) {
+        console.log('Top select save game clicked with name ' + name);
+        this.setState({selectedGame: name});
     }
 
     /* Resets the GUI game state.*/
@@ -149,10 +168,6 @@ class BattlesTop extends React.Component {
 
     setPlayerName(name) {
         this.gameConf.playerName = name;
-    }
-
-    forceRender() {
-        this.setState({render: true, renderFullScreen: true});
     }
 
     /* Sets the size of the shown map.*/
@@ -176,53 +191,125 @@ class BattlesTop extends React.Component {
            this.viewportX = this.game.getPlayer().getLevel().getMap().cols;
            this.viewportY = this.game.getPlayer().getLevel().getMap().rows;
            this.setState({
+               render: true, renderFullScreen: true,
                boardClassName: 'game-board-map-view',
-                mapShown: true
+               mapShown: true
            });
         }
         else if (type === 'player') {
             this.viewportX = this.viewportPlayerX;
             this.viewportY = this.viewportPlayerY;
             this.setState({
+                render: true, renderFullScreen: true,
                 boardClassName: 'game-board-player-view',
                 mapShown: false
             });
         }
     }
 
+    createNewGameAsync() {
+        return new Promise((resolve, reject) => {
+            try {
+                console.log('Inside a promise now');
+                this.createNewGame();
+                resolve();
+            }
+            catch (e) {
+                reject(e);
+            }
+        });
+    }
 
     /* Called when "Start" button is clicked to create a new game.*/
     newGame() {
-        this.createNewGame();
-        this.setState({render: true, renderFullScreen: true});
+        this.setState({creatingGame: true});
+        this.createNewGameAsync().then(() => {
+            this.setState({render: true, renderFullScreen: true,
+                creatingGame: false});
+        });
     }
 
     /* Saves the game position.*/
     saveGame() {
-        // var player = this.game.getPlayer();
-        this.gameSave.save(this.game, this.gameConf);
-        this.savedPlayerList = this.gameSave.getPlayersAsList();
-        RG.gameMsg('Your progress has been saved.');
-        this.setState({render: true, renderFullScreen: true});
+        const name = this.game.getPlayer().getName();
+        const persist = new Persist(name);
+        this.setState({saveInProgress: true});
+
+        this.gameToJSON().then(persist.toStorage)
+            .then(() => {
+                this.gameSave.save(this.game, this.gameConf);
+                this.savedPlayerList = this.gameSave.getPlayersAsList();
+                RG.gameMsg('Your progress has been saved.');
+                this.setState({render: true,
+                    saveInProgress: false, renderFullScreen: true});
+            });
+    }
+
+    gameToJSON() {
+        return new Promise((resolve, reject) => {
+            try {
+                const json = this.game.toJSON();
+                resolve(json);
+            }
+            catch (e) {
+                reject(e);
+            }
+        });
     }
 
     /* Loads a saved game.*/
     loadGame(name) {
-        const restoreObj = this.gameSave.restore(name);
-        const player = restoreObj.player;
-        if (player !== null) {
-            this.gameConf.loadedPlayer = player;
-            this.gameConf.loadedLevel = this.gameSave.getDungeonLevel();
-            const confObj = this.gameSave.getPlayersAsObj()[name];
-            this.restoreConf(confObj);
-            this.newGame();
+        this.setState({loadInProgress: true});
+
+        const persist = new Persist(name);
+        persist.fromStorage().then(result => {
+            const fromJSON = new RG.Game.FromJSON();
+            let json = null;
+            result.forEach(res => {
+                if (res.player.name === name) {
+                    json = res;
+                }
+            });
+
+            const restGame = fromJSON.createGame(json);
+            const player = restGame.getPlayer();
+            if (player !== null) {
+                this.gameConf.loadedPlayer = player;
+                this.gameConf.loadedLevel = this.gameSave.getDungeonLevel();
+                const confObj = this.gameSave.getPlayersAsObj()[name];
+                this.restoreConf(confObj);
+                this.initRestoredGame(restGame);
+            }
+        });
+    }
+
+    initRestoredGame(game) {
+        if (this.frameID) {
+            cancelAnimationFrame(this.frameID);
         }
+
+        this.resetGameState();
+        if (this.game !== null) {
+            delete this.game;
+            RG.FACT = new RG.Factory.Base();
+        }
+        this.game = game;
+        this.game.setGUICallbacks(this.isGUICommand, this.doGUICommand);
+
+        const player = this.game.getPlayer();
+        this.gameState.visibleCells = player.getLevel().exploreCells(player);
+        RG.POOL.listenEvent(RG.EVT_LEVEL_CHANGED, this.listener);
+        RG.POOL.listenEvent(RG.EVT_DESTROY_ITEM, this.listener);
+        this.frameID = requestAnimationFrame(this.mainLoop.bind(this));
+        this.setState({render: true,
+            loadInProgress: false, renderFullScreen: true});
     }
 
     deleteGame(name) {
         this.gameSave.deletePlayer(name);
         this.savedPlayerList = this.gameSave.getPlayersAsList();
-        this.setState({render: true, renderFullScreen: true});
+        this.setState({render: true, renderFullScreen: true,
+            selectedGame: null});
     }
 
     restoreConf(obj) {
@@ -234,28 +321,38 @@ class BattlesTop extends React.Component {
 
     /* Creates a new game instance.*/
     createNewGame() {
-        if (this.intervalID !== null) {
-            clearInterval(this.intervalID);
+        if (this.frameID) {
+            cancelAnimationFrame(this.frameID);
         }
 
         this.resetGameState();
-        const fccGame = new RG.FCCGame();
+        const gameFactory = new RG.Factory.Game();
         if (this.game !== null) {
             delete this.game;
             RG.FACT = new RG.Factory.Base();
         }
-        this.game = fccGame.createNewGame(this.gameConf);
+        this.game = gameFactory.createNewGame(this.gameConf);
         this.game.setGUICallbacks(this.isGUICommand, this.doGUICommand);
 
         const player = this.game.getPlayer();
         this.gameState.visibleCells = player.getLevel().exploreCells(player);
         RG.POOL.listenEvent(RG.EVT_LEVEL_CHANGED, this.listener);
         RG.POOL.listenEvent(RG.EVT_DESTROY_ITEM, this.listener);
-        this.intervalID = setInterval(this.mainLoop, 1000.0 / 60);
+        this.frameID = requestAnimationFrame(this.mainLoop.bind(this));
     }
 
     selectItemTop(item) {
         this.setState({selectedItem: item});
+    }
+
+    selectEquipTop(selection) {
+        if (selection) {
+            this.setState({selectedItem: selection.item,
+                equipSelected: selection});
+        }
+        else {
+            this.setState({selectedItem: null, equipSelected: null});
+        }
     }
 
     /* When a cell is clicked, perform a command/show debug info. */
@@ -308,7 +405,7 @@ class BattlesTop extends React.Component {
     mainLoop() {
         if (this.keyPending === true) {
             const code = this.nextCode;
-            this.game.update({code: code});
+            this.game.update({code});
             this.gameState.visibleCells = this.game.visibleCells;
             if (this.game.isGameOver()) {
                 this.setState({render: true, renderFullScreen: true});
@@ -318,6 +415,7 @@ class BattlesTop extends React.Component {
             }
             this.keyPending = false;
         }
+        this.frameID = requestAnimationFrame(this.mainLoop.bind(this));
     }
 
     render() {
@@ -341,6 +439,8 @@ class BattlesTop extends React.Component {
                     loadGame={this.loadGame}
                     newGame={this.newGame}
                     savedPlayerList={this.savedPlayerList}
+                    selectedGame={this.state.selectedGame}
+                    selectGame={this.selectSaveGame}
                     setDebugMode={this.setDebugMode}
                     setGameLength={this.setGameLength}
                     setLevelSize={this.setLevelSize}
@@ -352,12 +452,18 @@ class BattlesTop extends React.Component {
                 <GameHelpScreen />
 
                 <GameInventory
+                    doInvCmd={this.doInvCmd}
                     eq={eq}
-                    forceRender={this.forceRender}
+                    equipSelected={this.state.equipSelected}
                     inv={inv}
+                    invMsg={this.state.invMsg}
                     maxWeight={maxWeight}
+                    msgStyle={this.state.invMsgStyle}
                     player={player}
+                    selectedItem={this.state.selectedItem}
+                    selectEquipTop={this.selectEquipTop}
                     selectItemTop={this.selectItemTop}
+                    setInventoryMsg={this.setInventoryMsg}
                 />
 
                 <div className='row game-panel-div'>
@@ -366,35 +472,38 @@ class BattlesTop extends React.Component {
                             saveGame={this.saveGame}
                             setViewSize={this.setViewSize}
                         />
+                        <div className='text-left game-stats-div'>
+                            <GameStats
+                                mapShown={this.state.mapShown}
+                                player={player}
+                                selectedCell={this.state.selectedCell}
+                                selectedItem={this.state.selectedItem}
+                                setViewType={this.setViewType}
+                            />
+                        </div>
                     </div>
-                    <div className='col-md-10 game-messages-div'>
-                        <GameMessages message={message}
-                            visibleCells={this.gameState.visibleCells}
-                        />
-                    </div>
-                </div>
-                <div className='row main-contents-div'>
-                    <div className='text-left col-md-2 game-stats-div'>
-                        <GameStats
-                            player={player}
-                            selectedCell={this.state.selectedCell}
-                            selectedItem={this.state.selectedItem}
-                            setViewType={this.setViewType}
-                        />
-                    </div>
-                    <div className='col-md-10 game-board-div'>
-                        <GameBoard
-                            boardClassName={this.state.boardClassName}
-                            map={map}
-                            mapShown={this.mapShown}
-                            onCellClick={this.onCellClick}
-                            player={player}
-                            renderFullScreen={fullScreen}
-                            selectedCell={this.state.selectedCell}
-                            viewportX={this.viewportX}
-                            viewportY={this.viewportY}
-                            visibleCells={this.gameState.visibleCells}
-                        />
+                    <div className='col-md-10'>
+                        <div className='game-messages-div'>
+                            <GameMessages
+                                message={message}
+                                saveInProgress={this.state.saveInProgress}
+                                visibleCells={this.gameState.visibleCells}
+                            />
+                        </div>
+                        <div className='game-board-div'>
+                            <GameBoard
+                                boardClassName={this.state.boardClassName}
+                                map={map}
+                                mapShown={this.state.mapShown}
+                                onCellClick={this.onCellClick}
+                                player={player}
+                                renderFullScreen={fullScreen}
+                                selectedCell={this.state.selectedCell}
+                                viewportX={this.viewportX}
+                                viewportY={this.viewportY}
+                                visibleCells={this.gameState.visibleCells}
+                            />
+                        </div>
                     </div>
                 </div>
 
@@ -431,6 +540,11 @@ class BattlesTop extends React.Component {
         }
     }
 
+    /* GameInventory should add a callback which updates the GUI (via props) */
+    doInvCmd(cmd) {
+        this.game.update(cmd);
+    }
+
     /* Calls a GUI command corresponding to the code.*/
     doGUICommand(code) {
          if (this.gameState.useModeEnabled) {
@@ -459,6 +573,11 @@ class BattlesTop extends React.Component {
         else {
             console.error('Unknown keycode for GUI command.');
         }
+    }
+
+    /* Called by GameInventory to change the message shown. */
+    setInventoryMsg(msg) {
+        this.setState({invMsg: msg.invMsg, invMsgStyle: msg.msgStyle});
     }
 
     /* Brings up the inventory.*/
@@ -605,7 +724,6 @@ class BattlesTop extends React.Component {
         this.setPlayerLevel = this.setPlayerLevel.bind(this);
         this.setPlayerName = this.setPlayerName.bind(this);
 
-
         // GamePanel callbacks
         this.setViewSize = this.setViewSize.bind(this);
         this.saveGame = this.saveGame.bind(this);
@@ -617,7 +735,6 @@ class BattlesTop extends React.Component {
         this.doGUICommand = this.doGUICommand.bind(this);
         this.setViewType = this.setViewType.bind(this);
 
-        this.selectItemTop = this.selectItemTop.bind(this);
 
         // GameBoard callbacks
         this.onCellClick = this.onCellClick.bind(this);
@@ -627,7 +744,15 @@ class BattlesTop extends React.Component {
         this.GUINextTarget = this.GUINextTarget.bind(this);
         this.GUITarget = this.GUITarget.bind(this);
         this.GUIUseItem = this.GUIUseItem.bind(this);
-        this.forceRender = this.forceRender.bind(this);
+
+        this.gameToJSON = this.gameToJSON.bind(this);
+        this.selectSaveGame = this.selectSaveGame.bind(this);
+
+        // GameInventory callbacks
+        this.setInventoryMsg = this.setInventoryMsg.bind(this);
+        this.selectEquipTop = this.selectEquipTop.bind(this);
+        this.selectItemTop = this.selectItemTop.bind(this);
+        this.doInvCmd = this.doInvCmd.bind(this);
     }
 
 }

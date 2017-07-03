@@ -110,6 +110,70 @@ describe('How actors are created from file', function() {
         const gemObj = parser.createActualObj('items', 'Lesser gem');
         expect(gemObj.getValue()).to.equal(40);
     });
+
+    it('can add inventory items into the created actors', () => {
+        const parser = new Parser();
+        const goblin = parser.parseObjShell('actors', {
+            name: 'goblin', attack: 15, defense: 10, damage: '1d6 + 2',
+            hp: 9, inv: ['sword'], loot: 'Healing potion'
+        });
+        expect(goblin.inv).to.have.length(1);
+        expect(goblin.loot).to.equal('Healing potion');
+
+        const sword = parser.parseObjShell(RG.TYPE_ITEM, {
+            name: 'sword', type: 'weapon'
+        });
+        expect(sword).to.exist;
+        const potion = parser.parseObjShell(RG.TYPE_ITEM, {
+            name: 'Healing potion', type: 'potion'
+        });
+        expect(potion).to.exist;
+
+        const goblinObj = parser.createActualObj(RG.TYPE_ACTOR, 'goblin');
+
+        expect(goblinObj.has('Loot'),
+            'Goblin should have loot component').to.be.true;
+
+        const inv = goblinObj.getInvEq().getInventory();
+        expect(inv.getItems()).to.have.length(1);
+
+    });
+
+    it('can add equipped items into the created actors', () => {
+        const parser = new Parser();
+        const goblin = parser.parseObjShell('actors', {
+            name: 'goblin', attack: 15, defense: 10, damage: '1d6 + 2',
+            hp: 9, equip: ['sword']
+        });
+        expect(goblin.equip).to.have.length(1);
+        parser.parseObjShell(RG.TYPE_ITEM, {
+            name: 'sword', type: 'weapon', damage: '1d1'
+        });
+        const actualGoblin = parser.createActualObj(RG.TYPE_ACTOR, 'goblin');
+
+        const eqSword = actualGoblin.getWeapon();
+        expect(eqSword).to.exist;
+        expect(eqSword.getType()).to.equal('weapon');
+    });
+
+    it('can add inventory items with count into the created actors', () => {
+        const parser = new Parser();
+        const keeperShell = {
+            name: 'shopkeeper', char: '@', hp: 50,
+            attack: 10, defense: 10, damage: '3d3',
+            danger: 6, inv: [{name: 'Gold coin', count: 100}]
+        };
+        const goldCoinShell = {name: 'Gold coin', type: 'goldcoin'};
+        expect(parser.parseObjShell(RG.TYPE_ITEM, goldCoinShell))
+            .not.to.be.empty;
+        const keeper = parser.parseObjShell(RG.TYPE_ACTOR, keeperShell);
+        expect(keeper.inv).to.deep.equal([{name: 'Gold coin', count: 100}]);
+        const keeperObj = parser.createActualObj(RG.TYPE_ACTOR, 'shopkeeper');
+
+        const gold = keeperObj.getInvEq().getInventory().getItems()[0];
+        expect(gold.count, 'Keeper has 100 gold coins').to.equal(100);
+    });
+
 });
 
 describe('How food items are created from objects', function() {
@@ -275,5 +339,56 @@ describe('It contains all game content info', function() {
 
     });
 
+    it('can create gold coins', () => {
+        const goldcoin = parser.createActualObj(RG.TYPE_ITEM, 'Gold coin');
+        expect(goldcoin.getName()).to.equal('Gold coin');
+        RGTest.checkChar(goldcoin, '$');
+        RGTest.checkCSSClassName(goldcoin, 'cell-item-gold-coin');
+    });
+
 });
 
+describe('It has query functions for objects', function() {
+    const parser = new Parser();
+    parser.parseShellData(Effects);
+    parser.parseShellData(Obs);
+
+    it('can filter query with category/function', () => {
+        const actor = parser.dbGet({name: 'Winter demon'});
+        expect(actor[0].name).to.equal('Winter demon');
+
+        const items = parser.dbGet({categ: 'items'});
+        expect(Object.keys(items)).to.have.length.above(10);
+
+    });
+
+    it('can return objects randomly based on constraints', () => {
+        const actors = parser.dbGetRand({categ: 'actors', danger: 2});
+        expect(actors.danger).to.equal(2);
+
+        for (let i = 1; i < 20; i++) {
+            let maxLimit = i % 10;
+            if (maxLimit <= 1) {
+                ++maxLimit;
+            }
+            const actor = parser.createRandomActorWeighted(1, maxLimit);
+            if (actor !== null) {
+                expect(actor.get('Experience').getDanger())
+                    .to.be.below(maxLimit + 2);
+            }
+        }
+    });
+});
+
+describe('ObjectShellParser error handling', function() {
+    it('It should detect invalid object shells', function() {
+        const parser = new RG.ObjectShellParser();
+        RG.suppressErrorMessages = true;
+        const noObj = parser.createActualObj('items', 'Void Item');
+        expect(noObj).to.be.null;
+        RG.suppressErrorMessages = true;
+
+        const invalidShell = {xxx: 'xxx', noname: 'noname'};
+        expect(parser.validShellGiven(invalidShell)).to.be.false;
+    });
+});

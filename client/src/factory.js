@@ -35,6 +35,7 @@ const cityConfBase = function(_parser, conf) {
 };
 
 /* Determines the x-y sizes for different types of levels. */
+/*
 const levelSizes = {
     tile: {
         Small: {x: 40, y: 20},
@@ -61,7 +62,7 @@ const levelSizes = {
         Huge: {x: 140, y: 60}
     }
 };
-
+*/
 
 /* Player stats based on user selection.*/
 const confPlayerStats = {
@@ -94,15 +95,21 @@ RG.Factory.ItemRandomizer = function() {
     /* Distr. of food weights.*/
     const _foodWeights = RG.getFoodWeightDistr();
 
-
     const _adjustFoodItem = function(food) {
         const weight = ROT.RNG.getWeightedValue(_foodWeights);
         food.setWeight(weight);
     };
 
+    const _adjustGoldCoin = function(gold, nLevel) {
+        const goldWeights = RG.getGoldCoinCountDistr(nLevel);
+        const count = ROT.RNG.getWeightedValue(goldWeights);
+        gold.setCount(parseInt(count, 10));
+    };
+
     /* LUT for functions to call on specific items.*/
     const _adjustFunctions = {
-        food: _adjustFoodItem
+        food: _adjustFoodItem,
+        goldcoin: _adjustGoldCoin
     };
 
 };
@@ -150,6 +157,7 @@ RG.Factory.Base = function() { // {{{2
     /* Factory method for monsters.*/
     this.createActor = function(name, obj) {
         const monster = new RG.Actor.Rogue(name);
+        monster.setType(name);
         if (RG.isNullOrUndef([obj])) {obj = {};}
 
         const brain = obj.brain;
@@ -231,37 +239,38 @@ RG.Factory.Base = function() { // {{{2
 
     this.createHouseElements = function(level, mapObj) {
         if (!mapObj.hasOwnProperty('houses')) {return;}
-        const map = mapObj.map;
         const houses = mapObj.houses;
         for (let i = 0; i < houses.length; i++) {
             const doorXY = houses[i].door;
             const door = new RG.Element.Door(true);
-            map.getCell(doorXY[0], doorXY[1]).setProp('elements', door);
+            level.addElement(door, doorXY[0], doorXY[1]);
         }
     };
 
-    /* Creates a shop and a shopkeeper into a random house in the given level.*/
+    /* Creates a shop and a shopkeeper into a random house in the given level.
+     * Level should already contain empty houses where the shop is created at
+     * random. */
     this.createShop = function(level, mapObj, conf) {
-        const map = mapObj.map;
         if (mapObj.hasOwnProperty('houses')) {
             const houses = mapObj.houses;
-            const nlength = houses.length;
-            const index = Math.floor(nlength * Math.random());
+            const index = RG.RAND.randIndex(houses);
             const house = mapObj.houses[index];
             const floor = house.floor;
 
             const doorXY = house.door;
             const door = new RG.Element.Door(true);
-            map.getCell(doorXY[0], doorXY[1]).setProp('elements', door);
+            level.addElement(door, doorXY[0], doorXY[1]);
 
-            const keeper = this.createActor('Shopkeeper', {brain: 'Human'});
+            const keeper = this.createActor('shopkeeper', {brain: 'Human'});
+            const gold = new RG.Item.GoldCoin('Gold coin');
+            gold.count = 100;
+            keeper.getInvEq().addItem(gold);
             for (let i = 0; i < floor.length; i++) {
                 const xy = floor[i];
                 if (i === 0) {level.addActor(keeper, xy[0], xy[1]);}
-                const cell = map.getCell(xy[0], xy[1]);
                 const shopElem = new RG.Element.Shop();
                 shopElem.setShopkeeper(keeper);
-                cell.setProp('elements', shopElem);
+                level.addElement(shopElem, xy[0], xy[1]);
 
                 if (conf.hasOwnProperty('parser')) {
                     const item = conf.parser.createRandomItem({
@@ -289,9 +298,7 @@ RG.Factory.Base = function() { // {{{2
     this.addNRandItems = function(parser, itemsPerLevel, level, maxVal, func) {
         // Generate the items randomly for this level
         for (let j = 0; j < itemsPerLevel; j++) {
-            const item = parser.createRandomItem({
-                func: func
-            });
+            const item = parser.createRandomItem({func});
             _doItemSpecificAdjustments(item, maxVal);
             const itemCell = level.getFreeRandCell();
             level.addItem(item, itemCell.getX(), itemCell.getY());
@@ -324,6 +331,13 @@ RG.Factory.Base = function() { // {{{2
         }
     };
 
+    this.addRandomGold = function(parser, goldPerLevel, level, nLevel) {
+        for (let i = 0; i < goldPerLevel; i++) {
+            const gold = parser.createActualObj(RG.TYPE_ITEM, 'Gold coin');
+            _doItemSpecificAdjustments(gold, nLevel);
+            level.addToRandomCell(gold);
+        }
+    };
 
     /* Called for random items. Adjusts some of their attributes randomly.*/
     const _doItemSpecificAdjustments = function(item, val) {
@@ -350,7 +364,7 @@ RG.Factory.Base = function() { // {{{2
                 const demon = parser.createActualObj('actors', 'Winter demon');
                 level.addActor(demon, i + 10, 14 + y);
                 RG.POOL.emitEvent(RG.EVT_ACTOR_CREATED, {actor: demon,
-                    level: level, msg: 'DemonSpawn'});
+                    level, msg: 'DemonSpawn'});
             }
         }
     };
@@ -364,7 +378,7 @@ RG.Factory.Base = function() { // {{{2
                     'Blizzard beast');
                 level.addActor(beast, x + 10, 14 + y);
                 RG.POOL.emitEvent(RG.EVT_ACTOR_CREATED, {actor: beast,
-                    level: level, msg: 'DemonSpawn'});
+                    level, msg: 'DemonSpawn'});
             }
         }
         RG.debug(this, 'Blizzard beasts should now appear.');
@@ -384,7 +398,7 @@ RG.Factory.Feature = function() {
 
     this.getRandLevelType = function() {
         const type = ['rooms', 'rogue', 'digger', 'cellular'];
-        const nLevelType = Math.floor(Math.random() * type.length);
+        const nLevelType = RG.RAND.randIndex(type);
         return type[nLevelType];
     };
 
@@ -392,6 +406,7 @@ RG.Factory.Feature = function() {
         const numFree = level.getMap().getFree().length;
         const monstersPerLevel = Math.round(numFree / conf.sqrPerMonster);
         const itemsPerLevel = Math.round(numFree / conf.sqrPerItem);
+        const goldPerLevel = itemsPerLevel;
 
         debug(`Adding ${monstersPerLevel} monsters and
             ${itemsPerLevel} to the level`);
@@ -405,6 +420,9 @@ RG.Factory.Feature = function() {
         );
         this.addNRandMonsters(
             _parser, monstersPerLevel, level, conf.nLevel + 1);
+
+        this.addRandomGold(
+            _parser, goldPerLevel, level, conf.nLevel + 1);
     };
 
     /* Creates random dungeon level. */
@@ -417,8 +435,8 @@ RG.Factory.Feature = function() {
 
     this.createCityLevel = function(conf) {
         const levelConf = cityConfBase(_parser);
-        const city = this.createLevel('town', conf.x, conf.y, levelConf);
-        return city;
+        const cityLevel = this.createLevel('town', conf.x, conf.y, levelConf);
+        return cityLevel;
     };
 
     this.createMountainLevel = function(conf) {
@@ -444,8 +462,19 @@ RG.extend2(RG.Factory.Feature, RG.Factory.Base);
  * building the world. Separation of concerns, you know.
  */
 RG.Factory.World = function() {
-
     this.featureFactory = new RG.Factory.Feature();
+
+    // Can be used to pass already created levels to different features. For
+    // example, after restore game, no new levels should be created
+    this.id2level = {};
+    this.id2levelSet = false;
+
+    /* If id2level is set, factory does not construct any levels. It uses
+     * id2level as a lookup table instead. */
+    this.setId2Level = function(id2level) {
+        this.id2level = id2level;
+        this.id2levelSet = true;
+    };
 
     this.scope = []; // Keeps track of hierarchical names of places
 
@@ -499,7 +528,14 @@ RG.Factory.World = function() {
         this.verifyConf('createArea', conf,
             ['name', 'maxX', 'maxY']);
         this.pushScope(conf.name);
-        const area = new RG.World.Area(conf.name, conf.maxX, conf.maxY);
+
+        // TODO deal with levels when restoring
+        let areaLevels = null;
+        if (this.id2levelSet) {
+            areaLevels = this.getAreaLevels(conf);
+        }
+        const area = new RG.World.Area(conf.name, conf.maxX, conf.maxY,
+            conf.cols, conf.rows, areaLevels);
         area.setHierName(this.getHierName());
         const nDungeons = conf.nDungeons || 0;
         const nMountains = conf.nMountains || 0;
@@ -509,26 +545,59 @@ RG.Factory.World = function() {
             const dungeonConf = conf.dungeon[i];
             const dungeon = this.createDungeon(dungeonConf);
             area.addDungeon(dungeon);
-            this.createConnection(area, dungeon, dungeonConf);
+            if (!this.id2levelSet) {
+                this.createConnection(area, dungeon, dungeonConf);
+            }
         }
 
         for (let i = 0; i < nMountains; i++) {
             const mountainConf = conf.mountain[i];
             const mountain = this.createMountain(mountainConf);
             area.addMountain(mountain);
-            this.createConnection(area, mountain, mountainConf);
+            if (!this.id2levelSet) {
+                this.createConnection(area, mountain, mountainConf);
+            }
         }
 
         for (let i = 0; i < nCities; i++) {
             const cityConf = conf.city[i];
             const city = this.createCity(cityConf);
             area.addCity(city);
-            this.createConnection(area, city, cityConf);
+            if (!this.id2levelSet) {
+                this.createConnection(area, city, cityConf);
+            }
         }
         this.popScope(conf.name);
         return area;
     };
 
+    /* Used when creating area from existing levels. Uses id2level lookup table
+     * to construct 2-d array of levels.*/
+    this.getAreaLevels = function(conf) {
+        const levels = [];
+        if (conf.tiles) {
+            conf.tiles.forEach(tileCol => {
+                const levelCol = [];
+                tileCol.forEach(tile => {
+                    const level = this.id2level[tile.level];
+                    if (level) {
+                        levelCol.push(level);
+                    }
+                    else {
+                        RG.err('Factory.World', 'getAreaLevels',
+                            `No level ID ${tile.level} in id2level`);
+                    }
+                });
+                levels.push(levelCol);
+            });
+        }
+        else {
+            RG.err('Factory.World', 'getAreaLevels',
+                'conf.tiles null/undefined, but id2levelSet true');
+
+        }
+        return levels;
+    };
 
     this.createDungeon = function(conf) {
         this.verifyConf('createDungeon', conf,
@@ -537,6 +606,12 @@ RG.Factory.World = function() {
 
         const dungeon = new RG.World.Dungeon(conf.name);
         dungeon.setHierName(this.getHierName());
+
+        if (conf.nBranches !== conf.branch.length) {
+            const len = conf.branch.length;
+            RG.err('Factory.World', 'createDungeon',
+                `Branch number mismatch [] = ${len}, n: ${conf.nBranches}`);
+        }
 
         for (let i = 0; i < conf.nBranches; i++) {
             const branchConf = conf.branch[i];
@@ -549,22 +624,24 @@ RG.Factory.World = function() {
         }
 
         // Connect branches according to configuration
-        if (conf.nBranches > 1) {
-            if (conf.connect) {
-                conf.connect.forEach( conn => {
-                    if (conn.length === 4) {
-                        // conn has len 4, spread it out
-                        dungeon.connectBranches(...conn);
-                    }
-                    else {
-                        RG.err('Factory.World', 'createDungeon',
-                            'Each connection.length must be 4.');
-                    }
-                });
-            }
-            else {
-                RG.err('Factory.World', 'createDungeon',
-                    'nBranches > 1, but no conf.connect.');
+        if (!this.id2levelSet) {
+            if (conf.nBranches > 1) {
+                if (conf.connect) {
+                    conf.connect.forEach( conn => {
+                        if (conn.length === 4) {
+                            // conn has len 4, spread it out
+                            dungeon.connectBranches(...conn);
+                        }
+                        else {
+                            RG.err('Factory.World', 'createDungeon',
+                                'Each connection.length must be 4.');
+                        }
+                    });
+                }
+                else {
+                    RG.err('Factory.World', 'createDungeon',
+                        'nBranches > 1, but no conf.connect.');
+                }
             }
         }
 
@@ -591,43 +668,118 @@ RG.Factory.World = function() {
                 nLevel: i,
                 special: [] // TODO for special levels
             };
-            const level = this.featureFactory.createDungeonLevel(levelConf);
+            let level = null;
+            if (conf.levels) {
+                level = this.id2level[conf.levels[i]];
+            }
+            else {
+                level = this.featureFactory.createDungeonLevel(levelConf);
+            }
             branch.addLevel(level);
         }
-        branch.connectLevels();
+
+        // Do only if not restoring the branch
+        if (!this.id2levelSet) {
+            branch.connectLevels();
+            if (conf.hasOwnProperty('entranceLevel')) {
+                const entrStairs = new Stairs(false);
+                branch.setEntrance(entrStairs, conf.entranceLevel);
+            }
+        }
+        else if (conf.hasOwnProperty('entrance')) {
+            branch.setEntranceLocation(conf.entrance);
+        }
+
         this.popScope(conf.name);
         return branch;
     };
 
     this.createMountain = function(conf) {
-        this.verifyConf('createMountain', conf, ['name']);
+        this.verifyConf('createMountain', conf, ['name', 'nFaces']);
         this.pushScope(conf.name);
         const mountain = new RG.World.Mountain(conf.name);
         mountain.setHierName(this.getHierName());
 
-        this.pushScope('face1');
-        const northFace = new RG.World.MountainFace();
-        const mConf = { x: 50, y: 200 };
-        const level = this.featureFactory.createMountainLevel(mConf);
-        northFace.addLevel(level);
-        mountain.addFace(northFace);
-        this.popScope('face1');
+        for (let i = 0; i < conf.nFaces; i++) {
+            const faceConf = conf.face[i];
+            const mountainFace = this.createMountainFace(faceConf);
+            mountain.addFace(mountainFace);
+        }
 
         this.popScope(conf.name);
         return mountain;
     };
 
+    this.createMountainFace = function(conf) {
+        if (this.id2levelSet) {
+            this.verifyConf('createMountainFace', conf, ['name', 'nLevels']);
+        }
+        else {
+            this.verifyConf('createMountainFace',
+                conf, ['name', 'nLevels', 'x', 'y']);
+        }
+
+        const faceName = conf.name;
+        this.pushScope(faceName);
+        const face = new RG.World.MountainFace(faceName);
+        const mLevelConf = { x: conf.x, y: conf.y};
+
+        for (let i = 0; i < conf.nLevels; i++) {
+            let level = null;
+            if (!this.id2levelSet) {
+                level = this.featureFactory.createMountainLevel(mLevelConf);
+            }
+            else {
+                const id = conf.levels[i];
+                level = this.id2level[id];
+            }
+            face.addLevel(level);
+            if (!this.id2levelSet) {
+                face.addEntrance(i);
+            }
+            else {
+                face.setEntranceLocation(conf.entrance);
+            }
+        }
+
+        this.popScope(faceName);
+        return face;
+    };
+
     this.createCity = function(conf) {
-        this.verifyConf('createCity', conf, ['name']);
+        if (this.id2levelSet) {
+            this.verifyConf('createCity',
+                conf, ['name', 'nLevels', 'entrances']);
+        }
+        else {
+            this.verifyConf('createCity',
+                conf, ['name', 'nLevels', 'entranceLevel']);
+        }
         this.pushScope(conf.name);
         const cityConf = {
-            x: 100,
-            y: 100
+            x: 100, y: 50
         };
         const city = new RG.World.City(conf.name);
         city.setHierName(this.getHierName());
-        const level = this.featureFactory.createCityLevel(cityConf);
-        city.addLevel(level);
+        for (let i = 0; i < conf.nLevels; i++) {
+            let level = null;
+            if (!this.id2levelSet) {
+                level = this.featureFactory.createCityLevel(cityConf);
+            }
+            else {
+                const id = conf.levels[i];
+                level = this.id2level[id];
+            }
+            city.addLevel(level);
+        }
+
+        if (conf.hasOwnProperty('entranceLevel')) {
+            city.addEntrance(conf.entranceLevel);
+        }
+        else if (conf.hasOwnProperty('entrances')) {
+            city.setEntranceLocations(conf.entrances);
+        }
+
         this.popScope(conf.name);
         return city;
     };
@@ -670,7 +822,7 @@ RG.Factory.World = function() {
     };
 };
 
-RG.FCCGame = function() {
+RG.Factory.Game = function() {
     RG.Factory.Base.call(this);
 
     const _parser = new RG.ObjectShellParser();
@@ -825,7 +977,6 @@ RG.FCCGame = function() {
         }
 
         const levels = ['rooms', 'rogue', 'digger'];
-        const maxLevelType = levels.length;
 
         // For storing stairs and levels
         const allStairsDown = [];
@@ -839,7 +990,7 @@ RG.FCCGame = function() {
         // Generate all game levels
         for (let nl = 0; nl < nLevels; nl++) {
 
-            const nLevelType = Math.floor(Math.random() * maxLevelType);
+            const nLevelType = RG.RAND.randIndex(levels);
             let levelType = levels[nLevelType];
             if (nl === 0) {levelType = 'ruins';}
             const level = this.createLevel(levelType, cols, rows);
@@ -942,9 +1093,7 @@ RG.FCCGame = function() {
         const levels = world.getLevels();
 
         if (levels.length > 0) {
-            levels.forEach(level => {
-                game.addLevel(level);
-            });
+            game.addPlace(world);
             game.addPlayer(player);
             return game;
         }
@@ -980,6 +1129,9 @@ RG.FCCGame = function() {
 
         // Test for shops
         const keeper = _parser.createActualObj('actors', 'shopkeeper');
+        const gold = new RG.Item.GoldCoin();
+        gold.count = 50;
+        keeper.getInvEq().addItem(gold);
         level.addActor(keeper, 2, 2);
         const shopElem = new RG.Element.Shop();
         const shopCell = level.getMap().getCell(3, 3);
@@ -1061,7 +1213,7 @@ RG.FCCGame = function() {
         return level;
     };
 };
-RG.extend2(RG.FCCGame, RG.Factory.Base);
+RG.extend2(RG.Factory.Game, RG.Factory.Base);
 
 
 module.exports = RG.Factory;

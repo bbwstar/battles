@@ -26,10 +26,9 @@ RG.Item = {};
 /* Models an item. Each item is ownable by someone. During game, there are no
  * items with null owners. Ownership shouldn't be ever set to null. */
 RG.Item.Base = function(name) {
+    RG.Object.Typed.call(this, RG.TYPE_ITEM, RG.TYPE_ITEM);
     RG.Object.Ownable.call(this, null);
     RG.Entity.call(this);
-    this.setPropType(RG.TYPE_ITEM);
-    this.setType(RG.ITEM_ITEM);
 
     let _name = name;
     let _value = 1;
@@ -50,6 +49,7 @@ RG.Item.Base = function(name) {
     this.setCount = function(count) {this.count = count;};
 
 };
+RG.extend2(RG.Item.Base, RG.Object.Typed);
 RG.extend2(RG.Item.Base, RG.Object.Ownable);
 
 RG.Item.Base.prototype.toString = function() {
@@ -83,6 +83,7 @@ RG.Item.Base.prototype.clone = function() {
 
 RG.Item.Base.prototype.toJSON = function() {
     const json = {
+        setID: this.getID(),
         setName: this.getName(),
         setValue: this.getValue(),
         setWeight: this.getWeight(),
@@ -90,6 +91,12 @@ RG.Item.Base.prototype.toJSON = function() {
         setType: this.getType(),
         setCount: this.count
     };
+    const components = {};
+    const thisComps = this.getComponents();
+    Object.keys(thisComps).forEach(name => {
+        components[thisComps[name].getType()] = thisComps[name].toJSON();
+    });
+    json.components = components;
     return json;
 };
 
@@ -532,10 +539,17 @@ RG.Item.Gold.prototype.setPurity = function(purity) {
     this._purity = purity;
 };
 
+RG.Item.Gold.prototype.toJSON = function() {
+    const json = RG.Item.Base.prototype.toJSON.call(this);
+    json.setType = this.getType();
+    json.setPurity = this._purity;
+    return json;
+};
 
 /* Gold coins have standard weight and are (usually) made of pure gold.*/
-RG.Item.GoldCoin = function() {
-    RG.Item.Gold.call(this, RG.GOLD_COIN_NAME);
+RG.Item.GoldCoin = function(name) {
+    const _name = name || RG.GOLD_COIN_NAME;
+    RG.Item.Gold.call(this, _name);
     this.setType(RG.ITEM_GOLD_COIN);
     this._purity = 1.0;
     this.setWeight(0.03);
