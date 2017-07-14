@@ -10,7 +10,8 @@
 // Some info on attributes:
 //      dontCreate: true - Use with base classes, prevents object creation
 //      base: xxx        - Use xxx as a base for the object
-//      danger    - Used for rand generation, higher values means less often
+//      danger - For rand generation for actors, higher values means less often
+//      value  - For rand gen (+buy/sell) for items, higher means less often
 //      cssClass         - Used for rendering purposes.
 
 var RGObjects = {
@@ -19,20 +20,18 @@ var RGObjects = {
 
     // ANIMALS
     {
-        name: 'animal', dontCreate: true,
+        name: 'animal', dontCreate: true, type: 'animal',
         className: 'cell-actor-animal',
         attack: 1, defense: 1, hp: 5,
         range: 1, danger: 1, speed: 100, brain: 'Animal'
     }, {
-        name: 'bat', type: 'bat', char: 'b', base: 'animal',
+        name: 'rat', char: 'r', base: 'animal'
+    }, {
+        name: 'bat', char: 'b', base: 'animal',
         defense: 2
     }, {
-        name: 'rat', type: 'rat', char: 'r', base: 'animal'
-    }, {
-        name: 'rattlesnake', char: 's', base: 'animal',
-        poison: true, // Change to weapon: venomous fangs
-        attack: 2, defense: 3, damage: '1d3',
-        hp: 10, danger: 3
+        name: 'giant ant', char: 'a', base: 'animal',
+        defense: 2, hp: 7
     }, {
         name: 'coyote', char: 'c', base: 'animal',
         attack: 3, defense: 3, damage: '1d4',
@@ -42,12 +41,21 @@ var RGObjects = {
         attack: 4, defense: 2, damage: '1d6',
         hp: 15, danger: 3
     }, {
+        name: 'rattlesnake', char: 's', base: 'animal',
+        poison: true, // Change to weapon: venomous fangs
+        attack: 2, defense: 3, damage: '1d3',
+        hp: 10, danger: 3
+    }, {
+        name: 'wolverine', char: 'W', base: 'animal',
+        attack: 4, defense: 4, damage: '1d7',
+        hp: 20, danger: 4
+    }, {
         name: 'bear', char: 'B', base: 'animal',
-        attack: 4, defense: 4, damage: '1d9',
-        hp: 25, danger: 5
+        attack: 5, defense: 5, damage: '1d9',
+        hp: 30, danger: 5
     }, {
         name: 'mountain lion', char: 'f', base: 'animal',
-        attack: 5, defense: 3, damage: '2d4',
+        attack: 6, defense: 3, damage: '2d4',
         hp: 25, danger: 5
     },
 
@@ -81,7 +89,7 @@ var RGObjects = {
     }, {
         name: 'Glacial golem', char: 'G', base: 'WinterBeingBase',
         attack: 4, defense: 4, protection: 3, damage: '2d4', speed: 90,
-        danger: 5, hp: 30
+        danger: 10, hp: 30
     }, {
         name: 'Mighty raven', base: 'WinterBeingBase', char: 'R',
         attack: 4, defense: 8, damage: '2d4 + 2', range: 1, hp: 20,
@@ -89,15 +97,15 @@ var RGObjects = {
     }, {
         name: 'Winter demon', type: 'demon', char: 'D',
         attack: 5, defense: 5, protection: 2, damage: '3d3', range: 1,
-        hp: 30, danger: 6, brain: 'Demon', base: 'WinterBeingBase'
+        hp: 30, danger: 12, brain: 'Demon', base: 'WinterBeingBase'
     }, {
         name: 'Blizzard beast', type: 'demon', char: 'B',
         attack: 7, defense: 6, protection: 4, damage: '3d4', range: 1,
-        hp: 50, danger: 8, brain: 'Demon', base: 'WinterBeingBase'
+        hp: 50, danger: 16, brain: 'Demon', base: 'WinterBeingBase'
     }, {
         name: 'Frostburn monarch', type: 'demon', char: 'M',
         attack: 7, defense: 6, protection: 6, damage: '3d4', range: 1,
-        hp: 70, danger: 10, brain: 'Demon', base: 'WinterBeingBase'
+        hp: 70, danger: 20, brain: 'Demon', base: 'WinterBeingBase'
     },
 
     // HUMANS
@@ -106,11 +114,11 @@ var RGObjects = {
         attack: 2, defense: 2, damage: '1d4',
         range: 1, hp: 20, danger: 3, brain: 'Human'
     }, {
+        name: 'robber', base: 'human',
+        attack: 2, defense: 4, danger: 3
+    }, {
         name: 'miner', base: 'human',
         attack: 4, danger: 4, damage: '1d5', equip: ['Pick-axe']
-    }, {
-        name: 'robber', base: 'human',
-        attack: 2, defense: 4
     }, {
         name: 'fighter', base: 'human', hp: 25,
         attack: 4, defense: 4, damage: '1d8',
@@ -123,6 +131,11 @@ var RGObjects = {
         name: 'shopkeeper', char: '@', base: 'human', hp: 50,
         attack: 10, defense: 10, damage: '3d3',
         danger: 6, inv: [{ name: 'Gold coin', count: 100 }]
+    }, {
+        name: 'summoner', char: '@', base: 'human', hp: 50,
+        type: 'summoner',
+        attack: 7, defense: 7, damage: '2d4', brain: 'Summoner',
+        danger: 10
     },
 
     // WILDLINGS
@@ -438,6 +451,9 @@ var RGObjects = {
         type: 'missile', dontCreate: true,
         attack: 1, damage: '1d1', range: 2, weight: 0.1
     }, {
+        name: 'Rock', base: 'MissileBase', className: 'cell-item-rock',
+        char: '*', damage: '1d4', range: 5, value: 10, weight: 0.2
+    }, {
         name: 'Shuriken', base: 'MissileBase',
         damage: '1d6', range: 3, value: 20
     }, {
@@ -457,6 +473,43 @@ var RGObjects = {
     }, {
         name: 'Throwing axe of death', base: 'MissileBase',
         attack: 5, damage: '2d10 + 3', range: 3, value: 200, weight: 0.5
+    },
+
+    // MISSILE WEAPONS
+    {
+        name: 'MissileWeaponBase', dontCreate: true,
+        type: 'missileweapon',
+        className: 'cell-item-missileweapon',
+        attack: 0, defense: 0, char: '{'
+    }, {
+        name: 'Bow', base: 'MissileWeaponBase',
+        attack: 1, range: 4, value: 100
+    }, {
+        name: 'Crossbow', base: 'MissileWeaponBase',
+        attack: 3, range: 6, value: 250
+    }, {
+        name: 'Double crossbow', base: 'MissileWeaponBase',
+        attack: 0, range: 5, value: 400
+    }, {
+        name: 'Bow of Defense', base: 'MissileWeaponBase',
+        attack: 1, range: 4, defense: 6, value: 500
+    }, {
+        name: 'Rifle', base: 'MissileWeaponBase',
+        attack: 4, range: 7, value: 500
+    },
+    // AMMO
+    {
+        name: 'Arrow', base: 'MissileBase',
+        type: 'ammo', range: 1,
+        attack: 0, damage: '1d6', value: 10
+    }, {
+        name: 'Bolt', base: 'MissileBase',
+        type: 'ammo', range: 1,
+        attack: 1, damage: '1d8', value: 20
+    }, {
+        name: 'Rifle bullet', base: 'MissileBase',
+        type: 'ammo', range: 1,
+        attack: 1, damage: '3d4', value: 50
     },
 
     // POTIONS
@@ -558,6 +611,46 @@ module.exports = RGObjects;
 
 var RG = require('../src/rg');
 
+// Note:
+// An object with key 'constraint' can be passed at any level. This contains
+// info about procedural generation. There are scopes for constraints. The
+// innermost constraint is taken into account, and the rest are ignored.
+// Priority goes like this:
+//      0. Level
+//      1. Branch/Quarter/Face
+//      2. Dungeon/Mountain/City
+//      3. World.
+// For example, anything level-specific overrides all other constraints. Note
+// that for now there's NO merging of constraints. This means that the full
+// constraint object is overwritten.
+
+var cities = {
+    Blashyrkh: { x: 2, y: 2, name: 'Blashyrkh', nQuarters: 1,
+        quarter: [{ name: 'Center', nLevels: 1, entranceLevel: 0, nShops: 2,
+            shop: [function (item) {
+                return item.type === 'food';
+            }, function (item) {
+                return item.value < 100 && item.type === 'weapon';
+            }]
+        }]
+    }
+};
+
+var dungeons = {
+    beastDungeon: { x: 0, y: 0, name: 'Beast dungeon', nBranches: 1,
+        constraint: {
+            actor: function actor(_actor) {
+                return _actor.type === 'animal';
+            }
+        },
+        branch: [{ name: 'Animals', nLevels: 5, entranceLevel: 0 }]
+    },
+    smallDungeon: { x: 0, y: 0, name: 'Small dungeon', nBranches: 1,
+        // constraint: {actor: actor => (actor.type === 'animal')},
+        branch: [{ name: 'main', nLevels: 5, entranceLevel: 0 }]
+    }
+};
+
 /* Configuration settings for creating the game world. There's not much to
 * document. Follow the convention to construct your own world. */
 RG.WorldConf = {
@@ -570,16 +663,16 @@ RG.WorldConf = {
         maxY: 4,
         cols: 70, rows: 30,
         // DUNGEONS
-        nDungeons: 2,
-        dungeon: [{ x: 0, y: 0, name: 'd1', nBranches: 1,
-            branch: [{ name: 'main', nLevels: 5, entranceLevel: 0 }]
-        }, { x: 0, y: 0, name: 'BranchTest', nBranches: 2,
+        nDungeons: 3,
+        dungeon: [dungeons.smallDungeon, dungeons.beastDungeon, { x: 0, y: 0, name: 'BranchTest', nBranches: 2,
             connect: [['main', 'side', 0, 0]],
             branch: [{ name: 'main', nLevels: 1, entranceLevel: 0 }, { name: 'side', nLevels: 1 }]
         }],
         // CITIES
         nCities: 2,
-        city: [{ x: 0, y: 0, name: 'Petit town', nLevels: 1, entranceLevel: 0 }, { x: 2, y: 2, name: 'Blashyrkh', nLevels: 1, entranceLevel: 0 }],
+        city: [{ x: 0, y: 0, name: 'Petit town', nQuarters: 1,
+            quarter: [{ name: 'Center', nLevels: 1, entranceLevel: 0 }]
+        }, cities.Blashyrkh],
         // MOUNTAINS
         nMountains: 1,
         mountain: [{ x: 0, y: 0, name: 'IceThorn', nFaces: 1,
@@ -590,7 +683,7 @@ RG.WorldConf = {
 
 module.exports = RG.WorldConf;
 
-},{"../src/rg":35}],3:[function(require,module,exports){
+},{"../src/rg":38}],3:[function(require,module,exports){
 'use strict';
 
 /* eslint comma-dangle: 0 */
@@ -824,28 +917,26 @@ RG.Effects = {
 
 module.exports = RG.Effects;
 
-},{"../src/component.js":24,"../src/rg":35}],4:[function(require,module,exports){
+},{"../src/component.js":27,"../src/rg":38}],4:[function(require,module,exports){
 "use strict";
 
-// Set to 1 for some debug information
-var $DEBUG = 0;
-
-function debug(msg) {
-    if ($DEBUG) {
-        console.log("DEBUG:" + msg);
-    }
-}
-
+// const RG = require('../src/battles');
 var GUI = {};
 
-/** Object which manages the shown part of the level.*/
-GUI.Viewport = function (viewportX, viewportY, map) {
+/* Object which manages the shown part of the level.*/
+GUI.Viewport = function (viewportX, viewportY) {
 
     // Size of the viewport, feel free to adjust
     this.viewportX = viewportX;
     this.viewportY = viewportY;
 
-    /** Returns an object containing all cells in viewport, and viewport
+    /* Sets the viewport dimensions. */
+    this.setViewportXY = function (x, y) {
+        this.viewportX = x;
+        this.viewportY = y;
+    };
+
+    /* Returns an object containing all cells in viewport, and viewport
      * coordinates.
      */
     this.getCellsInViewPort = function (x, y, map) {
@@ -863,7 +954,9 @@ GUI.Viewport = function (viewportX, viewportY, map) {
             endX += leftStartX;
         } else {
             var leftEndX = x + this.viewportX - maxX;
-            if (leftEndX > 0) startX -= leftEndX;
+            if (leftEndX > 0) {
+                startX -= leftEndX;
+            }
         }
 
         var leftStartY = this.viewportY - y;
@@ -871,18 +964,30 @@ GUI.Viewport = function (viewportX, viewportY, map) {
             endY += leftStartY;
         } else {
             var leftEndY = y + this.viewportY - maxY;
-            if (leftEndY > 0) startY -= leftEndY;
+            if (leftEndY > 0) {
+                startY -= leftEndY;
+            }
         }
 
         // Some sanity checks for level edges
-        if (startX < 0) startX = 0;
-        if (startY < 0) startY = 0;
-        if (endX > map.cols - 1) endX = map.cols - 1;
-        if (endY > map.rows - 1) endY = map.rows - 1;
+        if (startX < 0) {
+            startX = 0;
+        }
+        if (startY < 0) {
+            startY = 0;
+        }
+        if (endX > map.cols - 1) {
+            endX = map.cols - 1;
+        }
+        if (endY > map.rows - 1) {
+            endY = map.rows - 1;
+        }
 
         for (var yy = startY; yy <= endY; yy++) {
             this[yy] = [];
             for (var xx = startX; xx <= endX; xx++) {
+                // console.log('map._map[xx]: ' + map._map[xx]);
+                // this[yy].push(map._map[xx][yy]);
                 this[yy].push(map.getCell(xx, yy));
             }
         }
@@ -892,7 +997,9 @@ GUI.Viewport = function (viewportX, viewportY, map) {
         this.startY = startY;
         this.endY = endY;
         this.rows = map.rows;
-    }, this.getCellRow = function (y) {
+    };
+
+    this.getCellRow = function (y) {
         return this[y];
     };
 };
@@ -902,22 +1009,8 @@ module.exports = GUI;
 },{}],5:[function(require,module,exports){
 'use strict';
 
-var React = require('react');
-var ReactDOM = require('react-dom');
-var BattlesTop = require('./top.jsx');
-
-ReactDOM.render(React.createElement(BattlesTop, null), document.getElementById('mount-point'));
-
-},{"./top.jsx":20,"react":221,"react-dom":68}],6:[function(require,module,exports){
-
-'use strict';
-
-var React = require('react');
-var RG = require('../src/rg.js');
-
-var GameRow = require('./game-row');
-
-var GUI = require('../gui/gui');
+var GUI = require('./gui');
+var RG = require('../src/battles');
 
 // TODO: Refactor out of this file
 /* Builds and returns two arrays. First contains all CSS classNames of
@@ -966,70 +1059,144 @@ var getClassesAndChars = function getClassesAndChars(seen, cells, selCell) {
     return [cssClasses, asciiChars];
 };
 
+/* Creates a screen with viewport set to given parameters. */
+GUI.Screen = function (viewX, viewY) {
+    this.viewportX = viewX;
+    this.viewportY = viewY;
+    this.selectedCell = null;
+
+    var _charRows = [];
+    var _classRows = [];
+    var _mapShown = false;
+
+    this.viewport = new GUI.Viewport(viewX, viewY);
+
+    /* Returns the leftmost X-coordinate of the viewport. */
+    this.getStartX = function () {
+        return this.viewport.startX;
+    };
+
+    this.setSelectedCell = function (cell) {
+        this.selectedCell = cell;
+    };
+
+    this.setViewportXY = function (x, y) {
+        this.viewportX = x;
+        this.viewportY = y;
+        this.viewport.setViewportXY(x, y);
+
+        _charRows = [];
+        _classRows = [];
+        for (var yy = 0; yy < y; yy++) {
+            _charRows.push([]);
+            _classRows.push([]);
+        }
+    };
+
+    this.setMapShown = function (mapShown) {
+        _mapShown = mapShown;
+    };
+
+    this.getCharRows = function () {
+        return _charRows;
+    };
+
+    this.getClassRows = function () {
+        return _classRows;
+    };
+
+    /* 'Renders' the ASCII screen and style classes based on player's
+     * coordinate, map and visible cells. */
+    this.render = function (playX, playY, map, visibleCells) {
+        if (!_mapShown) {
+            this.setViewportXY(this.viewportX, this.viewportY);
+        } else {
+            this.setViewportXY(map.cols, map.rows);
+        }
+        this.viewport.getCellsInViewPort(playX, playY, map);
+
+        this.startX = this.viewport.startX;
+        this.endX = this.viewport.endX;
+        this.startY = this.viewport.startY;
+        this.endY = this.viewport.endY;
+
+        var yCount = 0;
+        for (var y = this.viewport.startY; y <= this.viewport.endY; ++y) {
+            var rowCellData = this.viewport.getCellRow(y);
+            var classesChars = getClassesAndChars(visibleCells, rowCellData, this.selectedCell);
+
+            _classRows[yCount] = classesChars[0];
+            _charRows[yCount] = classesChars[1];
+            ++yCount;
+        }
+    };
+
+    /* Renders the full map as visible. */
+    this.renderFullMap = function (map) {
+        this.startX = 0;
+        this.endX = map.cols - 1;
+        this.startY = 0;
+        this.endY = map.rows - 1;
+
+        for (var y = 0; y < map.rows; ++y) {
+            var rowCellData = map.getCellRow(y);
+            var classesChars = getClassesAndChars(rowCellData, rowCellData, null);
+
+            _classRows[y] = classesChars[0];
+            _charRows[y] = classesChars[1];
+        }
+    };
+};
+
+module.exports = GUI.Screen;
+
+},{"../src/battles":25,"./gui":4}],6:[function(require,module,exports){
+'use strict';
+
+var React = require('react');
+var ReactDOM = require('react-dom');
+var BattlesTop = require('./top.jsx');
+
+ReactDOM.render(React.createElement(BattlesTop, null), document.getElementById('mount-point'));
+
+},{"./top.jsx":22,"react":224,"react-dom":71}],7:[function(require,module,exports){
+
+'use strict';
+
+var React = require('react');
+var GameRow = require('./game-row');
+
 /** Component which renders the game rows. {{{2 */
 var GameBoard = React.createClass({
     displayName: 'GameBoard',
 
 
     propTypes: {
-        mapShown: React.PropTypes.bool.isRequired,
-        viewportX: React.PropTypes.number,
-        viewportY: React.PropTypes.number,
-        player: React.PropTypes.object,
-        visibleCells: React.PropTypes.array,
-        map: React.PropTypes.object,
+        boardClassName: React.PropTypes.string,
         onCellClick: React.PropTypes.func,
-        selectedCell: React.PropTypes.object,
-        boardClassName: React.PropTypes.string
+        rowClass: React.PropTypes.string,
+        startX: React.PropTypes.number,
+        startY: React.PropTypes.number,
+        endY: React.PropTypes.number,
+        charRows: React.PropTypes.arrayOf(String),
+        classRows: React.PropTypes.arrayOf(String)
     },
 
     render: function render() {
-        var mapShown = this.props.mapShown;
-        var rowClass = 'cell-row-div-player-view';
-        if (mapShown) {
-            rowClass = 'cell-row-div-map-view';
-        }
-
-        var player = this.props.player;
-        var playX = player.getX();
-        var playY = player.getY();
-        var map = this.props.map;
-
-        var shownCells = map;
-        if (!mapShown) {
-            shownCells = new GUI.Viewport(this.props.viewportX, this.props.viewportY, map);
-            shownCells.getCellsInViewPort(playX, playY, map);
-        } else {
-            shownCells = new GUI.Viewport(map.cols, map.rows, map);
-            shownCells.getCellsInViewPort(playX, playY, map);
-        }
-
-        var cellRows = [];
-        var charRows = [];
-        var classRows = [];
-        for (var y = shownCells.startY; y <= shownCells.endY; ++y) {
-            var rowCellData = shownCells.getCellRow(y);
-            var classesChars = getClassesAndChars(this.props.visibleCells, rowCellData, this.props.selectedCell);
-
-            cellRows.push(rowCellData);
-            charRows.push(classesChars[1]);
-            classRows.push(classesChars[0]);
-        }
 
         var rowsHTML = [];
         // Build the separate cell rows
-        for (var _y = shownCells.startY; _y <= shownCells.endY; ++_y) {
-            var yIndex = _y - shownCells.startY;
-            var startX = cellRows[yIndex][0].getX();
+        for (var y = this.props.startY; y <= this.props.endY; ++y) {
+            var yIndex = y - this.props.startY;
 
             rowsHTML.push(React.createElement(GameRow, {
-                key: _y,
+                key: y,
                 onCellClick: this.props.onCellClick,
-                rowChars: charRows[yIndex],
-                rowClass: rowClass,
-                rowClasses: classRows[yIndex],
-                startX: startX,
-                y: _y
+                rowChars: this.props.charRows[yIndex],
+                rowClass: this.props.rowClass,
+                rowClasses: this.props.classRows[yIndex],
+                startX: this.props.startX,
+                y: y
             }));
         }
 
@@ -1046,7 +1213,281 @@ var GameBoard = React.createClass({
 
 module.exports = GameBoard;
 
-},{"../gui/gui":4,"../src/rg.js":35,"./game-row":15,"react":221}],7:[function(require,module,exports){
+},{"./game-row":17,"react":224}],8:[function(require,module,exports){
+'use strict';
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
+
+function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
+
+var React = require('react');
+
+var GameBoard = require('./game-board');
+var RG = require('../src/battles');
+var Screen = require('../gui/screen');
+
+var RGEffects = require('../data/effects');
+var RGObjects = require('../data/battles_objects');
+
+var GameEditor = function (_React$Component) {
+    _inherits(GameEditor, _React$Component);
+
+    function GameEditor(props) {
+        _classCallCheck(this, GameEditor);
+
+        var _this = _possibleConstructorReturn(this, (GameEditor.__proto__ || Object.getPrototypeOf(GameEditor)).call(this, props));
+
+        var state = {
+            boardClassName: 'game-board-player-view',
+            levelX: 80,
+            levelY: 28,
+            levelType: 'arena',
+            errorMsg: '',
+
+            itemFunc: function itemFunc(item) {
+                return item.value < 5000;
+            },
+            maxValue: 5000
+        };
+
+        _this.screen = new Screen(state.levelX, state.levelY);
+        var level = RG.FACT.createLevel(state.levelType, state.levelX, state.levelY);
+        _this.exploreAll(level);
+
+        state.level = level;
+
+        _this.generateMap = _this.generateMap.bind(_this);
+        _this.onChangeType = _this.onChangeType.bind(_this);
+        _this.onChangeX = _this.onChangeX.bind(_this);
+        _this.onChangeY = _this.onChangeY.bind(_this);
+
+        _this.generateActors = _this.generateActors.bind(_this);
+        _this.generateItems = _this.generateItems.bind(_this);
+
+        _this.levelToJSON = _this.levelToJSON.bind(_this);
+
+        _this.state = state;
+
+        _this.parser = new RG.ObjectShellParser();
+        _this.parser.parseShellData(RGEffects);
+        _this.parser.parseShellData(RGObjects);
+        return _this;
+    }
+
+    _createClass(GameEditor, [{
+        key: 'exploreAll',
+        value: function exploreAll(level) {
+            var map = level.getMap();
+            for (var x = 0; x < map.cols; x++) {
+                for (var y = 0; y < map.rows; y++) {
+                    var cell = map._map[x][y];
+                    cell.setExplored(true);
+                }
+            }
+        }
+
+        /* Converts the rendered level to JSON.*/
+
+    }, {
+        key: 'levelToJSON',
+        value: function levelToJSON() {
+            var json = this.state.level.toJSON();
+            localStorage.setItem('savedLevel', JSON.stringify(json));
+        }
+    }, {
+        key: 'generateMap',
+        value: function generateMap() {
+            try {
+                var level = RG.FACT.createLevel(this.state.levelType, this.state.levelX, this.state.levelY);
+                this.screen.setViewportXY(this.state.levelX, this.state.levelY);
+                this.exploreAll(level);
+                this.setState({ level: level });
+            } catch (e) {
+                this.setState({ errorMsg: e.message });
+            }
+        }
+    }, {
+        key: 'generateItems',
+        value: function generateItems() {
+            var itemFunc = this.state.itemFunc;
+            var maxValue = this.state.maxValue;
+            var conf = {
+                func: itemFunc, maxValue: maxValue,
+                itemsPerLevel: 10
+            };
+            var level = this.state.level;
+
+            // Remove existing items first
+            var items = level.getItems();
+            items.forEach(function (item) {
+                level.removeItem(item, item.getX(), item.getY());
+            });
+
+            RG.FACT.addNRandItems(level, this.parser, conf);
+            this.setState({ level: level });
+        }
+    }, {
+        key: 'generateActors',
+        value: function generateActors() {
+            var level = this.state.level;
+
+            // Remove existing actors first
+            var actors = level.getActors();
+            actors.forEach(function (actor) {
+                level.removeActor(actor, actor.getX(), actor.getY());
+            });
+
+            var conf = {
+                maxDanger: 20,
+                monstersPerLevel: 20,
+                func: function func(actor) {
+                    return actor.danger < 100;
+                }
+            };
+
+            RG.FACT.addNRandMonsters(this.state.level, this.parser, conf);
+            this.setState({ level: level });
+        }
+    }, {
+        key: 'onChangeType',
+        value: function onChangeType(evt) {
+            var value = evt.target.value;
+            this.setState({ levelType: value });
+        }
+    }, {
+        key: 'onChangeX',
+        value: function onChangeX(evt) {
+            var value = parseInt(evt.target.value, 10);
+            this.setState({ levelX: value });
+        }
+    }, {
+        key: 'onChangeY',
+        value: function onChangeY(evt) {
+            var value = parseInt(evt.target.value, 10);
+            this.setState({ levelY: value });
+        }
+    }, {
+        key: 'render',
+        value: function render() {
+            var mapShown = this.props.mapShown;
+            var rowClass = 'cell-row-div-player-view';
+            if (mapShown) {
+                rowClass = 'cell-row-div-map-view';
+            }
+
+            var map = null;
+            if (this.state.level) {
+                map = this.state.level.getMap();
+            }
+            if (map) {
+                this.screen.renderFullMap(map);
+            }
+
+            var errorMsg = this.getErrorMsg();
+
+            var charRows = this.screen.getCharRows();
+            var classRows = this.screen.getClassRows();
+            return React.createElement(
+                'div',
+                { className: 'game-editor' },
+                React.createElement(
+                    'h2',
+                    null,
+                    'Battles Game Editor'
+                ),
+                React.createElement(
+                    'button',
+                    { onClick: this.generateMap },
+                    'Generate!'
+                ),
+                React.createElement('input', {
+                    name: 'level-type',
+                    onChange: this.onChangeType,
+                    value: this.state.levelType
+                }),
+                React.createElement('input', {
+                    name: 'level-x',
+                    onChange: this.onChangeX,
+                    value: this.state.levelX
+                }),
+                React.createElement('input', {
+                    name: 'level-y',
+                    onChange: this.onChangeY,
+                    value: this.state.levelY
+                }),
+                React.createElement(
+                    'div',
+                    null,
+                    React.createElement(
+                        'button',
+                        { onClick: this.generateActors },
+                        'Actors!'
+                    ),
+                    React.createElement(
+                        'button',
+                        { onClick: this.generateItems },
+                        'Items!'
+                    ),
+                    React.createElement(
+                        'button',
+                        { onClick: this.levelToJSON },
+                        'To JSON'
+                    )
+                ),
+                React.createElement(
+                    'div',
+                    null,
+                    errorMsg
+                ),
+                React.createElement(
+                    'div',
+                    { className: 'game-board-div' },
+                    React.createElement(GameBoard, {
+                        boardClassName: this.state.boardClassName,
+                        charRows: charRows,
+                        classRows: classRows,
+                        endY: this.screen.endY,
+                        onCellClick: function onCellClick() {},
+                        rowClass: rowClass,
+                        startX: 0,
+                        startY: 0
+                    })
+                )
+            );
+        }
+    }, {
+        key: 'getErrorMsg',
+        value: function getErrorMsg() {
+            if (this.state.errorMsg.length > 0) {
+                return React.createElement(
+                    'p',
+                    { className: 'text-danger' },
+                    this.state.errorMsg
+                );
+            } else {
+                return React.createElement(
+                    'p',
+                    { className: 'text-success' },
+                    'OK. No errors.'
+                );
+            }
+        }
+    }]);
+
+    return GameEditor;
+}(React.Component);
+
+GameEditor.propTypes = {
+    mapShown: React.PropTypes.bool
+};
+
+module.exports = GameEditor;
+
+},{"../data/battles_objects":1,"../data/effects":3,"../gui/screen":5,"../src/battles":25,"./game-board":7,"react":224}],9:[function(require,module,exports){
 'use strict';
 
 var React = require('react');
@@ -1087,7 +1528,7 @@ var GameEquipSlot = React.createClass({
 
 module.exports = GameEquipSlot;
 
-},{"react":221}],8:[function(require,module,exports){
+},{"react":224}],10:[function(require,module,exports){
 'use strict';
 
 var React = require('react');
@@ -1139,7 +1580,7 @@ var GameEquipment = React.createClass({
 
 module.exports = GameEquipment;
 
-},{"./game-equip-slot":7,"react":221}],9:[function(require,module,exports){
+},{"./game-equip-slot":9,"react":224}],11:[function(require,module,exports){
 'use strict';
 
 function _defineProperty(obj, key, value) { if (key in obj) { Object.defineProperty(obj, key, { value: value, enumerable: true, configurable: true, writable: true }); } else { obj[key] = value; } return obj; }
@@ -1404,7 +1845,7 @@ var GameHelpScreen = React.createClass({
 
 module.exports = GameHelpScreen;
 
-},{"../src/rg.js":35,"./modal-header":18,"react":221}],10:[function(require,module,exports){
+},{"../src/rg.js":38,"./modal-header":20,"react":224}],12:[function(require,module,exports){
 'use strict';
 
 function _defineProperty(obj, key, value) { if (key in obj) { Object.defineProperty(obj, key, { value: value, enumerable: true, configurable: true, writable: true }); } else { obj[key] = value; } return obj; }
@@ -1465,6 +1906,7 @@ var GameInventory = React.createClass({
                     msgStyle = 'text-danger';
                 }
                 this.props.setInventoryMsg({ invMsg: obj.msg, msgStyle: msgStyle });
+                this.props.selectItemTop(null);
             }.bind(this);
             this.props.doInvCmd(cmd);
         } else {
@@ -1621,7 +2063,7 @@ var GameInventory = React.createClass({
 
 module.exports = GameInventory;
 
-},{"./game-equipment":8,"./game-items":12,"./modal-header":18,"react":221}],11:[function(require,module,exports){
+},{"./game-equipment":10,"./game-items":14,"./modal-header":20,"react":224}],13:[function(require,module,exports){
 'use strict';
 
 var React = require('react');
@@ -1650,7 +2092,7 @@ var GameItemSlot = React.createClass({
 
 module.exports = GameItemSlot;
 
-},{"react":221}],12:[function(require,module,exports){
+},{"react":224}],14:[function(require,module,exports){
 'use strict';
 
 var React = require('react');
@@ -1708,7 +2150,7 @@ var GameItems = React.createClass({
 
 module.exports = GameItems;
 
-},{"./game-item-slot":11,"react":221}],13:[function(require,module,exports){
+},{"./game-item-slot":13,"react":224}],15:[function(require,module,exports){
 'use strict';
 
 var React = require('react');
@@ -1728,6 +2170,12 @@ var GameMessages = React.createClass({
 
     shouldComponentUpdate: function shouldComponentUpdate(nextProps) {
         return nextProps.message.length > 0;
+    },
+
+    propTypes: {
+        message: React.PropTypes.array,
+        visibleCells: React.PropTypes.array,
+        saveInProgress: React.PropTypes.bool
     },
 
     render: function render() {
@@ -1754,14 +2202,25 @@ var GameMessages = React.createClass({
                     }
                 }
 
+                var count = val.count === 1 ? '' : ' (x' + val.count + ')';
+                var fullMsg = '' + val.msg + count;
+
+                if (!fullMsg.match(/.$/)) {
+                    fullMsg += '.';
+                }
+                fullMsg += ' ';
+
                 if (index >= 0 || val.seen) {
                     return React.createElement(
                         'span',
-                        { key: itemIndex, className: className },
-                        val.msg,
-                        '.'
+                        {
+                            className: className,
+                            key: itemIndex
+                        },
+                        fullMsg
                     );
                 }
+                return null;
             });
         }
 
@@ -1776,7 +2235,7 @@ var GameMessages = React.createClass({
 
 module.exports = GameMessages;
 
-},{"react":221}],14:[function(require,module,exports){
+},{"react":224}],16:[function(require,module,exports){
 'use strict';
 
 var React = require('react');
@@ -1857,7 +2316,7 @@ var GamePanel = React.createClass({
 
 module.exports = GamePanel;
 
-},{"react":221}],15:[function(require,module,exports){
+},{"react":224}],17:[function(require,module,exports){
 'use strict';
 
 var React = require('react');
@@ -1940,7 +2399,7 @@ var GameRow = React.createClass({
 
 module.exports = GameRow;
 
-},{"react":221}],16:[function(require,module,exports){
+},{"react":224}],18:[function(require,module,exports){
 'use strict';
 
 var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
@@ -1964,293 +2423,307 @@ var RadioButtons = require('./radio-buttons');
  */
 
 var GameStartScreen = function (_React$Component) {
-    _inherits(GameStartScreen, _React$Component);
+  _inherits(GameStartScreen, _React$Component);
 
-    function GameStartScreen(props) {
-        _classCallCheck(this, GameStartScreen);
+  function GameStartScreen(props) {
+    _classCallCheck(this, GameStartScreen);
 
-        var _this = _possibleConstructorReturn(this, (GameStartScreen.__proto__ || Object.getPrototypeOf(GameStartScreen)).call(this, props));
+    var _this = _possibleConstructorReturn(this, (GameStartScreen.__proto__ || Object.getPrototypeOf(GameStartScreen)).call(this, props));
 
-        _this.state = {
-            playerName: 'Player'
-        };
+    _this.onNameChange = _this.onNameChange.bind(_this);
+    _this.deleteGame = _this.deleteGame.bind(_this);
+    _this.selectGame = _this.selectGame.bind(_this);
+    _this.loadGame = _this.loadGame.bind(_this);
+    return _this;
+  }
 
-        _this.onNameChange = _this.onNameChange.bind(_this);
-        _this.deleteGame = _this.deleteGame.bind(_this);
-        _this.selectGame = _this.selectGame.bind(_this);
-        _this.loadGame = _this.loadGame.bind(_this);
-
-        return _this;
+  _createClass(GameStartScreen, [{
+    key: 'onNameChange',
+    value: function onNameChange(evt) {
+      var name = evt.target.value;
+      evt.stopPropagation();
+      this.props.setPlayerName(name);
     }
 
-    _createClass(GameStartScreen, [{
-        key: 'onNameChange',
-        value: function onNameChange(evt) {
-            var name = evt.target.value;
-            this.props.setPlayerName(name);
-            this.setState({ playerName: evt.target.value });
-        }
+    /* Loads a saved game.*/
 
-        /* Loads a saved game.*/
+  }, {
+    key: 'loadGame',
+    value: function loadGame() {
+      this.props.loadGame(this.props.selectedGame);
+    }
+  }, {
+    key: 'deleteGame',
+    value: function deleteGame() {
+      this.props.deleteGame(this.props.selectedGame);
+    }
+  }, {
+    key: 'selectGame',
+    value: function selectGame(name) {
+      this.props.selectGame(name);
+    }
+  }, {
+    key: 'render',
+    value: function render() {
+      var _this2 = this,
+          _React$createElement;
 
-    }, {
-        key: 'loadGame',
-        value: function loadGame() {
-            this.props.loadGame(this.props.selectedGame);
-        }
-    }, {
-        key: 'deleteGame',
-        value: function deleteGame() {
-            this.props.deleteGame(this.props.selectedGame);
-        }
-    }, {
-        key: 'selectGame',
-        value: function selectGame(name) {
-            // this.setState({selectedGame: name});
-            this.props.selectGame(name);
-        }
-    }, {
-        key: 'render',
-        value: function render() {
-            var _this2 = this,
-                _React$createElement;
+      var setLoot = this.props.setLoot;
+      var setMonsters = this.props.setMonsters;
+      var setLevelSize = this.props.setLevelSize;
+      var setPlayerLevel = this.props.setPlayerLevel;
+      var setGameLength = this.props.setGameLength;
+      var setDebugMode = this.props.setDebugMode;
 
-            var setLoot = this.props.setLoot;
-            var setMonsters = this.props.setMonsters;
-            var setLevelSize = this.props.setLevelSize;
-            var setPlayerLevel = this.props.setPlayerLevel;
-            var setGameLength = this.props.setGameLength;
-            var setDebugMode = this.props.setDebugMode;
+      var savedPlayerList = this.props.savedPlayerList;
+      var playerListHTML = savedPlayerList.map(function (val, index) {
+        return React.createElement(
+          'div',
+          {
+            className: 'player-list-item', key: index,
+            onClick: _this2.selectGame.bind(_this2, val.name)
+          },
+          'Name: ',
+          val.name,
+          ', L: ',
+          val.expLevel,
+          ' DL: ',
+          val.dungeonLevel
+        );
+      });
 
-            var savedPlayerList = this.props.savedPlayerList;
-            var playerListHTML = savedPlayerList.map(function (val, index) {
-                return React.createElement(
-                    'div',
-                    {
-                        className: 'player-list-item', key: index,
-                        onClick: _this2.selectGame.bind(_this2, val.name)
-                    },
-                    'Name: ',
-                    val.name,
-                    ', L: ',
-                    val.expLevel,
-                    ' DL: ',
-                    val.dungeonLevel
-                );
-            });
-
-            var newGame = this.props.newGame;
-            var titleTextLoad = RG.gameTitle + ' Load a game';
-            return React.createElement(
+      var newGame = this.props.newGame;
+      var titleTextLoad = RG.gameTitle + ' Load a game';
+      return React.createElement(
+        'div',
+        { id: 'game-start-screen' },
+        React.createElement(
+          'div',
+          {
+            'aria-hidden': 'true',
+            'aria-labelledby': 'game-load-modal-label',
+            className: 'modal fade',
+            id: 'gameLoadModal',
+            role: 'dialog',
+            tabIndex: '-1'
+          },
+          React.createElement(
+            'div',
+            { className: 'modal-dialog modal-lg' },
+            React.createElement(
+              'div',
+              { className: 'modal-content' },
+              React.createElement(ModalHeader, {
+                id: 'game-load-modal-label',
+                text: titleTextLoad
+              }),
+              React.createElement(
                 'div',
-                { id: 'game-start-screen' },
+                { className: 'modal-body row' },
+                playerListHTML,
                 React.createElement(
-                    'div',
+                  'p',
+                  null,
+                  'Selected game: ',
+                  this.props.selectedGame
+                )
+              ),
+              React.createElement(
+                'div',
+                { className: 'modal-footer row' },
+                React.createElement(
+                  'div',
+                  { className: 'col-md-6' },
+                  React.createElement(
+                    'button',
                     {
-                        'aria-hidden': 'true',
-                        'aria-labelledby': 'game-load-modal-label',
-                        className: 'modal fade',
-                        id: 'gameLoadModal',
-                        role: 'dialog',
-                        tabIndex: '-1'
+                      className: 'btn btn-secondary btn-warning',
+                      'data-dismiss': 'modal',
+                      onClick: this.loadGame,
+                      type: 'button'
                     },
-                    React.createElement(
-                        'div',
-                        { className: 'modal-dialog modal-lg' },
-                        React.createElement(
-                            'div',
-                            { className: 'modal-content' },
-                            React.createElement(ModalHeader, {
-                                id: 'game-load-modal-label',
-                                text: titleTextLoad
-                            }),
-                            React.createElement(
-                                'div',
-                                { className: 'modal-body row' },
-                                playerListHTML,
-                                React.createElement(
-                                    'p',
-                                    null,
-                                    'Selected game: ',
-                                    this.props.selectedGame
-                                )
-                            ),
-                            React.createElement(
-                                'div',
-                                { className: 'modal-footer row' },
-                                React.createElement(
-                                    'div',
-                                    { className: 'col-md-6' },
-                                    React.createElement(
-                                        'button',
-                                        {
-                                            className: 'btn btn-secondary btn-warning',
-                                            'data-dismiss': 'modal',
-                                            onClick: this.loadGame,
-                                            type: 'button'
-                                        },
-                                        'Load'
-                                    ),
-                                    React.createElement(
-                                        'button',
-                                        {
-                                            className: 'btn btn-secondary btn-danger',
-                                            onClick: this.deleteGame,
-                                            type: 'button'
-                                        },
-                                        'Delete'
-                                    )
-                                )
-                            )
-                        )
-                    )
+                    'Load'
+                  ),
+                  React.createElement(
+                    'button',
+                    {
+                      className: 'btn btn-secondary btn-danger',
+                      onClick: this.deleteGame,
+                      type: 'button'
+                    },
+                    'Delete'
+                  )
+                )
+              )
+            )
+          )
+        ),
+        React.createElement(
+          'div',
+          (_React$createElement = {
+            'aria-hidden': 'true',
+            'aria-labelledby': 'game-start-modal-label',
+            className: 'modal fade',
+            id: 'gameStartModal',
+            role: 'dialog'
+          }, _defineProperty(_React$createElement, 'role', 'dialog'), _defineProperty(_React$createElement, 'tabIndex', '-1'), _React$createElement),
+          React.createElement(
+            'div',
+            { className: 'modal-dialog modal-lg' },
+            React.createElement(
+              'div',
+              { className: 'modal-content' },
+              React.createElement(ModalHeader, {
+                id: 'game-start-modal-label',
+                text: RG.gameTitle
+              }),
+              React.createElement(
+                'div',
+                { className: 'modal-body row' },
+                React.createElement(
+                  'div',
+                  { className: 'col-md-6', id: 'prologue-box' },
+                  React.createElement(
+                    'p',
+                    null,
+                    'Welcome to the wintry realms! Winds are ever-blowing. Blowing off the glaciers. Are you ready to face the challenges of the icy north? Hunger, coldness, ravenous beasts, glacial chasms and forthcoming eternal winter are waiting for you in the darkness.'
+                  ),
+                  React.createElement(
+                    'p',
+                    null,
+                    'You have come a long way from your homelands seeking the thrill of the adventure. Now, you must fight freezing battles in the north against hordes of winter demons and blizzard beasts. Will you bring back the peace to the grim and frostbitten kingdoms. Or will you bring the Winter of Ages upon its lands, reigning your kingdom cold for all eternity? Or will you perish nameless and forgotten on the icy wastes?'
+                  ),
+                  React.createElement(
+                    'label',
+                    null,
+                    'You\'ll be forgotten as:',
+                    React.createElement('input', {
+                      onChange: this.onNameChange,
+                      type: 'text',
+                      value: this.props.playerName
+                    })
+                  )
                 ),
                 React.createElement(
-                    'div',
-                    (_React$createElement = {
-                        'aria-hidden': 'true',
-                        'aria-labelledby': 'game-start-modal-label',
-                        className: 'modal fade',
-                        id: 'gameStartModal',
-                        role: 'dialog'
-                    }, _defineProperty(_React$createElement, 'role', 'dialog'), _defineProperty(_React$createElement, 'tabIndex', '-1'), _React$createElement),
-                    React.createElement(
-                        'div',
-                        { className: 'modal-dialog modal-lg' },
-                        React.createElement(
-                            'div',
-                            { className: 'modal-content' },
-                            React.createElement(ModalHeader, {
-                                id: 'game-start-modal-label',
-                                text: RG.gameTitle
-                            }),
-                            React.createElement(
-                                'div',
-                                { className: 'modal-body row' },
-                                React.createElement(
-                                    'div',
-                                    { className: 'col-md-6', id: 'prologue-box' },
-                                    React.createElement(
-                                        'p',
-                                        null,
-                                        'Welcome to the wintry realms! Winds are ever-blowing. Blowing off the glaciers. Are you ready to face the challenges of the icy north? Hunger, coldness, ravenous beasts, glacial chasms and forthcoming eternal winter are waiting for you in the darkness.'
-                                    ),
-                                    React.createElement(
-                                        'p',
-                                        null,
-                                        'You have come a long way from your homelands seeking the thrill of the adventure. Now, you must fight freezing battles in the north against hordes of winter demons and blizzard beasts. Will you bring back the peace to the grim and frostbitten kingdoms. Or will you bring the Winter of Ages upon its lands, reigning your kingdom cold for all eternity? Or will you perish nameless and forgotten on the icy wastes?'
-                                    ),
-                                    React.createElement(
-                                        'label',
-                                        null,
-                                        'You\'ll be forgotten as:',
-                                        React.createElement('input', {
-                                            onChange: this.onNameChange,
-                                            type: 'text',
-                                            value: this.state.playerName
-                                        })
-                                    )
-                                ),
-                                React.createElement(
-                                    'div',
-                                    { className: 'col-md-6', id: 'game-options-box' },
-                                    React.createElement(
-                                        'p',
-                                        null,
-                                        'Customisation'
-                                    ),
-                                    React.createElement(RadioButtons, {
-                                        buttons: ['Short', 'Medium', 'Long', 'Epic'],
-                                        callback: setGameLength,
-                                        titleName: 'Game length'
-                                    }),
-                                    React.createElement(RadioButtons, {
-                                        buttons: ['Sparse', 'Medium', 'Abundant'],
-                                        callback: setLoot,
-                                        titleName: 'Loot'
-                                    }),
-                                    React.createElement(RadioButtons, {
-                                        buttons: ['Sparse', 'Medium', 'Abundant'],
-                                        callback: setMonsters,
-                                        titleName: 'Monsters'
-                                    }),
-                                    React.createElement(RadioButtons, {
-                                        buttons: ['Small', 'Medium', 'Large', 'Huge'],
-                                        callback: setLevelSize,
-                                        titleName: 'Levels'
-                                    }),
-                                    React.createElement(RadioButtons, {
-                                        buttons: ['Weak', 'Medium', 'Strong', 'Inhuman'],
-                                        callback: setPlayerLevel,
-                                        titleName: 'Player'
-                                    }),
-                                    React.createElement(RadioButtons, {
-                                        buttons: ['Off', 'Arena', 'Battle', 'Tiles', 'World'],
-                                        callback: setDebugMode,
-                                        titleName: 'Debug'
-                                    })
-                                )
-                            ),
-                            React.createElement(
-                                'div',
-                                { className: 'modal-footer row' },
-                                React.createElement(
-                                    'div',
-                                    { className: 'col-md-6' },
-                                    React.createElement(
-                                        'button',
-                                        {
-                                            className: 'btn btn-success',
-                                            'data-dismiss': 'modal',
-                                            onClick: newGame,
-                                            type: 'button'
-                                        },
-                                        'Embark!'
-                                    ),
-                                    React.createElement(
-                                        'button',
-                                        {
-                                            className: 'btn btn-secondary btn-warning',
-                                            'data-dismiss': 'modal',
-                                            'data-target': '#gameLoadModal',
-                                            'data-toggle': 'modal',
-                                            type: 'button'
-                                        },
-                                        'Load'
-                                    )
-                                )
-                            )
-                        )
-                    )
+                  'div',
+                  { className: 'col-md-6', id: 'game-options-box' },
+                  React.createElement(
+                    'p',
+                    null,
+                    'Customisation'
+                  ),
+                  React.createElement(RadioButtons, {
+                    buttons: ['Short', 'Medium', 'Long', 'Epic'],
+                    callback: setGameLength,
+                    currValue: this.props.settings.gameLength,
+                    titleName: 'Game length'
+                  }),
+                  React.createElement(RadioButtons, {
+                    buttons: ['Sparse', 'Medium', 'Abundant'],
+                    callback: setLoot,
+                    currValue: this.props.settings.lootType,
+                    titleName: 'Loot'
+                  }),
+                  React.createElement(RadioButtons, {
+                    buttons: ['Sparse', 'Medium', 'Abundant'],
+                    callback: setMonsters,
+                    currValue: this.props.settings.monstType,
+                    titleName: 'Monsters'
+                  }),
+                  React.createElement(RadioButtons, {
+                    buttons: ['Small', 'Medium', 'Large', 'Huge'],
+                    callback: setLevelSize,
+                    currValue: this.props.settings.levelSize,
+                    titleName: 'Levels'
+                  }),
+                  React.createElement(RadioButtons, {
+                    buttons: ['Weak', 'Medium', 'Strong', 'Inhuman'],
+                    callback: setPlayerLevel,
+                    currValue: this.props.settings.playerLevel,
+                    titleName: 'Player'
+                  }),
+                  React.createElement(RadioButtons, {
+                    buttons: ['Off', 'Arena', 'Battle', 'Tiles', 'World'],
+                    callback: setDebugMode,
+                    currValue: this.props.settings.debugMode,
+                    titleName: 'Debug'
+                  })
                 )
-            );
-        }
-    }]);
+              ),
+              React.createElement(
+                'div',
+                { className: 'modal-footer row' },
+                React.createElement(
+                  'div',
+                  { className: 'col-md-6' },
+                  React.createElement(
+                    'button',
+                    {
+                      className: 'btn btn-primary',
+                      'data-dismiss': 'modal',
+                      onClick: this.props.toggleEditor,
+                      type: 'button'
+                    },
+                    'Editor'
+                  ),
+                  React.createElement(
+                    'button',
+                    {
+                      className: 'btn btn-success',
+                      'data-dismiss': 'modal',
+                      onClick: newGame,
+                      type: 'button'
+                    },
+                    'Embark!'
+                  ),
+                  React.createElement(
+                    'button',
+                    {
+                      className: 'btn btn-secondary btn-warning',
+                      'data-dismiss': 'modal',
+                      'data-target': '#gameLoadModal',
+                      'data-toggle': 'modal',
+                      type: 'button'
+                    },
+                    'Load'
+                  )
+                )
+              )
+            )
+          )
+        )
+      );
+    }
+  }]);
 
-    return GameStartScreen;
+  return GameStartScreen;
 }(React.Component);
 
 GameStartScreen.propTypes = {
-    deleteGame: React.PropTypes.func,
-    loadGame: React.PropTypes.func,
-    savedPlayerList: React.PropTypes.array,
-    setPlayerName: React.PropTypes.func,
+  settings: React.PropTypes.object,
+  deleteGame: React.PropTypes.func,
+  loadGame: React.PropTypes.func,
+  savedPlayerList: React.PropTypes.array,
+  setPlayerName: React.PropTypes.func,
+  playerName: React.PropTypes.string,
 
-    setLoot: React.PropTypes.func,
-    setMonsters: React.PropTypes.func,
-    setLevelSize: React.PropTypes.func,
-    setPlayerLevel: React.PropTypes.func,
-    setGameLength: React.PropTypes.func,
-    setDebugMode: React.PropTypes.func,
+  setLoot: React.PropTypes.func,
+  setMonsters: React.PropTypes.func,
+  setLevelSize: React.PropTypes.func,
+  setPlayerLevel: React.PropTypes.func,
+  setGameLength: React.PropTypes.func,
+  setDebugMode: React.PropTypes.func,
 
-    newGame: React.PropTypes.func,
-    selectedGame: React.PropTypes.string,
-    selectGame: React.PropTypes.func
+  newGame: React.PropTypes.func,
+  selectedGame: React.PropTypes.string,
+  selectGame: React.PropTypes.func,
+
+  toggleEditor: React.PropTypes.func
 };
 
 module.exports = GameStartScreen;
 
-},{"../src/battles.js":22,"./modal-header":18,"./radio-buttons":19,"react":221}],17:[function(require,module,exports){
+},{"../src/battles.js":25,"./modal-header":20,"./radio-buttons":21,"react":224}],19:[function(require,module,exports){
 'use strict';
 
 var React = require('react');
@@ -2450,7 +2923,7 @@ var GameStats = React.createClass({
 
 module.exports = GameStats;
 
-},{"../src/rg.js":35,"react":221}],18:[function(require,module,exports){
+},{"../src/rg.js":38,"react":224}],20:[function(require,module,exports){
 'use strict';
 
 var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
@@ -2516,7 +2989,7 @@ ModalHeader.propTypes = {
 
 module.exports = ModalHeader;
 
-},{"react":221}],19:[function(require,module,exports){
+},{"react":224}],21:[function(require,module,exports){
 'use strict';
 
 var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
@@ -2540,12 +3013,7 @@ var RadioButtons = function (_React$Component) {
 
         var _this = _possibleConstructorReturn(this, (RadioButtons.__proto__ || Object.getPrototypeOf(RadioButtons)).call(this, props));
 
-        _this.state = {
-            activeButton: ''
-        };
-
         _this.onButtonClick = _this.onButtonClick.bind(_this);
-
         return _this;
     }
 
@@ -2553,20 +3021,19 @@ var RadioButtons = function (_React$Component) {
         key: 'onButtonClick',
         value: function onButtonClick(name) {
             this.props.callback(name);
-            this.setState({ activeButton: name });
         }
     }, {
         key: 'render',
         value: function render() {
             var _this2 = this;
 
+            var currValue = this.props.currValue;
             var buttons = this.props.buttons;
 
             // Generate buttons using map
             var buttonList = buttons.map(function (name, index) {
-
                 var classes = 'btn btn-primary';
-                if (_this2.state.activeButton === name) {
+                if (currValue === name) {
                     classes = 'btn btn-success active';
                 }
 
@@ -2602,12 +3069,13 @@ var RadioButtons = function (_React$Component) {
 RadioButtons.propTypes = {
     buttons: React.PropTypes.array,
     callback: React.PropTypes.func,
+    currValue: React.PropTypes.string,
     titleName: React.PropTypes.string
 };
 
 module.exports = RadioButtons;
 
-},{"react":221}],20:[function(require,module,exports){
+},{"react":224}],22:[function(require,module,exports){
 'use strict';
 
 var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
@@ -2634,14 +3102,13 @@ var GamePanel = require('./game-panel');
 var GameMessages = require('./game-messages');
 var GameStats = require('./game-stats');
 var GameBoard = require('./game-board');
+var GameEditor = require('./game-editor');
+
+var Screen = require('../gui/screen');
 
 var Persist = require('../src/persist');
 
 var worldConf = require('../data/conf.world');
-
-/* Top-level component which renders all other components. Keeps also track
- * of the current game state.
- */
 
 /* Contains logic that is not tightly coupled to the GUI.*/
 
@@ -2724,18 +3191,26 @@ var BattlesTop = function (_React$Component) {
         _this.resetGameState();
 
         _this.viewportPlayerX = 35; // * 2
-        _this.viewportPlayerY = 12; // * 2
+        _this.viewportPlayerY = 15; // * 2
         _this.viewportX = 35; // * 2
-        _this.viewportY = 12; // * 2
+        _this.viewportY = 15; // * 2
+
+        _this.screen = new Screen(_this.viewportX, _this.viewportY);
 
         // Simple configuration for the game
         _this.gameConf = {
-            cols: 80,
-            rows: 60,
+            cols: 60,
+            rows: 30,
             levels: 2,
+
             playerLevel: 'Medium',
-            sqrPerMonster: 40,
-            sqrPerItem: 100,
+            gameLength: 'Medium',
+            levelSize: 'Medium',
+            monstType: 'Medium',
+            lootType: 'Medium',
+
+            sqrPerMonster: 120,
+            sqrPerItem: 120,
             debugMode: false,
             loadedPlayer: null,
             loadedLevel: null,
@@ -2761,23 +3236,38 @@ var BattlesTop = function (_React$Component) {
             loadInProgress: false,
             mapShown: false,
             invMsgStyle: '',
+            playerName: 'Player',
             render: true,
             renderFullScreen: false,
             saveInProgress: false,
             selectedCell: null,
             selectedGame: null,
-            selectedItem: null
+            selectedItem: null,
+
+            playerLevel: 'Medium',
+            gameLength: 'Medium',
+            levelSize: 'Medium',
+            monstType: 'Medium',
+            lootType: 'Medium',
+            debugMode: 'Off',
+
+            showEditor: false
         };
 
         // Binding of callbacks
         _this.bindCallbacks();
         _this.initGUICommandTable();
-        ROT.RNG.setSeed(0); // TODO
-        RG.RAND.setSeed(0);
+        ROT.RNG.setSeed(1); // TODO
+        RG.RAND.setSeed(1);
         return _this;
     }
 
     _createClass(BattlesTop, [{
+        key: 'toggleEditor',
+        value: function toggleEditor() {
+            this.setState({ showEditor: !this.state.showEditor });
+        }
+    }, {
         key: 'selectSaveGame',
         value: function selectSaveGame(name) {
             console.log('Top select save game clicked with name ' + name);
@@ -2800,6 +3290,7 @@ var BattlesTop = function (_React$Component) {
         key: 'setPlayerName',
         value: function setPlayerName(name) {
             this.gameConf.playerName = name;
+            this.setState({ playerName: name });
         }
 
         /* Sets the size of the shown map.*/
@@ -2821,6 +3312,7 @@ var BattlesTop = function (_React$Component) {
                     this.viewportY -= 2;
                 }
             }
+            this.screen.setViewportXY(this.viewportX, this.viewportY);
             this.setState({ render: true, renderFullScreen: true });
         }
 
@@ -2834,6 +3326,9 @@ var BattlesTop = function (_React$Component) {
                 this.viewportPlayerY = this.viewportY;
                 this.viewportX = this.game.getPlayer().getLevel().getMap().cols;
                 this.viewportY = this.game.getPlayer().getLevel().getMap().rows;
+                this.screen.setMapShown(true);
+                this.screen.setViewportXY(this.viewportX, this.viewportY);
+
                 this.setState({
                     render: true, renderFullScreen: true,
                     boardClassName: 'game-board-map-view',
@@ -2842,6 +3337,8 @@ var BattlesTop = function (_React$Component) {
             } else if (type === 'player') {
                 this.viewportX = this.viewportPlayerX;
                 this.viewportY = this.viewportPlayerY;
+                this.screen.setMapShown(false);
+                this.screen.setViewportXY(this.viewportX, this.viewportY);
                 this.setState({
                     render: true, renderFullScreen: true,
                     boardClassName: 'game-board-player-view',
@@ -3101,13 +3598,39 @@ var BattlesTop = function (_React$Component) {
             var player = this.game.getPlayer();
             var inv = player.getInvEq().getInventory();
             var eq = player.getInvEq().getEquipment();
-            var fullScreen = this.state.renderFullScreen;
             var maxWeight = player.getMaxWeight();
 
             var message = [];
             if (this.game.hasNewMessages()) {
                 message = this.game.getMessages();
             }
+
+            var settings = {
+                playerLevel: this.state.playerLevel,
+                gameLength: this.state.gameLength,
+                levelSize: this.state.levelSize,
+                monstType: this.state.monstType,
+                lootType: this.state.lootType,
+                debugMode: this.state.debugMode
+            };
+
+            // All computations for the GameBoard
+            var mapShown = this.state.mapShown;
+            var rowClass = 'cell-row-div-player-view';
+            if (mapShown) {
+                rowClass = 'cell-row-div-map-view';
+            }
+
+            var playX = player.getX();
+            var playY = player.getY();
+            if (map) {
+                this.screen.render(playX, playY, map, this.gameState.visibleCells);
+            } else {
+                console.log('map undefined');
+            }
+            var charRows = this.screen.getCharRows();
+            var classRows = this.screen.getClassRows();
+            var startX = this.screen.getStartX();
 
             return React.createElement(
                 'div',
@@ -3116,6 +3639,7 @@ var BattlesTop = function (_React$Component) {
                     deleteGame: this.deleteGame,
                     loadGame: this.loadGame,
                     newGame: this.newGame,
+                    playerName: this.state.playerName,
                     savedPlayerList: this.savedPlayerList,
                     selectedGame: this.state.selectedGame,
                     selectGame: this.selectSaveGame,
@@ -3125,10 +3649,12 @@ var BattlesTop = function (_React$Component) {
                     setLoot: this.setLoot,
                     setMonsters: this.setMonsters,
                     setPlayerLevel: this.setPlayerLevel,
-                    setPlayerName: this.setPlayerName
+                    setPlayerName: this.setPlayerName,
+                    settings: settings,
+                    toggleEditor: this.toggleEditor
                 }),
                 React.createElement(GameHelpScreen, null),
-                React.createElement(GameInventory, {
+                !this.state.showEditor && React.createElement(GameInventory, {
                     doInvCmd: this.doInvCmd,
                     eq: eq,
                     equipSelected: this.state.equipSelected,
@@ -3142,7 +3668,7 @@ var BattlesTop = function (_React$Component) {
                     selectItemTop: this.selectItemTop,
                     setInventoryMsg: this.setInventoryMsg
                 }),
-                React.createElement(
+                !this.state.showEditor && React.createElement(
                     'div',
                     { className: 'row game-panel-div' },
                     React.createElement(
@@ -3181,19 +3707,18 @@ var BattlesTop = function (_React$Component) {
                             { className: 'game-board-div' },
                             React.createElement(GameBoard, {
                                 boardClassName: this.state.boardClassName,
-                                map: map,
-                                mapShown: this.state.mapShown,
+                                charRows: charRows,
+                                classRows: classRows,
+                                endY: this.screen.endY,
                                 onCellClick: this.onCellClick,
-                                player: player,
-                                renderFullScreen: fullScreen,
-                                selectedCell: this.state.selectedCell,
-                                viewportX: this.viewportX,
-                                viewportY: this.viewportY,
-                                visibleCells: this.gameState.visibleCells
+                                rowClass: rowClass,
+                                startX: startX,
+                                startY: this.screen.startY
                             })
                         )
                     )
-                )
+                ),
+                this.state.showEditor && React.createElement(GameEditor, null)
             );
         }
 
@@ -3297,7 +3822,9 @@ var BattlesTop = function (_React$Component) {
                     this.gameState.autoTarget = true;
                     this.game.update({ cmd: 'missile', target: cell });
                     this.gameState.visibleCells = this.game.visibleCells;
+                    this.screen.setSelectedCell(null);
                     this.setState({ selectedCell: null });
+                    this.screen.setSelectedCell(null);
                 }
                 this.gameState.autoTarget = false;
                 this.gameState.isTargeting = false;
@@ -3309,6 +3836,7 @@ var BattlesTop = function (_React$Component) {
 
                 if (this.gameState.enemyCells.length > 0) {
                     var _cell = this.gameState.enemyCells[0];
+                    this.screen.setSelectedCell(_cell);
                     this.setState({ selectedCell: _cell });
                     console.log('GUITarget found selected cell');
                 }
@@ -3341,6 +3869,7 @@ var BattlesTop = function (_React$Component) {
                     }
 
                     var nextCell = this.gameState.enemyCells[numNextCell];
+                    this.screen.setSelectedCell(nextCell);
                     this.setState({ selectedCell: nextCell });
                     this.gameState.numCurrCell = numNextCell;
                 }
@@ -3356,54 +3885,68 @@ var BattlesTop = function (_React$Component) {
         value: function setLoot(lootType) {
             switch (lootType) {
                 case 'Sparse':
-                    this.gameConf.sqrPerItem = 200;break;
+                    this.gameConf.sqrPerItem = RG.LOOT_SPARSE_SQR;break;
                 case 'Medium':
-                    this.gameConf.sqrPerItem = 120;break;
+                    this.gameConf.sqrPerItem = RG.LOOT_MEDIUM_SQR;break;
                 case 'Abundant':
-                    this.gameConf.sqrPerItem = 50;break;
+                    {
+                        this.gameConf.sqrPerItem = RG.LOOT_ABUNDANT_SQR;break;
+                    }
                 default:
                     console.error('setLoot illegal lootType ' + lootType);
             }
+            this.gameConf.lootType = lootType;
+            this.setState({ lootType: lootType });
         }
     }, {
         key: 'setMonsters',
         value: function setMonsters(monstType) {
             switch (monstType) {
                 case 'Sparse':
-                    this.gameConf.sqrPerMonster = 200;break;
+                    {
+                        this.gameConf.sqrPerMonster = RG.ACTOR_SPARSE_SQR;break;
+                    }
                 case 'Medium':
-                    this.gameConf.sqrPerMonster = 120;break;
+                    {
+                        this.gameConf.sqrPerMonster = RG.ACTOR_MEDIUM_SQR;break;
+                    }
                 case 'Abundant':
-                    this.gameConf.sqrPerMonster = 50;break;
+                    {
+                        this.gameConf.sqrPerMonster = RG.ACTOR_ABUNDANT_SQR;break;
+                    }
                 default:
                     console.error('setMonsters illegal monstType ' + monstType);
             }
+            this.gameConf.monstType = monstType;
+            this.setState({ monstType: monstType });
         }
     }, {
         key: 'setLevelSize',
         value: function setLevelSize(levelSize) {
             switch (levelSize) {
                 case 'Small':
-                    this.gameConf.cols = 40;
-                    this.gameConf.rows = 20;break;
+                    this.gameConf.cols = RG.LEVEL_SMALL_X;
+                    this.gameConf.rows = RG.LEVEL_SMALL_Y;break;
                 case 'Medium':
-                    this.gameConf.cols = 60;
-                    this.gameConf.rows = 30;break;
+                    this.gameConf.cols = RG.LEVEL_MEDIUM_X;
+                    this.gameConf.rows = RG.LEVEL_MEDIUM_Y;break;
                 case 'Large':
-                    this.gameConf.cols = 80;
-                    this.gameConf.rows = 40;break;
+                    this.gameConf.cols = RG.LEVEL_LARGE_X;
+                    this.gameConf.rows = RG.LEVEL_LARGE_Y;break;
                 case 'Huge':
-                    this.gameConf.cols = 140;
-                    this.gameConf.rows = 60;break;
+                    this.gameConf.cols = RG.LEVEL_HUGE_X;
+                    this.gameConf.rows = RG.LEVEL_HUGE_Y;break;
                 default:
                     console.error('setLeveSize illegal size ' + levelSize);
             }
             this.gameConf.levelSize = levelSize;
+            this.setState({ levelSize: levelSize });
         }
     }, {
         key: 'setPlayerLevel',
         value: function setPlayerLevel(level) {
             this.gameConf.playerLevel = level;
+            this.setState({ playerLevel: level });
         }
     }, {
         key: 'setGameLength',
@@ -3421,6 +3964,7 @@ var BattlesTop = function (_React$Component) {
                     console.error('setGameLength illegal length ' + length);
             }
             this.gameConf.gameLength = length;
+            this.setState({ gameLength: length });
         }
     }, {
         key: 'setDebugMode',
@@ -3439,6 +3983,7 @@ var BattlesTop = function (_React$Component) {
                 default:
                     console.error('setDebugMode illegal mode ' + mode);
             }
+            this.setState({ debugMode: mode });
         }
     }, {
         key: 'bindCallbacks',
@@ -3484,6 +4029,8 @@ var BattlesTop = function (_React$Component) {
             this.selectEquipTop = this.selectEquipTop.bind(this);
             this.selectItemTop = this.selectItemTop.bind(this);
             this.doInvCmd = this.doInvCmd.bind(this);
+
+            this.toggleEditor = this.toggleEditor.bind(this);
         }
     }]);
 
@@ -3492,7 +4039,7 @@ var BattlesTop = function (_React$Component) {
 
 module.exports = BattlesTop;
 
-},{"../../lib/rot":39,"../data/conf.world":2,"../src/game.js":27,"../src/persist":33,"../src/rg.js":35,"./game-board":6,"./game-help-screen":9,"./game-inventory":10,"./game-messages":13,"./game-panel":14,"./game-start-screen":16,"./game-stats":17,"jquery":65,"react":221}],21:[function(require,module,exports){
+},{"../../lib/rot":42,"../data/conf.world":2,"../gui/screen":5,"../src/game.js":30,"../src/persist":36,"../src/rg.js":38,"./game-board":7,"./game-editor":8,"./game-help-screen":11,"./game-inventory":12,"./game-messages":15,"./game-panel":16,"./game-start-screen":18,"./game-stats":19,"jquery":68,"react":224}],23:[function(require,module,exports){
 'use strict';
 
 var RG = require('./rg.js');
@@ -3581,6 +4128,11 @@ RG.Actor.Rogue = function (name) {
     /* Returns weapon that is wielded by the actor.*/
     this.getWeapon = function () {
         return this._invEq.getWeapon();
+    };
+
+    /* Returns weapon that is wielded by the actor.*/
+    this.getMissileWeapon = function () {
+        return this._invEq.getMissileWeapon();
     };
 
     /* Returns missile equipped by the player.*/
@@ -3801,7 +4353,233 @@ RG.extend2(RG.Actor.Spirit, RG.Actor.Rogue);
 
 module.exports = RG.Actor;
 
-},{"./brain.js":23,"./component.js":24,"./inv.js":28,"./object.js":31,"./rg.js":35}],22:[function(require,module,exports){
+},{"./brain.js":26,"./component.js":27,"./inv.js":31,"./object.js":34,"./rg.js":38}],24:[function(require,module,exports){
+'use strict';
+
+// const RG = require('./battles');
+
+/* eslint-disable max-len */
+/*
+ * Created by Pietro Polsinelli on 15/05/2015. Twitter: @ppolsinelli
+ * Modified by Tuomas Poikela 2017,
+ *  for roguelike Battles in the North
+ *
+ * First inspired by the simplicity of
+ * http:// stackoverflow.com/questions/4241824/creating-an-ai-behavior-tree-in-c-sharp-how
+ *
+ */
+
+function SelectorNode(condFunc, actionIfTrue, actionIfFalse) {
+    this.condFunc = condFunc;
+    this.actionIfTrue = actionIfTrue;
+    this.actionIfFalse = actionIfFalse;
+}
+
+function SequencerNode(actionArray) {
+    this.actionArray = actionArray;
+}
+
+function SelectorRandomNode(actionArray) {
+    this.actionArray = actionArray;
+}
+
+function SequencerRandomNode(actionArray) {
+    this.actionArray = actionArray;
+}
+
+//--------------------------------------------------------------------
+// Utility functions
+//--------------------------------------------------------------------
+
+/*
+ * From http:// stackoverflow.com/questions/2450954/how-to-randomize-shuffle-a-javascript-array
+ */
+function shuffle(array) {
+    var currentIndex = array.length,
+        temporaryValue = void 0,
+        randomIndex = void 0;
+
+    // While there remain elements to shuffle...
+    while (0 !== currentIndex) {
+
+        // Pick a remaining element...
+        randomIndex = Math.floor(Math.random() * currentIndex);
+        currentIndex -= 1;
+
+        // And swap it with the current element.
+        temporaryValue = array[currentIndex];
+        array[currentIndex] = array[randomIndex];
+        array[randomIndex] = temporaryValue;
+    }
+
+    return array;
+}
+
+function startBehavTree(behaviourTreeNode, actor) {
+    var resArray = [];
+    execBehavTree(behaviourTreeNode, actor, resArray);
+    return resArray;
+}
+
+function execBehavTree(behaviourTreeNode, actor, resArray) {
+    if (typeof actor.completedCurrentAction === 'undefined' || actor.completedCurrentAction === true) {
+
+        if (Object.getPrototypeOf(behaviourTreeNode) === SelectorNode.prototype) {
+            selector(behaviourTreeNode, actor, resArray);
+        } else if (Object.getPrototypeOf(behaviourTreeNode) === SequencerNode.prototype) {
+            sequencer(behaviourTreeNode, actor, resArray);
+        } else if (Object.getPrototypeOf(behaviourTreeNode) === SequencerRandomNode.prototype) {
+            sequencerRandom(behaviourTreeNode, actor, resArray);
+        } else if (Object.getPrototypeOf(behaviourTreeNode) === SelectorRandomNode.prototype) {
+            selectorRandom(behaviourTreeNode, actor, resArray);
+        } else {
+            var res = behaviourTreeNode(actor);
+            if (typeof res === 'function') {
+                resArray.push(res);
+            }
+            return res;
+        }
+    }
+    return function () {};
+}
+
+// Private functions
+
+function selector(selectorNode, actor, arr) {
+    if (execBehavTree(selectorNode.condFunc, actor, arr)) {
+        execBehavTree(selectorNode.actionIfTrue, actor, arr);
+    } else {
+        execBehavTree(selectorNode.actionIfFalse, actor, arr);
+    }
+}
+
+function sequencer(sequencerNode, actor, arr) {
+    for (var i = 0; i < sequencerNode.actionArray.length; i++) {
+        execBehavTree(sequencerNode.actionArray[i], actor, arr);
+    }
+}
+
+function sequencerRandom(sequencerRandomNode, actor, arr) {
+    shuffle(sequencerRandomNode.actionArray);
+    for (var i = 0; i < sequencerRandomNode.actionArray.length; i++) {
+        execBehavTree(sequencerRandomNode.actionArray[i], actor, arr);
+    }
+}
+
+function selectorRandom(selectorRandomNode, actor, arr) {
+    var randomIndex = Math.floor(Math.random() * selectorRandomNode.actionArray.length);
+    execBehavTree(selectorRandomNode.actionArray[randomIndex], actor, arr);
+}
+
+/*
+function tick(behaviourTreeNode, actor) {
+    setInterval(function() {
+        execBehavTree(behaviourTreeNode, actor);
+    }, 50);
+}
+*/
+
+//----------------------------------------------------------------------
+// MODELS
+//----------------------------------------------------------------------
+
+var Models = {}; // Namespace for models
+
+Models.Rogue = {};
+
+Models.Rogue.ifPlayerIsInSight = function (actor) {
+    var brain = actor.getBrain();
+    var seenCells = brain.getSeenCells();
+    var playerCell = brain.findEnemyCell(seenCells);
+    return playerCell !== null;
+};
+
+Models.Rogue.attackEnemy = function (actor) {
+    var brain = actor.getBrain();
+    var seenCells = brain.getSeenCells();
+    var playerCell = brain.findEnemyCell(seenCells);
+    return brain.actionTowardsEnemy(playerCell);
+};
+
+/* Returns true if actor has 10% of health. */
+Models.Rogue.ifSeriouslyWounded = function (actor) {
+    var healthComp = actor.get('Health');
+    var thr = Math.round(healthComp.getMaxHP() * 0.1);
+    return healthComp.getHP() <= thr;
+};
+
+Models.Rogue.flee = function (actor) {
+    var brain = actor.getBrain();
+    var seenCells = brain.getSeenCells();
+    var playerCell = brain.findEnemyCell(seenCells);
+    return brain.fleeFromCell(playerCell, seenCells);
+};
+
+Models.Rogue.exploreLevel = function (actor) {
+    var brain = actor.getBrain();
+    var seenCells = brain.getSeenCells();
+    return brain.exploreLevel(seenCells);
+};
+
+Models.Rogue.Nodes = {};
+
+Models.Rogue.Nodes.combat = new SelectorNode(Models.Rogue.ifSeriouslyWounded, Models.Rogue.flee, Models.Rogue.attackEnemy);
+
+Models.Rogue.tree = new SelectorNode(Models.Rogue.ifPlayerIsInSight, Models.Rogue.Nodes.combat, Models.Rogue.exploreLevel);
+
+/* Human models for AI. */
+Models.Human = {};
+
+Models.Human.isEnemyInSight = function (actor) {
+    return Models.Rogue.ifPlayerIsInSight(actor);
+};
+
+Models.Human.willCommunicate = function (actor) {
+    return actor.getBrain().willCommunicate();
+};
+
+Models.Human.communicateEnemies = function (actor) {
+    return actor.getBrain().communicateEnemies();
+};
+
+Models.Human.tree = new SelectorNode(Models.Human.isEnemyInSight, new SelectorNode(Models.Human.willCommunicate, Models.Human.communicateEnemies, Models.Rogue.Nodes.combat), Models.Rogue.exploreLevel);
+
+//------------------------------
+/* Demon models for AI. */
+//------------------------------
+Models.Demon = {};
+
+// Models.Demon.tree =  {};
+
+//------------------------------
+/* Summoner models for AI. */
+//------------------------------
+Models.Summoner = {};
+
+Models.Summoner.willSummon = function (actor) {
+    return actor.getBrain().willSummon();
+};
+
+Models.Summoner.summonMonster = function (actor) {
+    return actor.getBrain().summonMonster();
+};
+
+Models.Summoner.tree = new SelectorNode(Models.Rogue.ifPlayerIsInSight, new SelectorNode(Models.Summoner.willSummon, Models.Summoner.summonMonster, Models.Rogue.tree), Models.Rogue.exploreLevel);
+
+// Object for exports
+var BTree = {
+    SelectorNode: SelectorNode,
+    SequencerNode: SequencerNode,
+    SelectorRandomNode: SelectorRandomNode,
+    SequencerRandomNode: SequencerRandomNode,
+    execBehavTree: execBehavTree,
+    startBehavTree: startBehavTree,
+    Models: Models
+};
+
+module.exports = BTree;
+
+},{}],25:[function(require,module,exports){
 'use strict';
 
 /* Contains all source code modules assigned to RG. */
@@ -3817,6 +4595,7 @@ RG.Item = require('./item.js');
 RG.Time = require('./time.js');
 RG.Component = require('./component.js');
 RG.System = require('./system.js');
+RG.BTree = require('./aisequence.js');
 RG.Brain = require('./brain.js');
 RG.Inv = require('./inv.js');
 RG.Actor = require('./actor.js');
@@ -3830,11 +4609,18 @@ RG.Factory = require('./factory.js');
 
 module.exports = RG;
 
-},{"../data/effects.js":3,"./actor.js":21,"./brain.js":23,"./component.js":24,"./element.js":25,"./factory.js":26,"./game.js":27,"./inv.js":28,"./item.js":29,"./map.js":30,"./object.js":31,"./objectshellparser.js":32,"./random.js":34,"./rg.js":35,"./system.js":36,"./time.js":37,"./world.js":38}],23:[function(require,module,exports){
+},{"../data/effects.js":3,"./actor.js":23,"./aisequence.js":24,"./brain.js":26,"./component.js":27,"./element.js":28,"./factory.js":29,"./game.js":30,"./inv.js":31,"./item.js":32,"./map.js":33,"./object.js":34,"./objectshellparser.js":35,"./random.js":37,"./rg.js":38,"./system.js":39,"./time.js":40,"./world.js":41}],26:[function(require,module,exports){
 'use strict';
 
 var ROT = require('../../lib/rot.js');
 var RG = require('./rg.js');
+var BTree = require('./aisequence');
+
+var Models = BTree.Models;
+
+// Dummy callback to return, if the actor's action provides a state
+// changing action without callback.
+var ACTION_ALREADY_DONE = function ACTION_ALREADY_DONE() {};
 
 //---------------------------------------------------------------------------
 // BRAINS {{{1
@@ -3914,7 +4700,7 @@ RG.Brain.Player = function (actor) {
         }
 
         var code = obj.code;
-        if (!code) {
+        if (RG.isNullOrUndef([code])) {
             RG.err('Brain.Player', 'decideNextAction', 'obj.code must exist. Got obj: ' + JSON.stringify(obj));
         }
 
@@ -4161,8 +4947,20 @@ RG.Brain.Player = function (actor) {
         _restoreBaseSpeed();
         if (obj.cmd === 'missile') {
             var invEq = _actor.getInvEq();
+            // TODO changes to fire more than 1 missile
             var missile = invEq.unequipAndGetItem('missile', 1);
+
             if (!RG.isNullOrUndef([missile])) {
+
+                // Check for missile weapon for ammunition
+                if (missile.has('Ammo')) {
+                    var missWeapon = invEq.getEquipment().getEquipped('missileweapon');
+                    if (missWeapon === null) {
+                        var msg = 'No missile weapon equipped.';
+                        return this.cmdNotPossible(msg);
+                    }
+                }
+
                 if (!RG.isNullOrUndef([obj.target])) {
                     var x = obj.target.getX();
                     var y = obj.target.getY();
@@ -4183,7 +4981,7 @@ RG.Brain.Player = function (actor) {
             if (obj.hasOwnProperty('item')) {
                 var item = obj.item;
                 var result = false;
-                var msg = 'You failed to use ' + item.getName() + '.';
+                var _msg = 'You failed to use ' + item.getName() + '.';
                 if (item.hasOwnProperty('useItem')) {
                     this.energy = RG.energy.USE;
                     item.useItem({ target: obj.target });
@@ -4192,9 +4990,9 @@ RG.Brain.Player = function (actor) {
 
                 if (obj.hasOwnProperty('callback')) {
                     if (result) {
-                        msg = 'You used ' + item.getName() + '!';
+                        _msg = 'You used ' + item.getName() + '!';
                     }
-                    obj.callback({ msg: msg, result: result });
+                    obj.callback({ msg: _msg, result: result });
                 } else if (!result) {
                     return this.cmdNotPossible('You cannot use that item.');
                 }
@@ -4205,7 +5003,7 @@ RG.Brain.Player = function (actor) {
             var _invEq = _actor.getInvEq();
             var actorCell = _actor.getCell();
             var _result = false;
-            var _msg = 'Failed to drop ' + obj.item.getName();
+            var _msg2 = 'Failed to drop ' + obj.item.getName();
             if (actorCell.hasShop()) {
                 var shopElem = actorCell.getPropType('shop')[0];
                 var price = shopElem.getItemPriceForSelling(obj.item);
@@ -4215,30 +5013,30 @@ RG.Brain.Player = function (actor) {
                     var sellOk = shopElem.sellItem(obj.item, _actor);
                     if (obj.hasOwnProperty('callback')) {
                         if (sellOk) {
-                            _msg = obj.item.getName() + ' was sold.';
+                            _msg2 = obj.item.getName() + ' was sold.';
                         } else {
-                            _msg = 'Cannot sell ' + obj.item.getName() + '.';
+                            _msg2 = 'Cannot sell ' + obj.item.getName() + '.';
                         }
-                        obj.callback({ msg: _msg, result: sellOk });
+                        obj.callback({ msg: _msg2, result: sellOk });
                     }
                 };
 
-                _msg = 'Press y to sell item for ' + price + ' gold coins.';
+                _msg2 = 'Press y to sell item for ' + price + ' gold coins.';
                 if (obj.hasOwnProperty('callback')) {
-                    obj.callback({ msg: _msg, result: _result });
+                    obj.callback({ msg: _msg2, result: _result });
                 }
             } else if (_invEq.dropItem(obj.item)) {
                 _result = true;
-                _msg = 'Item dropped!';
+                _msg2 = 'Item dropped!';
             }
             if (obj.hasOwnProperty('callback')) {
-                obj.callback({ msg: _msg, result: _result });
+                obj.callback({ msg: _msg2, result: _result });
             }
         } else if (obj.cmd === 'equip') {
             var _invEq2 = _actor.getInvEq();
             var _item = obj.item;
             var _result2 = false;
-            var _msg2 = 'Failed to equip ' + _item.getName();
+            var _msg3 = 'Failed to equip ' + _item.getName();
             if (_item.getType() === 'missile') {
                 if (_invEq2.equipNItems(_item, _item.count)) {
                     _result2 = true;
@@ -4248,15 +5046,15 @@ RG.Brain.Player = function (actor) {
             }
             if (obj.hasOwnProperty('callback')) {
                 if (_result2) {
-                    _msg2 = 'Equipping ' + _item.getName() + ' succeeded!';
+                    _msg3 = 'Equipping ' + _item.getName() + ' succeeded!';
                 }
-                obj.callback({ msg: _msg2, result: _result2 });
+                obj.callback({ msg: _msg3, result: _result2 });
             }
         } else if (obj.cmd === 'unequip') {
             var name = obj.slot;
             var _invEq3 = _actor.getInvEq();
             var _result3 = false;
-            var _msg3 = 'Failed to remove item from slot ' + name + '.';
+            var _msg4 = 'Failed to remove item from slot ' + name + '.';
 
             if (name === 'missile') {
                 var eqItem = _invEq3.getEquipment().getItem('missile');
@@ -4272,9 +5070,9 @@ RG.Brain.Player = function (actor) {
 
             if (obj.hasOwnProperty('callback')) {
                 if (_result3) {
-                    _msg3 = 'Unequipping from ' + name + ' succeeded!';
+                    _msg4 = 'Unequipping from ' + name + ' succeeded!';
                 }
-                obj.callback({ msg: _msg3, result: _result3 });
+                obj.callback({ msg: _msg4, result: _result3 });
             }
         }
         return function () {};
@@ -4436,6 +5234,8 @@ RG.Brain.Rogue = function (actor) {
         _memory.addEnemy(actor);
     };
 
+    this._seenCached = null;
+
     var _passableCallback = function _passableCallback(x, y) {
         var map = _actor.getLevel().getMap();
         if (!RG.isNullOrUndef([map])) {
@@ -4450,23 +5250,20 @@ RG.Brain.Rogue = function (actor) {
         return false;
     };
 
-    // Convenience methods (for child classes)
+    // Returns cells seen by this actor
     this.getSeenCells = function () {
-        return _actor.getLevel().getMap().getVisibleCells(_actor);
+        if (this._seenCached) {
+            return this._seenCached;
+        }
+        this._seenCached = _actor.getLevel().getMap().getVisibleCells(_actor);
+        return this._seenCached;
     };
 
     /* Main function for retrieving the actionable callback. Acting actor must
      * be passed in. */
     this.decideNextAction = function () {
-        var seenCells = this.getSeenCells();
-        var playerCell = this.findEnemyCell(seenCells);
-
-        // We have found the player
-        if (!RG.isNullOrUndef([playerCell])) {
-            // Move or attack
-            return this.actionTowardsEnemy(playerCell);
-        }
-        return this.exploreLevel(seenCells);
+        this._seenCached = null;
+        return BTree.startBehavTree(Models.Rogue.tree, _actor)[0];
     };
 
     /* Takes action towards given enemy cell.*/
@@ -4580,11 +5377,30 @@ RG.Brain.Rogue = function (actor) {
         return null;
     };
 
-    /* Returns shortest path from actor to the given cell. Resulting cells are
-     * returned in order: closest to the actor first. Thus moving to next cell
-     * can be done by taking the first returned cell.*/
-    this.getShortestPathTo = function (cell) {
+    /* Flees from the given cell or explores randomly if cannot. */
+    this.fleeFromCell = function (cell, seenCells) {
+        var x = cell.getX();
+        var y = cell.getY();
+        var thisX = _actor.getX();
+        var thisY = _actor.getY();
+        var deltaX = x - thisX;
+        var deltaY = y - thisY;
+        // delta determines the direction to flee
+        var newX = thisX - deltaX;
+        var newY = thisY - deltaY;
+        if (_actor.getLevel().getMap().hasXY(newX, newY)) {
+            var newCell = _actor.getLevel().getMap().getCell(newX, newY);
+            if (newCell.isPassable()) {
+                return this.tryToMoveTowardsCell(newCell);
+            }
+        }
+        return this.exploreLevel(seenCells);
+    };
 
+    /* Returns shortest path from actor to the given cell. Resulting cells are
+     * returned in order: closest to the actor first. Thus moving to the
+     * next cell can be done by taking the first returned cell.*/
+    this.getShortestPathTo = function (cell) {
         var path = [];
         var toX = cell.getX();
         var toY = cell.getY();
@@ -4673,51 +5489,46 @@ RG.Brain.Summoner = function (actor) {
     var _actor = actor;
     this.numSummoned = 0;
     this.maxSummons = 20;
+    this.summonProbability = 0.2;
 
     var _memory = this.getMemory();
     _memory.addEnemyType('player');
 
     this.decideNextAction = function () {
-        var seenCells = this.getSeenCells();
-        var playerCell = this.findEnemyCell(seenCells);
-
-        // We have found the player
-        if (!RG.isNullOrUndef([playerCell])) {
-            // Move or attack
-            if (this.summonedMonster()) {
-                return function () {};
-            } else {
-                return this.actionTowardsEnemy(playerCell);
-            }
-        }
-        return this.exploreLevel(seenCells);
+        this._seenCached = null;
+        return BTree.startBehavTree(Models.Summoner.tree, _actor)[0];
     };
 
-    /* Tries to summon a monster to a nearby cell. Returns true if success.*/
-    this.summonedMonster = function () {
+    /* Returns true if the summoner will summon on this action. */
+    this.willSummon = function () {
         if (this.numSummoned === this.maxSummons) {
             return false;
         }
-
         var summon = RG.RAND.getUniform();
-        if (summon > 0.8) {
-            var level = _actor.getLevel();
-            var cellsAround = this.getFreeCellsAround();
-            if (cellsAround.length > 0) {
-                var freeX = cellsAround[0].getX();
-                var freeY = cellsAround[0].getY();
-                var summoned = RG.FACT.createActor('Summoned', { hp: 15, att: 7, def: 7 });
-                summoned.get('Experience').setExpLevel(5);
-                level.addActor(summoned, freeX, freeY);
-                RG.gameMsg(_actor.getName() + ' summons some help');
-                this.numSummoned += 1;
-                return true;
-            } else {
-                var txt = ' screamed incantation but nothing happened';
-                RG.gameMsg(_actor.getName() + txt);
-            }
+        if (summon > 1.0 - this.summonProbability) {
+            console.log('SUMMONING NOW');
+            return true;
         }
         return false;
+    };
+
+    /* Tries to summon a monster to a nearby cell. Returns true if success.*/
+    this.summonMonster = function () {
+        var level = _actor.getLevel();
+        var cellsAround = this.getFreeCellsAround();
+        if (cellsAround.length > 0) {
+            var freeX = cellsAround[0].getX();
+            var freeY = cellsAround[0].getY();
+            var summoned = RG.FACT.createActor('Summoned', { hp: 15, att: 7, def: 7 });
+            summoned.get('Experience').setExpLevel(5);
+            level.addActor(summoned, freeX, freeY);
+            RG.gameMsg(_actor.getName() + ' summons some help');
+            this.numSummoned += 1;
+        } else {
+            var txt = ' screamed an incantation but nothing happened';
+            RG.gameMsg(_actor.getName() + txt);
+        }
+        return ACTION_ALREADY_DONE;
     };
 
     /* Returns all free cells around the actor owning the brain.*/
@@ -4739,44 +5550,54 @@ RG.Brain.Human = function (actor) {
     RG.Brain.Rogue.call(this, actor);
     this.setType('human');
 
+    this.commProbability = 0.5;
+
     this.getMemory().addEnemyType('demon');
 
-    this.decideNextAction = function () {
+    this.willCommunicate = function () {
+        var communicateOrAttack = RG.RAND.getUniform();
         var seenCells = this.getSeenCells();
-        var enemyCell = this.findEnemyCell(seenCells);
+        // const enemyCell = this.findEnemyCell(seenCells);
         var friendCell = this.findFriendCell(seenCells);
-        var friendActor = null;
         var memory = this.getMemory();
 
-        // If actor cannot communicate, always attack if possible
-        var communicateOrAttack = RG.RAND.getUniform();
+        var friendActor = null;
         if (RG.isNullOrUndef([friendCell])) {
-            communicateOrAttack = 1.0;
+            return false;
         } else {
             friendActor = friendCell.getProp('actors')[0];
             if (memory.hasCommunicatedWith(friendActor)) {
-                communicateOrAttack = 1.0;
+                return false;
+            } else if (friendActor.has('Communication')) {
+                return false;
             }
         }
 
-        // We have found the enemy, move or attack
-        if (!RG.isNullOrUndef([enemyCell]) && communicateOrAttack > 0.5) {
-            return this.actionTowardsEnemy(enemyCell);
-        } else if (friendActor !== null) {
-            // Communicate enemies
-            if (!memory.hasCommunicatedWith(friendActor)) {
-                var comComp = new RG.Component.Communication();
-                var enemies = memory.getEnemies();
-                var msg = { type: 'Enemies', enemies: enemies, src: this.getActor() };
-                comComp.addMsg(msg);
-                if (!friendActor.has('Communication')) {
-                    friendActor.add('Communication', comComp);
-                    memory.addCommunicationWith(friendActor);
-                    return function () {};
-                }
-            }
+        if (communicateOrAttack < 1.0 - this.commProbability) {
+            return false;
         }
-        return this.exploreLevel(seenCells);
+        return true;
+    };
+
+    this.decideNextAction = function () {
+        this._seenCached = null;
+        return BTree.startBehavTree(Models.Human.tree, actor)[0];
+    };
+
+    this.communicateEnemies = function () {
+        var memory = this.getMemory();
+        var enemies = memory.getEnemies();
+        var seenCells = this.getSeenCells();
+        var friendCell = this.findFriendCell(seenCells);
+        var friendActor = friendCell.getProp('actors')[0];
+
+        var comComp = new RG.Component.Communication();
+        var msg = { type: 'Enemies', enemies: enemies, src: this.getActor() };
+        comComp.addMsg(msg);
+
+        friendActor.add('Communication', comComp);
+        memory.addCommunicationWith(friendActor);
+        return ACTION_ALREADY_DONE;
     };
 };
 RG.extend2(RG.Brain.Human, RG.Brain.Rogue);
@@ -4798,7 +5619,7 @@ RG.extend2(RG.Brain.Spirit, RG.Brain.Rogue);
 
 module.exports = RG.Brain;
 
-},{"../../lib/rot.js":39,"./rg.js":35}],24:[function(require,module,exports){
+},{"../../lib/rot.js":42,"./aisequence":24,"./rg.js":38}],27:[function(require,module,exports){
 'use strict';
 
 var RG = require('./rg.js');
@@ -4847,7 +5668,6 @@ RG.Component.Base = function (type) {
 // Called when a component is added to the entity
 RG.Component.Base.prototype.entityAddCallback = function (entity) {
     this.setEntity(entity);
-    // RG.POOL.emitEvent(this.getType(), {add:true, entity: entity});
     for (var i = 0; i < this._onAddCallbacks.length; i++) {
         this._onAddCallbacks[i]();
     }
@@ -4856,7 +5676,6 @@ RG.Component.Base.prototype.entityAddCallback = function (entity) {
 // Called when a component is removed from the entity
 RG.Component.Base.prototype.entityRemoveCallback = function () {
     this.setEntity(null);
-    // RG.POOL.emitEvent(this.getType(), {remove:true, entity: entity});
     for (var i = 0; i < this._onRemoveCallbacks.length; i++) {
         this._onRemoveCallbacks[i]();
     }
@@ -5056,7 +5875,7 @@ RG.Component.Damage = function (dmg, type) {
     RG.Component.Base.call(this, 'Damage');
 
     var _dmg = dmg;
-    var _type = type;
+    var _dmgType = type;
     var _src = null;
 
     this.getDamage = function () {
@@ -5067,10 +5886,10 @@ RG.Component.Damage = function (dmg, type) {
     };
 
     this.getDamageType = function () {
-        return _type;
+        return _dmgType;
     };
     this.setDamageType = function (type) {
-        _type = type;
+        _dmgType = type;
     };
 
     this.getSource = function () {
@@ -5687,9 +6506,14 @@ RG.Component.Indestructible = function () {
 };
 RG.extend2(RG.Component.Indestructible, RG.Component.Base);
 
+RG.Component.Ammo = function () {
+    RG.Component.Base.call(this, 'Ammo');
+};
+RG.extend2(RG.Component.Ammo, RG.Component.Base);
+
 module.exports = RG.Component;
 
-},{"./rg.js":35}],25:[function(require,module,exports){
+},{"./rg.js":38}],28:[function(require,module,exports){
 'use strict';
 
 /*
@@ -6053,7 +6877,7 @@ RG.Element.Water.prototype.isPassable = function () {
 
 module.exports = RG.Element;
 
-},{"./object.js":31,"./rg.js":35}],26:[function(require,module,exports){
+},{"./object.js":34,"./rg.js":38}],29:[function(require,module,exports){
 'use strict';
 
 var _typeof = typeof Symbol === "function" && typeof Symbol.iterator === "symbol" ? function (obj) { return typeof obj; } : function (obj) { return obj && typeof Symbol === "function" && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : typeof obj; };
@@ -6085,44 +6909,42 @@ var cityConfBase = function cityConfBase(_parser, conf) {
     var userConf = conf || {};
     var obj = {
         nHouses: 10, minHouseX: 5, maxHouseX: 10, minHouseY: 5,
-        maxHouseY: 10, parser: _parser,
-        func: function func(item) {
+        maxHouseY: 10, parser: _parser, nShops: 1,
+        shopFunc: [function (item) {
             return item.type === 'armour';
-        }
+        }]
     };
     var result = Object.assign(obj, userConf);
     return result;
 };
 
 /* Determines the x-y sizes for different types of levels. */
-/*
-const levelSizes = {
+var levelSizes = {
     tile: {
-        Small: {x: 40, y: 20},
-        Medium: {x: 60, y: 30},
-        Large: {x: 80, y: 40},
-        Huge: {x: 140, y: 60}
+        Small: { x: 40, y: 20 },
+        Medium: { x: 60, y: 30 },
+        Large: { x: 80, y: 40 },
+        Huge: { x: 140, y: 60 }
     },
     mountain: {
-        Small: {x: 40, y: 20},
-        Medium: {x: 60, y: 30},
-        Large: {x: 80, y: 40},
-        Huge: {x: 140, y: 60}
+        Small: { x: 40, y: 20 },
+        Medium: { x: 60, y: 30 },
+        Large: { x: 80, y: 40 },
+        Huge: { x: 140, y: 60 }
     },
     dungeon: {
-        Small: {x: 40, y: 20},
-        Medium: {x: 60, y: 30},
-        Large: {x: 80, y: 40},
-        Huge: {x: 140, y: 60}
+        Small: { x: RG.LEVEL_SMALL_X, y: RG.LEVEL_SMALL_Y },
+        Medium: { x: RG.LEVEL_MEDIUM_X, y: RG.LEVEL_MEDIUM_Y },
+        Large: { x: RG.LEVEL_LARGE_X, y: RG.LEVEL_LARGE_Y },
+        Huge: { x: RG.LEVEL_HUGE_X, y: RG.LEVEL_HUGE_Y }
     },
     city: {
-        Small: {x: 40, y: 20},
-        Medium: {x: 60, y: 30},
-        Large: {x: 80, y: 40},
-        Huge: {x: 140, y: 60}
+        Small: { x: 40, y: 20 },
+        Medium: { x: 60, y: 30 },
+        Large: { x: 80, y: 40 },
+        Huge: { x: 140, y: 60 }
     }
 };
-*/
 
 /* Player stats based on user selection.*/
 var confPlayerStats = {
@@ -6130,6 +6952,26 @@ var confPlayerStats = {
     Medium: { att: 2, def: 4, prot: 2, hp: 25, Weapon: 'Short sword' },
     Strong: { att: 5, def: 6, prot: 3, hp: 40, Weapon: 'Tomahawk' },
     Inhuman: { att: 10, def: 10, prot: 4, hp: 80, Weapon: 'Magic sword' }
+};
+
+RG.VerifyConf = function (objName) {
+    var _name = objName;
+
+    /* Verifies that configuration contains all required keys.*/
+    this.verifyConf = function (funcName, conf, required) {
+        var ok = true;
+        var errorMsg = '';
+        required.forEach(function (req) {
+            if (!conf.hasOwnProperty(req)) {
+                ok = false;
+                errorMsg += funcName + '(): Missing: ' + req;
+            }
+        });
+        if (!ok) {
+            RG.err(_name, 'verifyConf', errorMsg);
+        }
+        return ok;
+    };
 };
 
 //---------------------------------------------------------------------------
@@ -6160,22 +7002,36 @@ RG.Factory.ItemRandomizer = function () {
     };
 
     var _adjustGoldCoin = function _adjustGoldCoin(gold, nLevel) {
-        var goldWeights = RG.getGoldCoinCountDistr(nLevel);
-        var count = ROT.RNG.getWeightedValue(goldWeights);
-        gold.setCount(parseInt(count, 10));
+        if (!RG.isNullOrUndef([nLevel])) {
+            var goldWeights = RG.getGoldCoinCountDistr(nLevel);
+            var count = ROT.RNG.getWeightedValue(goldWeights);
+            gold.setCount(parseInt(count, 10));
+        } else {
+            RG.err('Factory.ItemRandomizer', '_adjustGoldCoin', 'nLevel is not defined.');
+        }
+    };
+
+    var _adjustMissile = function _adjustMissile(missile, nLevel) {
+        if (!RG.isNullOrUndef([nLevel])) {
+            // TODO use distribution to generate the count
+            missile.setCount(10);
+        } else {
+            RG.err('Factory.ItemRandomizer', '_adjustMissile', 'nLevel is not defined.');
+        }
     };
 
     /* LUT for functions to call on specific items.*/
     var _adjustFunctions = {
         food: _adjustFoodItem,
-        goldcoin: _adjustGoldCoin
+        goldcoin: _adjustGoldCoin,
+        missile: _adjustMissile
     };
 };
 
 /* Factory object for creating some commonly used objects.*/
 RG.Factory.Base = function () {
     // {{{2
-
+    var _verif = new RG.VerifyConf('Factory.Base');
     var _itemRandomizer = new RG.Factory.ItemRandomizer();
 
     var _initCombatant = function _initCombatant(comb, obj) {
@@ -6281,7 +7137,7 @@ RG.Factory.Base = function () {
             mapObj = mapgen.createTown(cols, rows, conf);
             level.setMap(mapObj.map);
             this.createHouseElements(level, mapObj, conf);
-            this.createShop(level, mapObj, conf);
+            this.createShops(level, mapObj, conf);
         } else if (levelType === 'forest') {
             if (!RG.isNullOrUndef([conf.forest])) {
                 var forestShape = conf.forest.shape;
@@ -6320,40 +7176,59 @@ RG.Factory.Base = function () {
     /* Creates a shop and a shopkeeper into a random house in the given level.
      * Level should already contain empty houses where the shop is created at
      * random. */
-    this.createShop = function (level, mapObj, conf) {
+    this.createShops = function (level, mapObj, conf) {
+        _verif.verifyConf('createShops', conf, ['nShops']);
         if (mapObj.hasOwnProperty('houses')) {
             var houses = mapObj.houses;
-            var index = RG.RAND.randIndex(houses);
-            var house = mapObj.houses[index];
-            var floor = house.floor;
 
-            var doorXY = house.door;
-            var door = new RG.Element.Door(true);
-            level.addElement(door, doorXY[0], doorXY[1]);
+            var usedHouses = [];
+            var watchDog = 0;
+            for (var n = 0; n < conf.nShops; n++) {
 
-            var keeper = this.createActor('shopkeeper', { brain: 'Human' });
-            var gold = new RG.Item.GoldCoin('Gold coin');
-            gold.count = 100;
-            keeper.getInvEq().addItem(gold);
-            for (var i = 0; i < floor.length; i++) {
-                var xy = floor[i];
-                if (i === 0) {
-                    level.addActor(keeper, xy[0], xy[1]);
+                // Find the next (unused) index for a house
+                var index = RG.RAND.randIndex(houses);
+                while (usedHouses.indexOf(index) >= 0) {
+                    index = RG.RAND.randIndex(houses);
+                    ++watchDog;
+                    if (watchDog === 2 * houses.length) {
+                        RG.err('Factory.Base', 'createShops', 'WatchDog reached max houses');
+                    }
                 }
-                var shopElem = new RG.Element.Shop();
-                shopElem.setShopkeeper(keeper);
-                level.addElement(shopElem, xy[0], xy[1]);
 
-                if (conf.hasOwnProperty('parser')) {
-                    var item = conf.parser.createRandomItem({
-                        func: conf.func
-                    });
-                    item.add('Unpaid', new RG.Component.Unpaid());
-                    level.addItem(item, xy[0], xy[1]);
+                var house = mapObj.houses[index];
+                var floor = house.floor;
+                var doorXY = house.door;
+                var door = new RG.Element.Door(true);
+                level.addElement(door, doorXY[0], doorXY[1]);
+
+                var keeper = this.createActor('shopkeeper', { brain: 'Human' });
+                var gold = new RG.Item.GoldCoin('Gold coin');
+                gold.count = 100;
+                keeper.getInvEq().addItem(gold);
+                for (var i = 0; i < floor.length; i++) {
+                    var xy = floor[i];
+                    if (i === 0) {
+                        level.addActor(keeper, xy[0], xy[1]);
+                    }
+                    var shopElem = new RG.Element.Shop();
+                    shopElem.setShopkeeper(keeper);
+                    level.addElement(shopElem, xy[0], xy[1]);
+
+                    if (conf.hasOwnProperty('parser')) {
+                        if (typeof conf.shopFunc[n] === 'function') {
+                            var item = conf.parser.createRandomItem({
+                                func: conf.shopFunc[n]
+                            });
+                            item.add('Unpaid', new RG.Component.Unpaid());
+                            level.addItem(item, xy[0], xy[1]);
+                        } else {
+                            RG.err('Factory.Base', 'createShop', 'shopFunc' + n + ' not properly defined.');
+                        }
+                    }
                 }
             }
         } else {
-            RG.err('Factory.Base', 'createShop', 'No houses in mapObj.');
+            RG.err('Factory.Base', 'createShops', 'No houses in mapObj.');
         }
     };
 
@@ -6366,11 +7241,12 @@ RG.Factory.Base = function () {
     };
 
     /* Adds N random items to the level based on maximum value.*/
-    this.addNRandItems = function (parser, itemsPerLevel, level, maxVal, func) {
+    this.addNRandItems = function (level, parser, conf) {
+        _verif.verifyConf('addNRandItems', conf, ['func', 'maxValue']);
         // Generate the items randomly for this level
-        for (var j = 0; j < itemsPerLevel; j++) {
-            var item = parser.createRandomItem({ func: func });
-            _doItemSpecificAdjustments(item, maxVal);
+        for (var j = 0; j < conf.itemsPerLevel; j++) {
+            var item = parser.createRandomItem({ func: conf.func });
+            _doItemSpecificAdjustments(item, conf.maxValue);
             var itemCell = level.getFreeRandCell();
             level.addItem(item, itemCell.getX(), itemCell.getY());
         }
@@ -6378,34 +7254,51 @@ RG.Factory.Base = function () {
                 return item.type === 'food';
             } });
         var foodCell = level.getFreeRandCell();
-        _doItemSpecificAdjustments(food, maxVal);
+        _doItemSpecificAdjustments(food, conf.maxValue);
         level.addItem(food, foodCell.getX(), foodCell.getY());
     };
 
     /* Adds N random monsters to the level based on given danger level.*/
-    this.addNRandMonsters = function (parser, monstersPerLevel, level, maxDanger) {
+    this.addNRandMonsters = function (level, parser, conf) {
+        _verif.verifyConf('addNRandMonsters', conf, ['maxDanger', 'monstersPerLevel']);
         // Generate the monsters randomly for this level
-        for (var i = 0; i < monstersPerLevel; i++) {
+        var maxDanger = conf.maxDanger;
+        for (var i = 0; i < conf.monstersPerLevel; i++) {
             var cell = level.getFreeRandCell();
-            /* const monster = parser.createRandomActor({
-                func: function(actor){return actor.danger <= maxDanger;}
-            });*/
-            var monster = parser.createRandomActorWeighted(1, maxDanger, { func: function func(actor) {
-                    return actor.danger <= maxDanger;
-                } });
+
+            // Generic randomization with danger level
+            var monster = null;
+            if (!conf.func) {
+                monster = parser.createRandomActorWeighted(1, maxDanger, { func: function func(actor) {
+                        return actor.danger <= maxDanger;
+                    } });
+            } else {
+                monster = parser.createRandomActor({
+                    func: function func(actor) {
+                        return conf.func(actor) && actor.danger <= maxDanger;
+                    }
+                });
+            }
+
+            // This levels up the actor to match current danger level
             var objShell = parser.dbGet('actors', monster.getName());
             var expLevel = maxDanger - objShell.danger;
             if (expLevel > 1) {
                 RG.levelUpActor(monster, expLevel);
             }
-            level.addActor(monster, cell.getX(), cell.getY());
+
+            if (monster) {
+                level.addActor(monster, cell.getX(), cell.getY());
+            } else {
+                RG.err('Factory.Feature', 'addNRandMonsters', 'Generated monster null. Conf: ' + JSON.stringify(conf));
+            }
         }
     };
 
-    this.addRandomGold = function (parser, goldPerLevel, level, nLevel) {
-        for (var i = 0; i < goldPerLevel; i++) {
+    this.addRandomGold = function (level, parser, conf) {
+        for (var i = 0; i < conf.goldPerLevel; i++) {
             var gold = parser.createActualObj(RG.TYPE_ITEM, 'Gold coin');
-            _doItemSpecificAdjustments(gold, nLevel);
+            _doItemSpecificAdjustments(gold, conf.nLevel);
             level.addToRandomCell(gold);
         }
     };
@@ -6427,7 +7320,7 @@ RG.Factory.Base = function () {
         }
     };
 
-    this.spawnDemonArmy = function (level, parser) {
+    this.createDemonArmy = function (level, parser) {
         for (var y = 0; y < 2; y++) {
             for (var i = 0; i < 10; i++) {
                 var demon = parser.createActualObj('actors', 'Winter demon');
@@ -6438,7 +7331,7 @@ RG.Factory.Base = function () {
         }
     };
 
-    this.spawnBeastArmy = function (level, parser) {
+    this.createDemonArmy = function (level, parser) {
         var x0 = level.getMap().cols / 2;
         var y0 = level.getMap().rows / 2;
         for (var y = y0; y < y0 + 2; y++) {
@@ -6459,6 +7352,8 @@ RG.FACT = new RG.Factory.Base();
 RG.Factory.Feature = function () {
     RG.Factory.Base.call(this);
 
+    var _verif = new RG.VerifyConf('Factory.Feature');
+
     var _parser = new RG.ObjectShellParser();
     _parser.parseShellData(RG.Effects);
     _parser.parseShellData(RGObjects);
@@ -6469,7 +7364,9 @@ RG.Factory.Feature = function () {
         return type[nLevelType];
     };
 
-    this.addItemsAndMonsters = function (conf, level) {
+    this.addItemsAndMonsters = function (level, conf) {
+        _verif.verifyConf('addItemsAndMonsters', conf, ['nLevel', 'sqrPerItem', 'sqrPerMonster', 'maxValue']);
+
         var numFree = level.getMap().getFree().length;
         var monstersPerLevel = Math.round(numFree / conf.sqrPerMonster);
         var itemsPerLevel = Math.round(numFree / conf.sqrPerItem);
@@ -6477,28 +7374,50 @@ RG.Factory.Feature = function () {
 
         debug('Adding ' + monstersPerLevel + ' monsters and\n            ' + itemsPerLevel + ' to the level');
 
-        var itemConstraint = function itemConstraint(maxVal) {
+        var itemConstraint = function itemConstraint(maxValue) {
             return function (item) {
-                return item.value <= maxVal;
+                return item.value <= maxValue;
             };
         };
 
-        this.addNRandItems(_parser, itemsPerLevel, level, conf.maxValue, itemConstraint(conf.maxValue));
-        this.addNRandMonsters(_parser, monstersPerLevel, level, conf.nLevel + 1);
+        var itemConf = {
+            nLevel: conf.nLevel, // verified to exist
+            itemsPerLevel: itemsPerLevel,
+            func: itemConstraint(conf.maxValue),
+            maxValue: conf.maxValue
+        };
+        this.addNRandItems(level, _parser, itemConf);
 
-        this.addRandomGold(_parser, goldPerLevel, level, conf.nLevel + 1);
+        var actorConf = {
+            monstersPerLevel: conf.monstersPerLevel || monstersPerLevel,
+            maxDanger: conf.maxDanger || conf.nLevel + 1
+        };
+        if (conf.actor) {
+            if (typeof conf.actor === 'function') {
+                actorConf.func = conf.actor;
+            } else {
+                RG.err('Factory.Feature', 'addItemsAndMonsters', 'conf.actor must be a function');
+            }
+        }
+        this.addNRandMonsters(level, _parser, actorConf);
+
+        var goldConf = {
+            goldPerLevel: goldPerLevel,
+            nLevel: conf.nLevel + 1
+        };
+        this.addRandomGold(level, _parser, goldConf);
     };
 
     /* Creates random dungeon level. */
     this.createDungeonLevel = function (conf) {
         var levelType = this.getRandLevelType();
         var level = this.createLevel(levelType, conf.x, conf.y);
-        this.addItemsAndMonsters(conf, level);
+        this.addItemsAndMonsters(level, conf);
         return level;
     };
 
     this.createCityLevel = function (conf) {
-        var levelConf = cityConfBase(_parser);
+        var levelConf = cityConfBase(_parser, conf);
         var cityLevel = this.createLevel('town', conf.x, conf.y, levelConf);
         return cityLevel;
     };
@@ -6512,7 +7431,7 @@ RG.Factory.Feature = function () {
         };
         debug('Creating mountain level with ' + conf);
         var mountainLevel = this.createLevel('mountain', conf.x, conf.y, mountConf);
-        this.addItemsAndMonsters(mountConf, mountainLevel);
+        this.addItemsAndMonsters(mountainLevel, mountConf);
         return mountainLevel;
     };
 };
@@ -6527,7 +7446,15 @@ RG.extend2(RG.Factory.Feature, RG.Factory.Base);
 RG.Factory.World = function () {
     var _this = this;
 
+    var _verif = new RG.VerifyConf('Factory.World');
     this.featureFactory = new RG.Factory.Feature();
+
+    // Used for generating levels, if more specific settings not given
+    this.globalConf = {
+        dungeonX: RG.LEVEL_MEDIUM_X,
+        dungeonY: RG.LEVEL_MEDIUM_Y
+
+    };
 
     // Can be used to pass already created levels to different features. For
     // example, after restore game, no new levels should be created
@@ -6542,16 +7469,70 @@ RG.Factory.World = function () {
     };
 
     this.scope = []; // Keeps track of hierarchical names of places
+    this.confStack = [];
 
-    this.pushScope = function (name) {
-        _this.scope.push(name);
+    this.pushScope = function (conf) {
+        this.scope.push(conf.name);
+        this.confStack.push(conf);
+        if (conf.hasOwnProperty('constraint')) {
+            this.pushConstraint(conf.constraint);
+        }
     };
 
     this.popScope = function (name) {
-        var poppedName = _this.scope.pop();
+        var poppedName = this.scope.pop();
         if (poppedName !== name) {
             RG.err('Factory.World', 'popScope', 'Popped: ' + poppedName + ', Expected: ' + name);
+        } else {
+            var conf = this.confStack.pop();
+            if (conf.hasOwnProperty('constraint')) {
+                this.popConstraint();
+            }
         }
+    };
+
+    /* Initializes the global configuration such as level size. */
+    this.setGlobalConf = function (conf) {
+        var levelSize = conf.levelSize || 'Medium';
+        var sqrPerMonster = conf.sqrPerMonster || RG.ACTOR_MEDIUM_SQR;
+        this.globalConf.levelSize = levelSize;
+        this.globalConf.dungeonX = levelSizes.dungeon[levelSize].x;
+        this.globalConf.dungeonY = levelSizes.dungeon[levelSize].y;
+        this.globalConf.sqrPerMonster = sqrPerMonster;
+        this.globalConf.sqrPerItem = conf.sqrPerItem || RG.LOOT_MEDIUM_SQR;
+    };
+
+    /* Returns global config value. */
+    this.getConf = function (keys) {
+        if (typeof keys === 'string') {
+            return this.globalConf[keys];
+        }
+        var currRef = this.globalConf;
+        keys.forEach(function (key) {
+            if (currRef.hasOwnProperty(key)) {
+                currRef = currRef[key];
+            } else {
+                RG.err('Factory.World', 'getConf', 'Cannot find conf for keys ' + JSON.stringify(keys));
+            }
+        });
+        return currRef;
+    };
+
+    // Random constraint management
+    this.constraintStack = [];
+    this.pushConstraint = function (constr) {
+        this.constraintStack.push(constr);
+    };
+    this.popConstraint = function () {
+        this.constraintStack.pop();
+    };
+    /* Returns the current constraint in effect. */
+    this.getConstraint = function () {
+        var len = this.constraintStack.length;
+        if (len) {
+            return this.constraintStack[len - 1];
+        }
+        return null;
     };
 
     /* Returns the full hierarchical name of feature. */
@@ -6559,25 +7540,10 @@ RG.Factory.World = function () {
         return _this.scope.join('.');
     };
 
-    /* Verifies that configuration contains all required keys.*/
-    this.verifyConf = function (msg, conf, required) {
-        var ok = true;
-        required.forEach(function (req) {
-            if (!conf.hasOwnProperty(req)) {
-                ok = false;
-                RG.err('Factory.World', 'verifyConf', 'Missing conf arg: ' + req);
-            }
-        });
-        if (!ok) {
-            RG.err('Factory.World', 'verifyConf', msg);
-        }
-        return ok;
-    };
-
     /* Creates a world using given configuration. */
     this.createWorld = function (conf) {
-        this.verifyConf('createWorld', conf, ['name', 'nAreas']);
-        this.pushScope(conf.name);
+        _verif.verifyConf('createWorld', conf, ['name', 'nAreas']);
+        this.pushScope(conf);
         var world = new RG.World.World(conf.name);
         for (var i = 0; i < conf.nAreas; i++) {
             var areaConf = conf.area[i];
@@ -6590,8 +7556,8 @@ RG.Factory.World = function () {
 
     /* Creates an area which can be added to a world. */
     this.createArea = function (conf) {
-        this.verifyConf('createArea', conf, ['name', 'maxX', 'maxY']);
-        this.pushScope(conf.name);
+        _verif.verifyConf('createArea', conf, ['name', 'maxX', 'maxY']);
+        this.pushScope(conf);
 
         // TODO deal with levels when restoring
         var areaLevels = null;
@@ -6660,8 +7626,8 @@ RG.Factory.World = function () {
     };
 
     this.createDungeon = function (conf) {
-        this.verifyConf('createDungeon', conf, ['name', 'nBranches']);
-        this.pushScope(conf.name);
+        _verif.verifyConf('createDungeon', conf, ['name', 'nBranches']);
+        this.pushScope(conf);
 
         var dungeon = new RG.World.Dungeon(conf.name);
         dungeon.setHierName(this.getHierName());
@@ -6705,22 +7671,28 @@ RG.Factory.World = function () {
 
     /* Creates one dungeon branch and all levels inside it. */
     this.createBranch = function (conf) {
-        this.verifyConf('createBranch', conf, ['name', 'nLevels']);
-        this.pushScope(conf.name);
+        _verif.verifyConf('createBranch', conf, ['name', 'nLevels']);
+        this.pushScope(conf);
         var branch = new RG.World.Branch(conf.name);
         branch.setHierName(this.getHierName());
+
+        var constraint = this.getConstraint();
+
         for (var i = 0; i < conf.nLevels; i++) {
             // TODO: Level configuration can be quite complex. Support random
             // and customly created levels somehow
             var levelConf = {
-                x: 40,
-                y: 40,
-                sqrPerMonster: 20,
-                sqrPerItem: 20,
+                x: this.getConf(['dungeonX']),
+                y: this.getConf(['dungeonY']),
+                sqrPerMonster: this.getConf('sqrPerMonster'),
+                sqrPerItem: this.getConf('sqrPerItem'),
                 maxValue: 20 * (i + 1),
-                nLevel: i,
-                special: [] // TODO for special levels
+                nLevel: i
             };
+            if (constraint) {
+                levelConf.actor = constraint.actor;
+            }
+
             var level = null;
             if (conf.levels) {
                 level = this.id2level[conf.levels[i]];
@@ -6746,8 +7718,8 @@ RG.Factory.World = function () {
     };
 
     this.createMountain = function (conf) {
-        this.verifyConf('createMountain', conf, ['name', 'nFaces']);
-        this.pushScope(conf.name);
+        _verif.verifyConf('createMountain', conf, ['name', 'nFaces']);
+        this.pushScope(conf);
         var mountain = new RG.World.Mountain(conf.name);
         mountain.setHierName(this.getHierName());
 
@@ -6763,13 +7735,13 @@ RG.Factory.World = function () {
 
     this.createMountainFace = function (conf) {
         if (this.id2levelSet) {
-            this.verifyConf('createMountainFace', conf, ['name', 'nLevels']);
+            _verif.verifyConf('createMountainFace', conf, ['name', 'nLevels']);
         } else {
-            this.verifyConf('createMountainFace', conf, ['name', 'nLevels', 'x', 'y']);
+            _verif.verifyConf('createMountainFace', conf, ['name', 'nLevels', 'x', 'y']);
         }
 
         var faceName = conf.name;
-        this.pushScope(faceName);
+        this.pushScope(conf);
         var face = new RG.World.MountainFace(faceName);
         var mLevelConf = { x: conf.x, y: conf.y };
 
@@ -6793,44 +7765,82 @@ RG.Factory.World = function () {
         return face;
     };
 
+    /* Creates a City and all its sub-features. */
     this.createCity = function (conf) {
         if (this.id2levelSet) {
-            this.verifyConf('createCity', conf, ['name', 'nLevels', 'entrances']);
+            _verif.verifyConf('createCity', conf, ['name', 'nQuarters']);
         } else {
-            this.verifyConf('createCity', conf, ['name', 'nLevels', 'entranceLevel']);
+            _verif.verifyConf('createCity', conf, ['name', 'nQuarters']);
         }
-        this.pushScope(conf.name);
-        var cityConf = {
-            x: 100, y: 50
-        };
+        this.pushScope(conf);
         var city = new RG.World.City(conf.name);
         city.setHierName(this.getHierName());
-        for (var i = 0; i < conf.nLevels; i++) {
-            var level = null;
-            if (!this.id2levelSet) {
-                level = this.featureFactory.createCityLevel(cityConf);
-            } else {
-                var id = conf.levels[i];
-                level = this.id2level[id];
-            }
-            city.addLevel(level);
+        for (var i = 0; i < conf.nQuarters; i++) {
+            var qConf = conf.quarter[i];
+            var quarter = this.createCityQuarter(qConf);
+            city.addQuarter(quarter);
         }
 
-        if (conf.hasOwnProperty('entranceLevel')) {
-            city.addEntrance(conf.entranceLevel);
-        } else if (conf.hasOwnProperty('entrances')) {
-            city.setEntranceLocations(conf.entrances);
+        // Connect branches according to configuration
+        if (!this.id2levelSet) {
+            if (conf.nQuarters > 1) {
+                if (conf.connect) {
+                    conf.connect.forEach(function (conn) {
+                        if (conn.length === 4) {
+                            // conn has len 4, spread it out
+                            city.connectQuarters.apply(city, _toConsumableArray(conn));
+                        } else {
+                            RG.err('Factory.World', 'createCity', 'Each connection.length must be 4.');
+                        }
+                    });
+                } else {
+                    RG.err('Factory.World', 'createCity', 'nBranches > 1, but no conf.connect.');
+                }
+            }
         }
 
         this.popScope(conf.name);
         return city;
     };
 
+    /* Createa CityQuarter which can be added to a city. */
+    this.createCityQuarter = function (conf) {
+        _verif.verifyConf('createCityQuarter', conf, ['name', 'nLevels']);
+        this.pushScope(conf);
+        var quarter = new RG.World.CityQuarter(conf.name);
+        quarter.setHierName(this.getHierName());
+
+        var cityLevelConf = {
+            x: conf.x || 80, y: conf.y || 40,
+            nShops: conf.nShops || 1,
+            shopFunc: conf.shop || [function (item) {
+                return item.type === 'food';
+            }]
+        };
+        for (var i = 0; i < conf.nLevels; i++) {
+            var level = null;
+            if (!this.id2levelSet) {
+                level = this.featureFactory.createCityLevel(cityLevelConf);
+            } else {
+                var id = conf.levels[i];
+                level = this.id2level[id];
+            }
+            quarter.addLevel(level);
+        }
+        if (conf.hasOwnProperty('entranceLevel')) {
+            quarter.addEntrance(conf.entranceLevel);
+        } else if (conf.hasOwnProperty('entrance')) {
+            quarter.setEntranceLocation(conf.entrance);
+        }
+        this.popScope(conf.name);
+        return quarter;
+    };
+
     /* Creates a connection between an area and a feature such as city, mountain
      * or dungeon. Unless configured, connects the feature entrance to a random
      * location in the area. */
     this.createConnection = function (area, feature, conf) {
-        this.verifyConf('createConnection', conf, ['x', 'y']);
+        _verif.verifyConf('createConnection', conf, ['x', 'y']);
 
         var x = conf.x;
         var y = conf.y;
@@ -6856,7 +7866,7 @@ RG.Factory.World = function () {
             }
         } else {
             // No entrance for feature, what to do?
-            console.warn('No getEntrances method for feature. Skipping connect');
+            RG.err('Factory.World', 'createConnection', 'No getEntrances method for feature.');
         }
     };
 };
@@ -6866,8 +7876,9 @@ RG.Factory.Game = function () {
 
     var _parser = new RG.ObjectShellParser();
 
-    /* Creates a player actor and starting inventory.*/
-    this.createFCCPlayer = function (game, obj) {
+    /* Creates a player actor and starting inventory unless a game has been
+     * restored. */
+    this.createPlayerUnlessLoaded = function (game, obj) {
         var player = obj.loadedPlayer;
         if (RG.isNullOrUndef([player])) {
             var expLevel = obj.playerLevel;
@@ -6956,7 +7967,7 @@ RG.Factory.Game = function () {
             _game.addEvent(windsEvent);
             var stormEvent = new RG.Time.RogueOneShotEvent(function () {}, 35 * 100, MSG.EYE_OF_STORM);
             _game.addEvent(stormEvent);
-            var beastEvent = new RG.Time.RogueOneShotEvent(that.spawnBeastArmy.bind(that, _level, _parser), 50 * 100, 'Winter spread by Blizzard Beasts! Hell seems to freeze.');
+            var beastEvent = new RG.Time.RogueOneShotEvent(that.createDemonArmy.bind(that, _level, _parser), 50 * 100, 'Winter spread by Blizzard Beasts! Hell seems to freeze.');
             _game.addEvent(beastEvent);
         };
 
@@ -6971,19 +7982,13 @@ RG.Factory.Game = function () {
         };
     }; // const DemonKillListener
 
-    /* Creates the game for the FCC project.*/
+    /* Creates the game based on the selection. */
     this.createNewGame = function (obj) {
         _parser.parseShellData(RG.Effects);
         _parser.parseShellData(RGObjects);
-        var cols = obj.cols;
-        var rows = obj.rows;
-        var nLevels = obj.levels;
-        var sqrPerMonster = obj.sqrPerMonster;
-        var sqrPerItem = obj.sqrPerItem;
 
-        var levelCount = 1;
         var game = new RG.Game.Main();
-        var player = this.createFCCPlayer(game, obj);
+        var player = this.createPlayerUnlessLoaded(game, obj);
 
         if (obj.debugMode === 'Arena') {
             return this.createArenaDebugGame(obj, game, player);
@@ -6993,8 +7998,135 @@ RG.Factory.Game = function () {
             return this.createTiledWorld(obj, game, player);
         } else if (obj.debugMode === 'World') {
             return this.createFullWorld(obj, game, player);
+        } else {
+            return this.createOneDungeonAndBoss(obj, game, player);
         }
+    };
 
+    var _playerFOV = RG.FOV_RANGE;
+
+    this.createTiledWorld = function (obj, game, player) {
+        var area = new RG.World.Area('Kingdom', 4, 4);
+        var levels = area.getLevels();
+        levels.forEach(function (level) {
+            game.addLevel(level);
+        });
+        game.addPlayer(player);
+        return game;
+    };
+
+    this.createFullWorld = function (obj, game, player) {
+        var worldConf = obj.world;
+        if (!worldConf) {
+            RG.err('Factory', 'createFullWorld', 'obj.world must exist!');
+            return null;
+        }
+        worldConf.levelSize = obj.levelSize;
+        var fact = new RG.Factory.World();
+        fact.setGlobalConf(obj);
+
+        var world = fact.createWorld(worldConf);
+        var levels = world.getLevels();
+
+        if (levels.length > 0) {
+            game.addPlace(world);
+            game.addPlayer(player);
+            return game;
+        } else {
+            RG.err('Factory', 'createFullWorld', 'There are no levels in the world!');
+            return null;
+        }
+    };
+
+    /* Can be used to create a short debugging game for testing.*/
+    this.createArenaDebugGame = function (obj, game, player) {
+        var sqrPerItem = obj.sqrPerItem;
+        var level = this.createLastBattle(game, obj);
+
+        var spirit = new RG.Actor.Spirit('Wolf spirit');
+        spirit.get('Stats').setStrength(500);
+        level.addActor(spirit, 2, 1);
+
+        var gem = new RG.Item.SpiritGem('Lesser gem');
+        level.addItem(gem);
+
+        var pickaxe = _parser.createActualObj('items', 'Pick-axe');
+        level.addItem(pickaxe, 2, 2);
+
+        var poison = _parser.createActualObj('items', 'Potion of frost poison');
+        poison.count = 5;
+        level.addItem(poison, 2, 2);
+        var curePoison = _parser.createActualObj('items', 'Potion of cure poison');
+        level.addItem(curePoison, 3, 2);
+
+        var rifle = _parser.createActualObj('items', 'Rifle');
+        var ammo = _parser.createActualObj('items', 'Rifle bullet');
+        ammo.setCount(100);
+        level.addItem(rifle, 1, 1);
+        level.addItem(ammo, 1, 1);
+
+        // Test for shops
+        var keeper = _parser.createActualObj('actors', 'shopkeeper');
+        var gold = new RG.Item.GoldCoin();
+        gold.count = 50;
+        keeper.getInvEq().addItem(gold);
+        level.addActor(keeper, 2, 2);
+        var shopElem = new RG.Element.Shop();
+        var shopCell = level.getMap().getCell(3, 3);
+        shopCell.setProp('elements', shopElem);
+        var soldItem = _parser.createActualObj('items', 'Ruby glass sword');
+        soldItem.add('Unpaid', new RG.Component.Unpaid());
+        shopCell.setProp('items', soldItem);
+        shopElem.setShopkeeper(keeper);
+
+        var numFree = level.getMap().getFree().length;
+        // const monstersPerLevel = Math.round(numFree / sqrPerMonster);
+        var itemsPerLevel = Math.round(numFree / sqrPerItem);
+
+        var itemConf = {
+            itemsPerLevel: itemsPerLevel,
+            func: function func(item) {
+                return item.value <= 2500;
+            },
+            maxValue: 2500
+        };
+        this.addNRandItems(level, _parser, itemConf);
+        game.addPlayer(player);
+
+        var pepper = _parser.createActualObj('items', 'Ghost pepper');
+        player.getInvEq().addItem(pepper);
+        var spiritPot = _parser.createActualObj('items', 'Potion of spirit form');
+        player.getInvEq().addItem(spiritPot);
+
+        // player.setFOVRange(50);
+        return game;
+    };
+
+    this.createDebugBattle = function (obj, game, player) {
+        var battle = new RG.Game.Battle('Battle of ice kingdoms');
+        var army1 = new RG.Game.Army('Blue army');
+        var army2 = new RG.Game.Army('Red army');
+        this.addActorsToArmy(army1, 10, 'warlord');
+        this.addActorsToArmy(army2, 10, 'Winter demon');
+
+        var battleLevel = RG.FACT.createLevel('arena', 60, 30);
+        battle.setLevel(battleLevel);
+        battle.addArmy(army1, 1, 1);
+        battle.addArmy(army2, 1, 2);
+        game.addBattle(battle);
+
+        game.addPlayer(player);
+        return game;
+    };
+
+    this.createOneDungeonAndBoss = function (obj, game, player) {
+        var cols = obj.cols;
+        var rows = obj.rows;
+        var nLevels = obj.levels;
+        var sqrPerMonster = obj.sqrPerMonster;
+        var sqrPerItem = obj.sqrPerItem;
+
+        var levelCount = 1;
         var levels = ['rooms', 'rogue', 'digger'];
 
         // For storing stairs and levels
@@ -7003,9 +8135,9 @@ RG.Factory.Game = function () {
 
         var branch = new RG.World.Branch('StartBranch');
 
-        var itemConstraint = function itemConstraint(maxVal) {
+        var itemConstraint = function itemConstraint(maxValue) {
             return function (item) {
-                return item.value <= maxVal;
+                return item.value <= maxValue;
             };
         };
         // Generate all game levels
@@ -7029,9 +8161,18 @@ RG.Factory.Game = function () {
             missile.count = 20;
             level.addItem(missile);
 
-            var maxVal = 20 * (nl + 1);
-            this.addNRandItems(_parser, itemsPerLevel, level, maxVal, itemConstraint(maxVal));
-            this.addNRandMonsters(_parser, monstersPerLevel, level, nl + 1);
+            var maxValue = 20 * (nl + 1);
+            var itemConf = {
+                itemsPerLevel: itemsPerLevel, func: itemConstraint(maxValue),
+                maxValue: maxValue
+            };
+            this.addNRandItems(level, _parser, itemConf);
+
+            var actorConf = {
+                monstersPerLevel: monstersPerLevel,
+                maxDanger: nl + 1
+            };
+            this.addNRandMonsters(level, _parser, actorConf);
 
             allLevels.push(level);
         }
@@ -7086,108 +8227,6 @@ RG.Factory.Game = function () {
         return game;
     };
 
-    var _playerFOV = RG.FOV_RANGE;
-
-    this.createTiledWorld = function (obj, game, player) {
-        var area = new RG.World.Area('Kingdom', 4, 4);
-        var levels = area.getLevels();
-        levels.forEach(function (level) {
-            game.addLevel(level);
-        });
-        game.addPlayer(player);
-        return game;
-    };
-
-    this.createFullWorld = function (obj, game, player) {
-        var worldConf = obj.world;
-        if (!worldConf) {
-            RG.err('Factory', 'createFullWorld', 'obj.world must exist!');
-            return null;
-        }
-        worldConf.levelSize = obj.levelSize;
-        var fact = new RG.Factory.World();
-        var world = fact.createWorld(worldConf);
-        var levels = world.getLevels();
-
-        if (levels.length > 0) {
-            game.addPlace(world);
-            game.addPlayer(player);
-            return game;
-        } else {
-            RG.err('Factory', 'createFullWorld', 'There are no levels in the world!');
-            return null;
-        }
-    };
-
-    /* Can be used to create a short debugging game for testing.*/
-    this.createArenaDebugGame = function (obj, game, player) {
-        var sqrPerItem = obj.sqrPerItem;
-        var level = this.createLastBattle(game, obj);
-
-        var spirit = new RG.Actor.Spirit('Wolf spirit');
-        spirit.get('Stats').setStrength(500);
-        level.addActor(spirit, 2, 1);
-
-        var gem = new RG.Item.SpiritGem('Lesser gem');
-        level.addItem(gem);
-
-        var pickaxe = _parser.createActualObj('items', 'Pick-axe');
-        level.addItem(pickaxe, 2, 2);
-
-        var poison = _parser.createActualObj('items', 'Potion of frost poison');
-        poison.count = 5;
-        level.addItem(poison, 2, 2);
-        var curePoison = _parser.createActualObj('items', 'Potion of cure poison');
-        level.addItem(curePoison, 3, 2);
-
-        // Test for shops
-        var keeper = _parser.createActualObj('actors', 'shopkeeper');
-        var gold = new RG.Item.GoldCoin();
-        gold.count = 50;
-        keeper.getInvEq().addItem(gold);
-        level.addActor(keeper, 2, 2);
-        var shopElem = new RG.Element.Shop();
-        var shopCell = level.getMap().getCell(3, 3);
-        shopCell.setProp('elements', shopElem);
-        var soldItem = _parser.createActualObj('items', 'Ruby glass sword');
-        soldItem.add('Unpaid', new RG.Component.Unpaid());
-        shopCell.setProp('items', soldItem);
-        shopElem.setShopkeeper(keeper);
-
-        var numFree = level.getMap().getFree().length;
-        // const monstersPerLevel = Math.round(numFree / sqrPerMonster);
-        var itemsPerLevel = Math.round(numFree / sqrPerItem);
-        this.addNRandItems(_parser, itemsPerLevel, level, 2500, function (item) {
-            return item.value <= 2500;
-        });
-        game.addPlayer(player);
-
-        var pepper = _parser.createActualObj('items', 'Ghost pepper');
-        player.getInvEq().addItem(pepper);
-        var spiritPot = _parser.createActualObj('items', 'Potion of spirit form');
-        player.getInvEq().addItem(spiritPot);
-
-        // player.setFOVRange(50);
-        return game;
-    };
-
-    this.createDebugBattle = function (obj, game, player) {
-        var battle = new RG.Game.Battle('Battle of ice kingdoms');
-        var army1 = new RG.Game.Army('Blue army');
-        var army2 = new RG.Game.Army('Red army');
-        this.addActorsToArmy(army1, 10, 'warlord');
-        this.addActorsToArmy(army2, 10, 'Winter demon');
-
-        var battleLevel = RG.FACT.createLevel('arena', 60, 30);
-        battle.setLevel(battleLevel);
-        battle.addArmy(army1, 1, 1);
-        battle.addArmy(army2, 1, 2);
-        game.addBattle(battle);
-
-        game.addPlayer(player);
-        return game;
-    };
-
     this.addActorsToArmy = function (army, num, name) {
         for (var i = 0; i < num; i++) {
             var actor = _parser.createActualObj('actors', name);
@@ -7208,7 +8247,7 @@ RG.Factory.Game = function () {
         this.createHumanArmy(level, _parser);
 
         level.setOnFirstEnter(function () {
-            var demonEvent = new RG.Time.RogueOneShotEvent(that.spawnDemonArmy.bind(that, level, _parser), 100 * 20, 'Demon hordes are unleashed from the unsilent abyss!');
+            var demonEvent = new RG.Time.RogueOneShotEvent(that.createDemonArmy.bind(that, level, _parser), 100 * 20, 'Demon hordes are unleashed from the unsilent abyss!');
             game.addEvent(demonEvent);
         });
 
@@ -7228,7 +8267,7 @@ RG.extend2(RG.Factory.Game, RG.Factory.Base);
 
 module.exports = RG.Factory;
 
-},{"../../lib/rot.js":39,"../data/battles_objects.js":1,"../data/effects.js":3,"./brain.js":23,"./component.js":24,"./map.js":30,"./rg.js":35,"debug":40}],27:[function(require,module,exports){
+},{"../../lib/rot.js":42,"../data/battles_objects.js":1,"../data/effects.js":3,"./brain.js":26,"./component.js":27,"./map.js":33,"./rg.js":38,"debug":43}],30:[function(require,module,exports){
 'use strict';
 
 var RG = require('./rg.js');
@@ -7717,7 +8756,7 @@ RG.Game.Main = function () {
             _levels.push(level);
             _engine.addLevel(level);
         } else {
-            RG.err('Game', 'addLevel', 'Duplicate level ID ' + level.getID());
+            RG.err('Game.Main', 'addLevel', 'Duplicate level ID ' + level.getID());
         }
     };
 
@@ -7965,7 +9004,7 @@ RG.Game.Battle = function (name) {
 /* An object for saving the game in specified storage (local/etc..) */
 RG.Game.Save = function () {
     var _storageRef = null;
-    var _fromJSON = new RG.Game.FromJSON();
+    var _dungeonLevel = null;
 
     // Contains names of players for restore selection
     var _playerList = '_battles_player_data_';
@@ -7975,7 +9014,7 @@ RG.Game.Save = function () {
     };
 
     this.getDungeonLevel = function () {
-        return _fromJSON.getDungeonLevel();
+        return _dungeonLevel;
     };
 
     /* Main function which saves the full game.*/
@@ -8044,8 +9083,9 @@ RG.Game.Save = function () {
         if (playersObj.hasOwnProperty(name)) {
             var dbString = _storageRef.getItem('_battles_player_' + name);
             var dbObj = JSON.parse(dbString);
-            _fromJSON = new RG.Game.FromJSON();
-            var game = _fromJSON.createGame(dbObj.game);
+            var fromJSON = new RG.Game.FromJSON();
+            var game = fromJSON.createGame(dbObj.game);
+            _dungeonLevel = fromJSON.getDungeonLevel();
             return game;
         } else {
             RG.err('Game.Save', 'restorePlayer', 'No player |' + name + '| found from the list.');
@@ -8215,6 +9255,9 @@ RG.Game.FromJSON = function () {
         }
         if (item.setType === 'goldcoin') {
             return 'GoldCoin';
+        }
+        if (item.setType === 'missileweapon') {
+            return 'MissileWeapon';
         }
         if (!RG.isNullOrUndef([item])) {
             if (!RG.isNullOrUndef([item.setType])) {
@@ -8458,7 +9501,7 @@ RG.Game.FromJSON = function () {
 
 module.exports = RG.Game;
 
-},{"./map.js":30,"./rg.js":35,"./system.js":36,"./time.js":37}],28:[function(require,module,exports){
+},{"./map.js":33,"./rg.js":38,"./system.js":39,"./time.js":40}],31:[function(require,module,exports){
 'use strict';
 
 var RG = require('./rg.js');
@@ -8560,6 +9603,7 @@ RG.Inv.Equipment = function (actor) {
         neck: new RG.Inv.EquipSlot(this, 'neck'),
         feet: new RG.Inv.EquipSlot(this, 'feet'),
         missile: new RG.Inv.EquipSlot(this, 'missile', true),
+        missileweapon: new RG.Inv.EquipSlot(this, 'missileweapon'),
         spiritgem: new RG.Inv.EquipSlot(this, 'spiritgem')
     };
 
@@ -8614,6 +9658,11 @@ RG.Inv.Equipment = function (actor) {
         else if (item.getType() === 'missile') {
                 if (_slots.missile.equipItem(item)) {
                     _addStackedItem(item);
+                    return true;
+                }
+            } else if (item.getType() === 'missileweapon') {
+                if (_slots.missileweapon.equipItem(item)) {
+                    _equipped.push(item);
                     return true;
                 }
             } else if (_slots.hand.equipItem(item)) {
@@ -8887,6 +9936,14 @@ RG.Inv.Inventory = function (actor) {
         return null;
     };
 
+    this.getMissileWeapon = function () {
+        var item = _eq.getItem('missileweapon');
+        if (!RG.isNullOrUndef([item])) {
+            return item;
+        }
+        return null;
+    };
+
     this.getEquipped = function (slotType) {
         return _eq.getItem(slotType);
     };
@@ -8895,7 +9952,7 @@ RG.extend2(RG.Inv.Inventory, RG.Object.Ownable);
 
 module.exports = RG.Inv;
 
-},{"./item.js":29,"./rg.js":35}],29:[function(require,module,exports){
+},{"./item.js":32,"./rg.js":38}],32:[function(require,module,exports){
 'use strict';
 
 var RG = require('./rg.js');
@@ -8911,7 +9968,8 @@ RG.ITEM_ARMOUR = 'armour';
 RG.ITEM_SPIRITGEM = 'spiritgem';
 RG.ITEM_GOLD = 'gold';
 RG.ITEM_MISSILE = 'missile';
-RG.ITEM_MISSILE_WEAPON = 'missile_weapon';
+RG.ITEM_MISSILE_WEAPON = 'missileweapon';
+RG.ITEM_AMMUNITION = 'ammo';
 RG.ITEM_POTION = 'potion';
 RG.ITEM_GOLD_COIN = 'goldcoin';
 
@@ -8963,6 +10021,7 @@ RG.Item.Base = function (name) {
 RG.extend2(RG.Item.Base, RG.Object.Typed);
 RG.extend2(RG.Item.Base, RG.Object.Ownable);
 
+/* Used when showing the item in inventory lists etc. */
 RG.Item.Base.prototype.toString = function () {
     var txt = this.getName() + ', ' + this.getType() + ', ';
     var totalWeight = this.getWeight() * this.count;
@@ -9112,11 +10171,19 @@ RG.Item.Weapon.prototype.toJSON = function () {
     return json;
 };
 
+/* Base object for missile weapons. */
 RG.Item.MissileWeapon = function (name) {
     RG.Item.Weapon.call(this, name);
     this.setType(RG.ITEM_MISSILE_WEAPON);
 };
 RG.extend2(RG.Item.MissileWeapon, RG.Item.Weapon);
+
+RG.Item.Ammo = function (name) {
+    RG.Item.Weapon.call(this, name);
+    this.setType(RG.ITEM_MISSILE);
+    this.add('Ammo', new RG.Component.Ammo());
+};
+RG.extend2(RG.Item.Ammo, RG.Item.Weapon);
 
 /* Base object for armour.*/
 RG.Item.Armour = function (name) {
@@ -9454,8 +10521,6 @@ RG.extend2(RG.Item.GoldCoin, RG.Item.Gold);
 
 /* Spirit gems can capture spirits inside them.*/
 RG.Item.SpiritGem = function (name) {
-    var _this = this;
-
     RG.Item.Base.call(this, name);
     this.setType(RG.ITEM_SPIRITGEM);
 
@@ -9508,22 +10573,18 @@ RG.Item.SpiritGem = function (name) {
     // Generate getters which access spirit's Stats component
     var _getters = ['getStrength', 'getWillpower', 'getAccuracy', 'getAgility'];
 
-    var _loop = function _loop(i) {
-        /* eslint no-loop-func: 0 */
-        var getFunc = function getFunc() {
-            var funcName = _getters[i];
-            return function () {
-                if (!_hasSpirit) {
-                    return 0;
-                }
-                return _spirit.get('Stats')[funcName]();
-            };
+    var createGetFunc = function createGetFunc(i) {
+        var funcName = _getters[i];
+        return function () {
+            if (!_hasSpirit) {
+                return 0;
+            }
+            return _spirit.get('Stats')[funcName]();
         };
-        _this[_getters[i]] = getFunc();
     };
 
     for (var i = 0; i < _getters.length; i++) {
-        _loop(i);
+        this[_getters[i]] = createGetFunc(i);
     }
 };
 RG.extend2(RG.Item.SpiritGem, RG.Item.Base);
@@ -9573,7 +10634,7 @@ RG.Item.SpiritGem.prototype.toJSON = function () {
 
 module.exports = RG.Item;
 
-},{"./component.js":24,"./object.js":31,"./rg.js":35}],30:[function(require,module,exports){
+},{"./component.js":27,"./object.js":34,"./rg.js":38}],33:[function(require,module,exports){
 'use strict';
 
 var _typeof = typeof Symbol === "function" && typeof Symbol.iterator === "symbol" ? function (obj) { return typeof obj; } : function (obj) { return obj && typeof Symbol === "function" && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : typeof obj; };
@@ -9811,33 +10872,37 @@ RG.Map.Cell.prototype.getProp = function (prop) {
  * monsters and items.  */
 RG.Map.CellList = function (cols, rows) {
     // {{{2
-    var map = [];
+    this._map = [];
     this.cols = cols;
     this.rows = rows;
 
     var _cols = cols;
     var _rows = rows;
 
+    if (typeof _cols !== 'number' || typeof _rows !== 'number') {
+        RG.err('Map.CellList', 'constructor', 'Map.CellList(rows, cols) expects 2 integers.');
+    }
+
     for (var x = 0; x < this.cols; x++) {
-        map.push([]);
+        this._map.push([]);
         for (var y = 0; y < this.rows; y++) {
             var elem = new RG.Element.Base('floor');
-            map[x].push(new RG.Map.Cell(x, y, elem));
+            this._map[x].push(new RG.Map.Cell(x, y, elem));
         }
     }
 
-    /* Returns true if x,y are in the map.*/
+    /* Returns true if x,y are in the this._map.*/
     this.hasXY = function (x, y) {
         return x >= 0 && x < this.cols && y >= 0 && y < this.rows;
     };
 
     /* Sets a property for the underlying cell.*/
     this.setProp = function (x, y, prop, obj) {
-        map[x][y].setProp(prop, obj);
+        this._map[x][y].setProp(prop, obj);
     };
 
     this.removeProp = function (x, y, prop, obj) {
-        return map[x][y].removeProp(prop, obj);
+        return this._map[x][y].removeProp(prop, obj);
     };
 
     this.setElemXY = function (x, y, obj) {
@@ -9845,21 +10910,21 @@ RG.Map.CellList = function (cols, rows) {
     };
 
     this.setBaseElemXY = function (x, y, elem) {
-        map[x][y].setBaseElem(elem);
+        this._map[x][y].setBaseElem(elem);
     };
 
     this.getBaseElemXY = function (x, y) {
-        return map[x][y].getBaseElem();
+        return this._map[x][y].getBaseElem();
     };
 
     this.getCell = function (x, y) {
-        return map[x][y];
+        return this._map[x][y];
     };
 
     this.getBaseElemRow = function (y) {
         var row = [];
         for (var i = 0; i < this.cols; ++i) {
-            row.push(map[i][y].getBaseElem());
+            row.push(this._map[i][y].getBaseElem());
         }
         return row;
     };
@@ -9867,19 +10932,19 @@ RG.Map.CellList = function (cols, rows) {
     this.getCellRow = function (y) {
         var row = [];
         for (var i = 0; i < this.cols; ++i) {
-            row.push(map[i][y]);
+            row.push(this._map[i][y]);
         }
         return row;
     };
 
-    /* Returns all free cells in the map. 'free' means that cell can be
+    /* Returns all free cells in the this._map. 'free' means that cell can be
     * traversed and is passable. */
     this.getFree = function () {
         var freeCells = [];
         for (var _x = 0; _x < this.cols; _x++) {
             for (var _y = 0; _y < this.rows; _y++) {
-                if (map[_x][_y].isFree()) {
-                    freeCells.push(map[_x][_y]);
+                if (this._map[_x][_y].isFree()) {
+                    freeCells.push(this._map[_x][_y]);
                 }
             }
         }
@@ -9892,15 +10957,15 @@ RG.Map.CellList = function (cols, rows) {
         var emptyCells = [];
         for (var _x2 = 0; _x2 < this.cols; _x2++) {
             for (var _y2 = 0; _y2 < this.rows; _y2++) {
-                if (!map[_x2][_y2].hasProps()) {
-                    emptyCells.push(map[_x2][_y2]);
+                if (!this._map[_x2][_y2].hasProps()) {
+                    emptyCells.push(this._map[_x2][_y2]);
                 }
             }
         }
         return emptyCells;
     };
 
-    /* Returns true if the map has a cell in given x,y location.*/
+    /* Returns true if the this._map has a cell in given x,y location.*/
     var _hasXY = function _hasXY(x, y) {
         return x >= 0 && x < _cols && y >= 0 && y < _rows;
     };
@@ -9908,22 +10973,24 @@ RG.Map.CellList = function (cols, rows) {
     /* Returns true if light passes through this cell.*/
     var lightPasses = function lightPasses(x, y) {
         if (_hasXY(x, y)) {
-            return map[x][y].lightPasses(); // delegate to cell
+            return this._map[x][y].lightPasses(); // delegate to cell
         }
         return false;
     };
 
     this.isPassable = function (x, y) {
         if (_hasXY(x, y)) {
-            return map[x][y].isPassable();
+            return this._map[x][y].isPassable();
         }
         return false;
     };
 
-    var fov = new ROT.FOV.PreciseShadowcasting(lightPasses);
+    var fov = new ROT.FOV.PreciseShadowcasting(lightPasses.bind(this));
 
     /* Returns visible cells for given actor.*/
     this.getVisibleCells = function (actor) {
+        var _this3 = this;
+
         var cells = [];
         var xActor = actor.getX();
         var yActor = actor.getY();
@@ -9933,7 +11000,7 @@ RG.Map.CellList = function (cols, rows) {
                 fov.compute(xActor, yActor, range, function (x, y, r, visibility) {
                     if (visibility) {
                         if (_hasXY(x, y)) {
-                            cells.push(map[x][y]);
+                            cells.push(_this3._map[x][y]);
                         }
                     }
                 });
@@ -9947,14 +11014,14 @@ RG.Map.CellList = function (cols, rows) {
         var cells = [];
         for (var _x3 = 0; _x3 < this.cols; _x3++) {
             for (var _y3 = 0; _y3 < this.rows; _y3++) {
-                if (map[_x3][_y3].isExplored()) {
-                    cells.push(map[_x3][_y3]);
+                if (this._map[_x3][_y3].isExplored()) {
+                    cells.push(this._map[_x3][_y3]);
                 }
             }
         }
     };
 
-    /* Returns true if x,y is located at map border cells.*/
+    /* Returns true if x,y is located at this._map border cells.*/
     this.isBorderXY = function (x, y) {
         if (x === 0) {
             return true;
@@ -9971,13 +11038,13 @@ RG.Map.CellList = function (cols, rows) {
         return false;
     };
 
-    /* Prints the map in ASCII. */
+    /* Prints the this._map in ASCII. */
     this.debugPrintInASCII = function () {
         var mapInASCII = '';
         for (var _y4 = 0; _y4 < this.rows; _y4++) {
             var row = '';
             for (var _x4 = 0; _x4 < this.cols; _x4++) {
-                var cell = map[_x4][_y4];
+                var cell = this._map[_x4][_y4];
                 if (cell.getStairs() !== null) {
                     row += '>';
                 } else if (cell.getBaseElem().getType() === 'floor') {
@@ -9990,7 +11057,7 @@ RG.Map.CellList = function (cols, rows) {
         }
         console.log(mapInASCII);
     };
-}; // }}} Map.CellList
+}; // }}} this._map.CellList
 
 RG.Map.CellList.prototype.toJSON = function () {
     var map = [];
@@ -10341,7 +11408,11 @@ RG.Map.Level = function () {
         return _parent;
     };
     this.setParent = function (parent) {
-        _parent = parent;
+        if (!RG.isNullOrUndef([parent])) {
+            _parent = parent;
+        } else {
+            RG.err('Map.Level', 'setParent', 'Parent is not defined.');
+        }
     };
 
     this.getActors = function () {
@@ -10713,7 +11784,7 @@ RG.Map.Level.prototype.idCount = 0;
 
 module.exports = RG.Map;
 
-},{"../../lib/rot.js":39,"./element.js":25,"./rg.js":35}],31:[function(require,module,exports){
+},{"../../lib/rot.js":42,"./element.js":28,"./rg.js":38}],34:[function(require,module,exports){
 'use strict';
 
 var _typeof = typeof Symbol === "function" && typeof Symbol.iterator === "symbol" ? function (obj) { return typeof obj; } : function (obj) { return obj && typeof Symbol === "function" && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : typeof obj; };
@@ -10994,7 +12065,7 @@ RG.Object.Ownable = function (owner) {
 
 module.exports = RG.Object;
 
-},{"./rg.js":35}],32:[function(require,module,exports){
+},{"./rg.js":38}],35:[function(require,module,exports){
 'use strict';
 
 var _typeof = typeof Symbol === "function" && typeof Symbol.iterator === "symbol" ? function (obj) { return typeof obj; } : function (obj) { return obj && typeof Symbol === "function" && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : typeof obj; };
@@ -11101,6 +12172,9 @@ RG.ObjectShellParser = function () {
         levels: {},
         dungeons: {}
     };
+
+    _propToCall.items.missileweapon = _propToCall.items.missile;
+    _propToCall.items.ammo = _propToCall.items.missile;
 
     // Internal cache for proc generation
     var _cache = {
@@ -11461,8 +12535,13 @@ RG.ObjectShellParser = function () {
     };
 
     /* Creates actual game object from obj shell in given category.*/
-    this.CreateFromShell = function (categ, obj) {
-        return this.createActualObj(categ, obj.name);
+    this.createFromShell = function (categ, obj) {
+        if (obj) {
+            return this.createActualObj(categ, obj.name);
+        } else {
+            RG.err('RG.ObjectShellParser', 'createFromShell', 'obj given must be defined.');
+        }
+        return null;
     };
 
     /* Factory-method for creating the actual game objects.*/
@@ -11470,10 +12549,12 @@ RG.ObjectShellParser = function () {
         switch (categ) {
             case RG.TYPE_ACTOR:
                 var type = obj.type;
-                if (type === 'spirit') {
-                    return new RG.Actor.Spirit(obj.name);
+                switch (type) {
+                    case 'spirit':
+                        return new RG.Actor.Spirit(obj.name);
+                    default:
+                        return new RG.Actor.Rogue(obj.name);
                 }
-                return new RG.Actor.Rogue(obj.name);
             case RG.TYPE_ITEM:
                 var subtype = obj.type;
                 switch (subtype) {
@@ -11487,6 +12568,10 @@ RG.ObjectShellParser = function () {
                         return new RG.Item.GoldCoin(obj.name);
                     case 'missile':
                         return new RG.Item.Missile(obj.name);
+                    case 'missileweapon':
+                        return new RG.Item.MissileWeapon(obj.name);
+                    case 'ammo':
+                        return new RG.Item.Ammo(obj.name);
                     case 'potion':
                         return new RG.Item.Potion(obj.name);
                     case 'spiritgem':
@@ -11641,19 +12726,19 @@ RG.ObjectShellParser = function () {
             var danger = obj.danger;
             randShell = this.dbGetRand({ danger: danger, categ: 'actors' });
             if (randShell !== null) {
-                return this.CreateFromShell('actors', randShell);
+                return this.createFromShell('actors', randShell);
             } else {
                 return null;
             }
         } else if (obj.hasOwnProperty('func')) {
             var res = this.filterCategWithFunc('actors', obj.func);
             randShell = RG.RAND.arrayGetRand(res);
-            return this.CreateFromShell('actors', randShell);
+            return this.createFromShell('actors', randShell);
         }
         return null;
     };
 
-    // Uses engine's internal weighting algorithm when givel a level number.
+    // Uses engine's internal weighting algorithm when given a level number.
     // Note that this method can return null, if no correct danger level is
     // found. You can supply {func: ...} as a fallback solution.
     this.createRandomActorWeighted = function (min, max, obj) {
@@ -11663,6 +12748,8 @@ RG.ObjectShellParser = function () {
         }
         var danger = ROT.RNG.getWeightedValue(_cache.actorWeights[key]);
         var actor = this.createRandomActor({ danger: danger });
+
+        // Fallback to using a function, obj.func
         if (RG.isNullOrUndef([actor])) {
             if (!RG.isNullOrUndef([obj])) {
                 return this.createRandomActor(obj);
@@ -11682,7 +12769,7 @@ RG.ObjectShellParser = function () {
         if (obj.hasOwnProperty('func')) {
             var res = this.filterCategWithFunc('items', obj.func);
             var randShell = RG.RAND.arrayGetRand(res);
-            return this.CreateFromShell('items', randShell);
+            return this.createFromShell('items', randShell);
         } else {
             RG.err('ObjectParser', 'createRandomItem', 'No function given.');
         }
@@ -11701,7 +12788,7 @@ RG.ObjectShellParser = function () {
 
 module.exports = RG.ObjectShellParser;
 
-},{"../../lib/rot.js":39,"./rg.js":35}],33:[function(require,module,exports){
+},{"../../lib/rot.js":42,"./rg.js":38}],36:[function(require,module,exports){
 'use strict';
 
 /* Contains all logic to interface with the IndexDB. */
@@ -11795,7 +12882,7 @@ module.exports = function Persist(storeName) {
     };
 };
 
-},{}],34:[function(require,module,exports){
+},{}],37:[function(require,module,exports){
 'use strict';
 
 var RG = require('./rg');
@@ -11849,7 +12936,7 @@ RG.RAND = new RG.Random();
 
 module.exports = RG.Random;
 
-},{"../../lib/rot":39,"./rg":35}],35:[function(require,module,exports){
+},{"../../lib/rot":42,"./rg":38}],38:[function(require,module,exports){
 'use strict';
 
 var _typeof = typeof Symbol === "function" && typeof Symbol.iterator === "symbol" ? function (obj) { return typeof obj; } : function (obj) { return obj && typeof Symbol === "function" && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : typeof obj; };
@@ -12215,6 +13302,9 @@ var RG = { // {{{2
     getMissileDamage: function getMissileDamage(att, miss) {
         var dmg = miss.getDamage();
         dmg += Math.round(att.get('Stats').getAgility() / 3);
+        if (miss.has('Ammo')) {
+            dmg += att.getMissileWeapon().getDamage();
+        }
         return dmg;
     },
 
@@ -12226,6 +13316,16 @@ var RG = { // {{{2
         attack += miss.getAttack();
 
         return attack;
+    },
+
+    getMissileRange: function getMissileRange(att, miss) {
+        var range = miss.getAttackRange();
+        if (miss.has('Ammo')) {
+            var missWeapon = att.getMissileWeapon();
+            var weaponRange = missWeapon.getAttackRange();
+            range += weaponRange;
+        }
+        return range;
     },
 
     /* Given actor and cells it sees, returns first enemy cell found.*/
@@ -12594,6 +13694,33 @@ RG.K_NEXT_ITEM = ROT.VK_H;
 RG.K_DOOR = ROT.VK_O;
 RG.K_REST = ROT.VK_S;
 
+// These determine the size of one block in a level. These numbers are important
+// because they determine a sub-area used for procedural generation of shops,
+// vaults and other special features.
+RG.BLOCK_X = 20;
+RG.BLOCK_Y = 7;
+
+// Level size determined as function of BLOCK_X/Y. Note that due to different
+// block size or x/y, levels are not square shaped, but x > y.
+RG.LEVEL_SMALL_X = 3 * RG.BLOCK_X;
+RG.LEVEL_SMALL_Y = 3 * RG.BLOCK_Y;
+RG.LEVEL_MEDIUM_X = 4 * RG.BLOCK_X;
+RG.LEVEL_MEDIUM_Y = 4 * RG.BLOCK_Y;
+RG.LEVEL_LARGE_X = 5 * RG.BLOCK_X;
+RG.LEVEL_LARGE_Y = 5 * RG.BLOCK_Y;
+RG.LEVEL_HUGE_X = 7 * RG.BLOCK_X;
+RG.LEVEL_HUGE_Y = 7 * RG.BLOCK_Y;
+
+// Controls the number of items generated for each N squares
+RG.LOOT_SPARSE_SQR = 200;
+RG.LOOT_MEDIUM_SQR = 120;
+RG.LOOT_ABUNDANT_SQR = 50;
+
+// Controls the number of actors generated for each N squares
+RG.ACTOR_SPARSE_SQR = 200;
+RG.ACTOR_MEDIUM_SQR = 120;
+RG.ACTOR_ABUNDANT_SQR = 50;
+
 /* Contains generic 2D geometric functions for square/rectangle/triangle
  * generation.*/
 RG.Geometry = {
@@ -12729,15 +13856,17 @@ RG.POOL = new RG.EventPool(); // Dangerous, global objects
 RG.MessageHandler = function () {
     // {{{2
 
-    var _message = [];
-    var _prevMessage = [];
+    var _lastMsg = null;
+
+    var _messages = [];
+    var _prevMessages = [];
     var _hasNew = false;
 
     this.hasNotify = true;
     this.notify = function (evtName, msg) {
         if (evtName === RG.EVT_MSG) {
             if (msg.hasOwnProperty('msg')) {
-                var msgObj = { msg: msg.msg, style: 'prim' };
+                var msgObj = { msg: msg.msg, style: 'prim', count: 1 };
 
                 if (msg.hasOwnProperty('cell')) {
                     msgObj.cell = msg.cell;
@@ -12747,7 +13876,12 @@ RG.MessageHandler = function () {
                     msgObj.style = msg.style;
                 }
 
-                _message.push(msgObj);
+                if (_lastMsg && _lastMsg.msg === msgObj.msg) {
+                    _lastMsg.count += 1;
+                } else {
+                    _lastMsg = msgObj;
+                    _messages.push(msgObj);
+                }
                 _hasNew = true;
             }
         }
@@ -12760,20 +13894,20 @@ RG.MessageHandler = function () {
 
     this.getMessages = function () {
         _hasNew = false;
-        if (_message.length > 0) {
-            return _message;
-        } else if (_prevMessage.length > 0) {
-            return _prevMessage;
+        if (_messages.length > 0) {
+            return _messages;
+        } else if (_prevMessages.length > 0) {
+            return _prevMessages;
         } else {
             return [];
         }
     };
 
     this.clear = function () {
-        if (_message.length > 0) {
-            _prevMessage = _message.slice();
+        if (_messages.length > 0) {
+            _prevMessages = _messages.slice();
         }
-        _message = [];
+        _messages = [];
     };
 }; // }}} Messages
 
@@ -12828,7 +13962,7 @@ RG.Entity.prototype.idCount = 0;
 
 module.exports = RG;
 
-},{"../../lib/rot.js":39}],36:[function(require,module,exports){
+},{"../../lib/rot.js":42}],39:[function(require,module,exports){
 'use strict';
 
 var RG = require('./rg.js');
@@ -13489,7 +14623,7 @@ RG.extend2(RG.System.Communication, RG.System.Base);
 
 module.exports = RG.System;
 
-},{"./rg.js":35}],37:[function(require,module,exports){
+},{"./rg.js":38}],40:[function(require,module,exports){
 "use strict";
 
 var ROT = require("../../lib/rot.js");
@@ -13669,13 +14803,67 @@ RG.Time.Scheduler = function () {
 
 module.exports = RG.Time;
 
-},{"../../lib/rot.js":39,"./rg.js":35}],38:[function(require,module,exports){
+},{"../../lib/rot.js":42,"./rg.js":38}],41:[function(require,module,exports){
 'use strict';
 
 /*
  * Contains objects related to the game world in Battles. This includes areas,
  * dungeons, dungeon branches etc.
  */
+
+/* Returns stairs leading to other branches/features. Used only for testing
+* purposes. */
+function getStairsOther(name, levels) {
+    var stairs = [];
+    levels.forEach(function (level) {
+        var sList = level.getStairs();
+        sList.forEach(function (s) {
+            var levelStair = s.getTargetLevel();
+            if (levelStair) {
+                if (levelStair.getParent() !== name) {
+                    stairs.push(s);
+                }
+            }
+        });
+    });
+    return stairs;
+}
+
+/* Connects to sub-features like dungeon branch or city quarter together.*/
+function connectSubFeatures(features, q1Arg, q2Arg, l1, l2) {
+    var q1 = q1Arg;
+    var q2 = q2Arg;
+
+    // Lookup objects by name
+    if (typeof q1Arg === 'string' && typeof q2Arg === 'string') {
+        q1 = features.find(function (q) {
+            return q.getName() === q1Arg;
+        });
+        q2 = features.find(function (q) {
+            return q.getName() === q2Arg;
+        });
+    }
+
+    if (RG.isNullOrUndef([q1, q2])) {
+        RG.err('RG.World', 'connectSubFeatures', 'Cannot connect null features. Check the names.');
+        return;
+    }
+
+    var down = true;
+    if (l1 > l2) {
+        down = false;
+    }
+    var b2Stairs = new Stairs(down);
+    var b2Levels = q2.getLevels();
+    if (l2 < b2Levels.length) {
+        var cell = b2Levels[l2].getFreeRandCell();
+        b2Levels[l2].addStairs(b2Stairs, cell.getX(), cell.getY());
+        b2Stairs.setSrcLevel(b2Levels[l2]);
+        q1.connectLevelToStairs(l1, b2Stairs);
+    } else {
+        RG.err('RG.World', 'connectSubFeatures', 'Level ' + l2 + " doesn't exist in sub-feature " + q2.getName());
+    }
+}
 
 var RG = require('./rg.js');
 RG.Factory = require('./factory');
@@ -13686,6 +14874,7 @@ RG.World = {};
 
 RG.World.Base = function (name) {
     this.name = name;
+    this.type = 'base';
 };
 
 RG.World.Base.prototype.getName = function () {
@@ -13700,12 +14889,21 @@ RG.World.Base.prototype.setHierName = function (hierName) {
     this.hierName = hierName;
 };
 
+RG.World.Base.prototype.getType = function () {
+    return this.type;
+};
+
+RG.World.Base.prototype.setType = function (type) {
+    this.type = type;
+};
+
 /* Branch, as name suggests, is a branch of dungeon. A branch is linear
  * progression of connected levels (usually with increasing difficulty).
  * Branch can have
  * entry points to other branches (or out of the dungeon). */
 RG.World.Branch = function (name) {
     RG.World.Base.call(this, name);
+    this.setType('branch');
     var _levels = [];
     var _entrance = null;
     var _numCount = 1;
@@ -13726,21 +14924,22 @@ RG.World.Branch = function (name) {
     /* Returns stairs leading to other branches/features. Used only for testing
     * purposes. */
     this.getStairsOther = function () {
-        var _this = this;
-
-        var stairs = [];
-        _levels.forEach(function (level) {
-            var sList = level.getStairs();
-            sList.forEach(function (s) {
-                var levelS = s.getTargetLevel();
+        return getStairsOther(this.getName(), _levels);
+        /*
+        const stairs = [];
+        _levels.forEach(level => {
+            const sList = level.getStairs();
+            sList.forEach(s => {
+                const levelS = s.getTargetLevel();
                 if (levelS) {
-                    if (levelS.getParent() !== _this.getName()) {
+                    if (levelS.getParent() !== this.getName()) {
                         stairs.push(s);
                     }
                 }
             });
         });
         return stairs;
+        */
     };
 
     /* Adds entrance stairs for this branch. */
@@ -13758,7 +14957,11 @@ RG.World.Branch = function (name) {
     };
 
     this.setEntranceLocation = function (entrance) {
-        _entrance = entrance;
+        if (!RG.isNullOrUndef([entrance])) {
+            _entrance = entrance;
+        } else {
+            RG.err('World.Branch', 'setEntranceLocation', 'Arg entrance is not defined.');
+        }
     };
 
     /* Returns entrance/exit for the branch.*/
@@ -13847,9 +15050,11 @@ RG.World.Branch = function (name) {
             nLevels: _levels.length,
             levels: _levels.map(function (level) {
                 return level.getID();
-            }),
-            entrance: _entrance
+            })
         };
+        if (_entrance) {
+            obj.entrance = _entrance;
+        }
         return obj;
     };
 };
@@ -13858,6 +15063,7 @@ RG.extend2(RG.World.Branch, RG.World.Base);
 /* Dungeons is a collection of branches.*/
 RG.World.Dungeon = function (name) {
     RG.World.Base.call(this, name);
+    this.setType('dungeon');
     var _branches = [];
     var _entranceNames = [];
 
@@ -13919,42 +15125,7 @@ RG.World.Dungeon = function (name) {
     /* Connects two branches b1 and b2 together from specified level
      * numbers l1 and l2. */
     this.connectBranches = function (b1Arg, b2Arg, l1, l2) {
-        var b1 = b1Arg;
-        var b2 = b2Arg;
-
-        // Lookup objects by name
-        if (typeof b1Arg === 'string' && typeof b2Arg === 'string') {
-            b1 = _branches.find(function (br) {
-                return br.getName() === b1Arg;
-            });
-            b2 = _branches.find(function (br) {
-                return br.getName() === b2Arg;
-            });
-        }
-
-        if (RG.isNullOrUndef([b1, b2])) {
-            RG.err('World.Dungeon', 'connectBranches', 'Cannot connect null branches. Check branch names.');
-            return;
-        }
-
-        if (this.hasBranch(b1) && this.hasBranch(b2)) {
-            var down = true;
-            if (l1 > l2) {
-                down = false;
-            }
-            var b2Stairs = new Stairs(down);
-            var b2Levels = b2.getLevels();
-            if (l2 < b2Levels.length) {
-                var cell = b2Levels[l2].getFreeRandCell();
-                b2Levels[l2].addStairs(b2Stairs, cell.getX(), cell.getY());
-                b2Stairs.setSrcLevel(b2Levels[l2]);
-                b1.connectLevelToStairs(l1, b2Stairs);
-            } else {
-                RG.err('World.Dungeon', 'connectBranches', 'Level ' + l2 + " doesn't exist in branch " + b2.getName());
-            }
-        } else {
-            RG.err('World.Dungeon', 'connectBranches', 'Use addBranch ' + b1 + ' and ' + b2 + ' to dungeon before connection.');
-        }
+        connectSubFeatures(_branches, b1Arg, b2Arg, l1, l2);
     };
 
     this.toJSON = function () {
@@ -14092,6 +15263,7 @@ RG.World.AreaTile = function (x, y, area) {
  * */
 RG.World.Area = function (name, maxX, maxY, cols, rows, levels) {
     RG.World.Base.call(this, name);
+    this.setType('area');
     var _maxX = maxX;
     var _maxY = maxY;
 
@@ -14117,7 +15289,6 @@ RG.World.Area = function (name, maxX, maxY, cols, rows, levels) {
             var tileColumn = [];
             for (var y = 0; y < _maxY; y++) {
                 var newTile = new RG.World.AreaTile(x, y, this);
-                // const level = RG.FACT.createLevel('ruins', 30, 30, {});
                 var levelConf = {
                     forest: {
                         ratio: 0.5,
@@ -14129,8 +15300,8 @@ RG.World.Area = function (name, maxX, maxY, cols, rows, levels) {
                     level = levels[x][y];
                 } else {
                     level = RG.FACT.createLevel('forest', _cols, _rows, levelConf);
-                    level.setParent(this.getName());
                 }
+                level.setParent(this.getName());
                 newTile.setLevel(level);
                 tileColumn.push(newTile);
             }
@@ -14246,6 +15417,7 @@ RG.extend2(RG.World.Area, RG.World.Base);
  */
 RG.World.Mountain = function (name) {
     RG.World.Base.call(this, name);
+    this.setType('mountain');
     var _summit = null;
     var _faces = [];
 
@@ -14328,6 +15500,7 @@ RG.extend2(RG.World.Mountain, RG.World.Base);
 * Areas. */
 RG.World.MountainFace = function (name) {
     RG.World.Base.call(this, name);
+    this.setType('face');
     // const _stages = [];
     var _levels = [];
     var _entrance = null;
@@ -14359,7 +15532,11 @@ RG.World.MountainFace = function (name) {
     };
 
     this.setEntranceLocation = function (entrance) {
-        _entrance = entrance;
+        if (!RG.isNullOrUndef([entrance])) {
+            _entrance = entrance;
+        } else {
+            RG.err('World.MountainFace', 'setEntranceLocation', 'Arg entrance is not defined.');
+        }
     };
 
     this.getEntrance = function () {
@@ -14378,9 +15555,11 @@ RG.World.MountainFace = function (name) {
             nLevels: _levels.length,
             levels: _levels.map(function (level) {
                 return level.getID();
-            }),
-            entrance: _entrance
+            })
         };
+        if (_entrance) {
+            obj.entrance = _entrance;
+        }
         return obj;
     };
 };
@@ -14390,25 +15569,77 @@ RG.extend2(RG.World.MountainFace, RG.World.Base);
 * this object. */
 RG.World.City = function (name) {
     RG.World.Base.call(this, name);
-    var _levels = [];
-    var _entrances = [];
+    this.setType('city');
+    var _quarters = [];
 
     this.getLevels = function () {
-        return _levels;
+        var result = [];
+        _quarters.forEach(function (q) {
+            result = result.concat(q.getLevels());
+        });
+        return result;
     };
 
     this.getEntrances = function () {
         var entrances = [];
-        _entrances.forEach(function (entr) {
-            var entrLevel = _levels[entr.levelNumber];
-            var entrCell = entrLevel.getMap().getCell(entr.x, entr.y);
-            entrances.push(entrCell.getStairs());
+        _quarters.forEach(function (q) {
+            var qEntr = q.getEntrance();
+            if (qEntr) {
+                entrances.push(qEntr);
+            }
         });
         return entrances;
     };
 
-    this.setEntranceLocations = function (entrances) {
-        _entrances = entrances;
+    this.getQuarters = function () {
+        return _quarters;
+    };
+
+    this.addQuarter = function (quarter) {
+        if (!RG.isNullOrUndef([quarter])) {
+            _quarters.push(quarter);
+        } else {
+            RG.err('World.City', 'addQuarter', 'City ' + this.getName() + ' quarter not defined.');
+        }
+    };
+
+    this.toJSON = function () {
+        var obj = {
+            name: this.getName(),
+            hierName: this.getHierName(),
+            // nLevels: _levels.length,
+            // levels: _levels.map(level => level.getID()),
+            // entrances: _entrances,
+            nQuarters: _quarters.length,
+            quarter: _quarters.map(function (q) {
+                return q.toJSON();
+            })
+        };
+        return obj;
+    };
+
+    this.hasQuarter = function (q) {
+        var index = _quarters.indexOf(q);
+        return index >= 0;
+    };
+
+    /* Connects two city quarters together. */
+    this.connectQuarters = function (q1Arg, q2Arg, l1, l2) {
+        connectSubFeatures(_quarters, q1Arg, q2Arg, l1, l2);
+    };
+};
+RG.extend2(RG.World.City, RG.World.Base);
+
+/* City quarter is a subset of the City. It contains the actual level and
+ * special features for that level. */
+RG.World.CityQuarter = function (name) {
+    RG.World.Base.call(this, name);
+    this.setType('quarter');
+    var _levels = [];
+    var _entrance = null;
+
+    this.getLevels = function () {
+        return _levels;
     };
 
     this.addLevel = function (level) {
@@ -14416,11 +15647,54 @@ RG.World.City = function (name) {
         level.setParent(this.getName());
     };
 
+    this.getStairsOther = function () {
+        return getStairsOther(this.getName(), _levels);
+    };
+
+    this.setEntranceLocation = function (entrance) {
+        if (!RG.isNullOrUndef([entrance])) {
+            _entrance = entrance;
+        } else {
+            RG.err('World.CityQuarter', 'setEntranceLocation', 'Arg entrance is not defined.');
+        }
+    };
+
+    /* Returns entrance/exit for the quarter.*/
+    this.getEntrance = function () {
+        if (_entrance === null) {
+            return null;
+        }
+        var entrLevel = _levels[_entrance.levelNumber];
+        var entrCell = entrLevel.getMap().getCell(_entrance.x, _entrance.y);
+        return entrCell.getStairs();
+    };
+
     this.addEntrance = function (levelNumber) {
-        var level = _levels[levelNumber];
-        var stairs = new Stairs(true, level);
-        level.addStairs(stairs, 1, 1);
-        _entrances.push({ levelNumber: levelNumber, x: 1, y: 1 });
+        if (_entrance === null) {
+            var level = _levels[levelNumber];
+            var stairs = new Stairs(true, level);
+            level.addStairs(stairs, 1, 1);
+            _entrance = { levelNumber: levelNumber, x: 1, y: 1 };
+        } else {
+            RG.err('World.CityQuarter', 'addEntrance', 'Entrance already added.');
+        }
+    };
+
+    /* Connects specified level to the given stairs (Usually external to this
+     * quarter) .*/
+    this.connectLevelToStairs = function (nLevel, stairs) {
+        var level = _levels[nLevel];
+        var otherQuartLevel = stairs.getSrcLevel();
+
+        if (!RG.isNullOrUndef([otherQuartLevel])) {
+            var down = !stairs.isDown();
+            var newStairs = new Stairs(down, level, otherQuartLevel);
+            var cell = level.getFreeRandCell();
+            level.addStairs(newStairs, cell.getX(), cell.getY());
+            newStairs.connect(stairs);
+        } else {
+            RG.err('World.CityQuarter', 'connectLevelToStairs', 'Stairs must be first connected to other level.');
+        }
     };
 
     this.toJSON = function () {
@@ -14430,17 +15704,20 @@ RG.World.City = function (name) {
             nLevels: _levels.length,
             levels: _levels.map(function (level) {
                 return level.getID();
-            }),
-            entrances: _entrances
+            })
         };
+        if (_entrance) {
+            obj.entrance = _entrance;
+        }
         return obj;
     };
 };
-RG.extend2(RG.World.City, RG.World.Base);
+RG.extend2(RG.World.CityQuarter, RG.World.Base);
 
 /* Largest place. Contains a number of areas, mountains and dungeons. */
 RG.World.World = function (name) {
     RG.World.Base.call(this, name);
+    this.setType('world');
 
     var _allLevels = {}; // Lookup table for all levels
     var _areas = [];
@@ -14510,7 +15787,7 @@ RG.extend2(RG.World.World, RG.World.Base);
 
 module.exports = RG.World;
 
-},{"./factory":26,"./rg.js":35}],39:[function(require,module,exports){
+},{"./factory":29,"./rg.js":38}],42:[function(require,module,exports){
 'use strict';
 
 /* eslint-disable */
@@ -20122,7 +21399,7 @@ ROT.Path.AStar.prototype._distance = function (x, y) {
 
 module.exports = ROT;
 
-},{}],40:[function(require,module,exports){
+},{}],43:[function(require,module,exports){
 (function (process){
 /**
  * This is the web browser implementation of `debug()`.
@@ -20311,7 +21588,7 @@ function localstorage() {
 }
 
 }).call(this,require('_process'))
-},{"./debug":41,"_process":67}],41:[function(require,module,exports){
+},{"./debug":44,"_process":70}],44:[function(require,module,exports){
 
 /**
  * This is the common logic for both the Node.js and web browser
@@ -20515,7 +21792,7 @@ function coerce(val) {
   return val;
 }
 
-},{"ms":66}],42:[function(require,module,exports){
+},{"ms":69}],45:[function(require,module,exports){
 'use strict';
 
 /**
@@ -20599,7 +21876,7 @@ var EventListener = {
 };
 
 module.exports = EventListener;
-},{"./emptyFunction":49}],43:[function(require,module,exports){
+},{"./emptyFunction":52}],46:[function(require,module,exports){
 /**
  * Copyright (c) 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -20635,7 +21912,7 @@ var ExecutionEnvironment = {
 };
 
 module.exports = ExecutionEnvironment;
-},{}],44:[function(require,module,exports){
+},{}],47:[function(require,module,exports){
 "use strict";
 
 /**
@@ -20667,7 +21944,7 @@ function camelize(string) {
 }
 
 module.exports = camelize;
-},{}],45:[function(require,module,exports){
+},{}],48:[function(require,module,exports){
 /**
  * Copyright (c) 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -20707,7 +21984,7 @@ function camelizeStyleName(string) {
 }
 
 module.exports = camelizeStyleName;
-},{"./camelize":44}],46:[function(require,module,exports){
+},{"./camelize":47}],49:[function(require,module,exports){
 'use strict';
 
 /**
@@ -20747,7 +22024,7 @@ function containsNode(outerNode, innerNode) {
 }
 
 module.exports = containsNode;
-},{"./isTextNode":59}],47:[function(require,module,exports){
+},{"./isTextNode":62}],50:[function(require,module,exports){
 'use strict';
 
 /**
@@ -20874,7 +22151,7 @@ function createArrayFromMixed(obj) {
 }
 
 module.exports = createArrayFromMixed;
-},{"./invariant":57}],48:[function(require,module,exports){
+},{"./invariant":60}],51:[function(require,module,exports){
 'use strict';
 
 /**
@@ -20958,7 +22235,7 @@ function createNodesFromMarkup(markup, handleScript) {
 }
 
 module.exports = createNodesFromMarkup;
-},{"./ExecutionEnvironment":43,"./createArrayFromMixed":47,"./getMarkupWrap":53,"./invariant":57}],49:[function(require,module,exports){
+},{"./ExecutionEnvironment":46,"./createArrayFromMixed":50,"./getMarkupWrap":56,"./invariant":60}],52:[function(require,module,exports){
 "use strict";
 
 /**
@@ -20997,7 +22274,7 @@ emptyFunction.thatReturnsArgument = function (arg) {
 };
 
 module.exports = emptyFunction;
-},{}],50:[function(require,module,exports){
+},{}],53:[function(require,module,exports){
 /**
  * Copyright (c) 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -21017,7 +22294,7 @@ if ("production" !== 'production') {
 }
 
 module.exports = emptyObject;
-},{}],51:[function(require,module,exports){
+},{}],54:[function(require,module,exports){
 /**
  * Copyright (c) 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -21044,7 +22321,7 @@ function focusNode(node) {
 }
 
 module.exports = focusNode;
-},{}],52:[function(require,module,exports){
+},{}],55:[function(require,module,exports){
 'use strict';
 
 /**
@@ -21083,7 +22360,7 @@ function getActiveElement(doc) /*?DOMElement*/{
 }
 
 module.exports = getActiveElement;
-},{}],53:[function(require,module,exports){
+},{}],56:[function(require,module,exports){
 'use strict';
 
 /**
@@ -21178,7 +22455,7 @@ function getMarkupWrap(nodeName) {
 }
 
 module.exports = getMarkupWrap;
-},{"./ExecutionEnvironment":43,"./invariant":57}],54:[function(require,module,exports){
+},{"./ExecutionEnvironment":46,"./invariant":60}],57:[function(require,module,exports){
 /**
  * Copyright (c) 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -21217,7 +22494,7 @@ function getUnboundedScrollPosition(scrollable) {
 }
 
 module.exports = getUnboundedScrollPosition;
-},{}],55:[function(require,module,exports){
+},{}],58:[function(require,module,exports){
 'use strict';
 
 /**
@@ -21250,7 +22527,7 @@ function hyphenate(string) {
 }
 
 module.exports = hyphenate;
-},{}],56:[function(require,module,exports){
+},{}],59:[function(require,module,exports){
 /**
  * Copyright (c) 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -21289,7 +22566,7 @@ function hyphenateStyleName(string) {
 }
 
 module.exports = hyphenateStyleName;
-},{"./hyphenate":55}],57:[function(require,module,exports){
+},{"./hyphenate":58}],60:[function(require,module,exports){
 /**
  * Copyright (c) 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -21345,7 +22622,7 @@ function invariant(condition, format, a, b, c, d, e, f) {
 }
 
 module.exports = invariant;
-},{}],58:[function(require,module,exports){
+},{}],61:[function(require,module,exports){
 'use strict';
 
 /**
@@ -21370,7 +22647,7 @@ function isNode(object) {
 }
 
 module.exports = isNode;
-},{}],59:[function(require,module,exports){
+},{}],62:[function(require,module,exports){
 'use strict';
 
 /**
@@ -21395,7 +22672,7 @@ function isTextNode(object) {
 }
 
 module.exports = isTextNode;
-},{"./isNode":58}],60:[function(require,module,exports){
+},{"./isNode":61}],63:[function(require,module,exports){
 /**
  * Copyright (c) 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -21425,7 +22702,7 @@ function memoizeStringOnly(callback) {
 }
 
 module.exports = memoizeStringOnly;
-},{}],61:[function(require,module,exports){
+},{}],64:[function(require,module,exports){
 /**
  * Copyright (c) 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -21448,7 +22725,7 @@ if (ExecutionEnvironment.canUseDOM) {
 }
 
 module.exports = performance || {};
-},{"./ExecutionEnvironment":43}],62:[function(require,module,exports){
+},{"./ExecutionEnvironment":46}],65:[function(require,module,exports){
 'use strict';
 
 /**
@@ -21482,7 +22759,7 @@ if (performance.now) {
 }
 
 module.exports = performanceNow;
-},{"./performance":61}],63:[function(require,module,exports){
+},{"./performance":64}],66:[function(require,module,exports){
 /**
  * Copyright (c) 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -21550,7 +22827,7 @@ function shallowEqual(objA, objB) {
 }
 
 module.exports = shallowEqual;
-},{}],64:[function(require,module,exports){
+},{}],67:[function(require,module,exports){
 /**
  * Copyright 2014-2015, Facebook, Inc.
  * All rights reserved.
@@ -21617,7 +22894,7 @@ if ("production" !== 'production') {
 }
 
 module.exports = warning;
-},{"./emptyFunction":49}],65:[function(require,module,exports){
+},{"./emptyFunction":52}],68:[function(require,module,exports){
 /*!
  * jQuery JavaScript Library v3.2.1
  * https://jquery.com/
@@ -31872,7 +33149,7 @@ if ( !noGlobal ) {
 return jQuery;
 } );
 
-},{}],66:[function(require,module,exports){
+},{}],69:[function(require,module,exports){
 /**
  * Helpers.
  */
@@ -32023,7 +33300,7 @@ function plural(ms, n, name) {
   return Math.ceil(ms / n) + ' ' + name + 's'
 }
 
-},{}],67:[function(require,module,exports){
+},{}],70:[function(require,module,exports){
 // shim for using process in browser
 var process = module.exports = {};
 
@@ -32205,12 +33482,12 @@ process.chdir = function (dir) {
 };
 process.umask = function() { return 0; };
 
-},{}],68:[function(require,module,exports){
+},{}],71:[function(require,module,exports){
 'use strict';
 
 module.exports = require('./lib/ReactDOM');
 
-},{"./lib/ReactDOM":98}],69:[function(require,module,exports){
+},{"./lib/ReactDOM":101}],72:[function(require,module,exports){
 /**
  * Copyright 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -32284,7 +33561,7 @@ var ARIADOMPropertyConfig = {
 };
 
 module.exports = ARIADOMPropertyConfig;
-},{}],70:[function(require,module,exports){
+},{}],73:[function(require,module,exports){
 /**
  * Copyright 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -32308,7 +33585,7 @@ var AutoFocusUtils = {
 };
 
 module.exports = AutoFocusUtils;
-},{"./ReactDOMComponentTree":101,"fbjs/lib/focusNode":51}],71:[function(require,module,exports){
+},{"./ReactDOMComponentTree":104,"fbjs/lib/focusNode":54}],74:[function(require,module,exports){
 /**
  * Copyright 2013-present Facebook, Inc.
  * All rights reserved.
@@ -32693,7 +33970,7 @@ var BeforeInputEventPlugin = {
 };
 
 module.exports = BeforeInputEventPlugin;
-},{"./EventPropagators":87,"./FallbackCompositionState":88,"./SyntheticCompositionEvent":152,"./SyntheticInputEvent":156,"fbjs/lib/ExecutionEnvironment":43}],72:[function(require,module,exports){
+},{"./EventPropagators":90,"./FallbackCompositionState":91,"./SyntheticCompositionEvent":155,"./SyntheticInputEvent":159,"fbjs/lib/ExecutionEnvironment":46}],75:[function(require,module,exports){
 /**
  * Copyright 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -32841,7 +34118,7 @@ var CSSProperty = {
 };
 
 module.exports = CSSProperty;
-},{}],73:[function(require,module,exports){
+},{}],76:[function(require,module,exports){
 /**
  * Copyright 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -33050,7 +34327,7 @@ var CSSPropertyOperations = {
 };
 
 module.exports = CSSPropertyOperations;
-},{"./CSSProperty":72,"./ReactInstrumentation":130,"./dangerousStyleValue":169,"fbjs/lib/ExecutionEnvironment":43,"fbjs/lib/camelizeStyleName":45,"fbjs/lib/hyphenateStyleName":56,"fbjs/lib/memoizeStringOnly":60,"fbjs/lib/warning":64}],74:[function(require,module,exports){
+},{"./CSSProperty":75,"./ReactInstrumentation":133,"./dangerousStyleValue":172,"fbjs/lib/ExecutionEnvironment":46,"fbjs/lib/camelizeStyleName":48,"fbjs/lib/hyphenateStyleName":59,"fbjs/lib/memoizeStringOnly":63,"fbjs/lib/warning":67}],77:[function(require,module,exports){
 /**
  * Copyright 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -33169,7 +34446,7 @@ var CallbackQueue = function () {
 }();
 
 module.exports = PooledClass.addPoolingTo(CallbackQueue);
-},{"./PooledClass":92,"./reactProdInvariant":188,"fbjs/lib/invariant":57}],75:[function(require,module,exports){
+},{"./PooledClass":95,"./reactProdInvariant":191,"fbjs/lib/invariant":60}],78:[function(require,module,exports){
 /**
  * Copyright 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -33490,7 +34767,7 @@ var ChangeEventPlugin = {
 };
 
 module.exports = ChangeEventPlugin;
-},{"./EventPluginHub":84,"./EventPropagators":87,"./ReactDOMComponentTree":101,"./ReactUpdates":145,"./SyntheticEvent":154,"./getEventTarget":177,"./isEventSupported":185,"./isTextInputElement":186,"fbjs/lib/ExecutionEnvironment":43}],76:[function(require,module,exports){
+},{"./EventPluginHub":87,"./EventPropagators":90,"./ReactDOMComponentTree":104,"./ReactUpdates":148,"./SyntheticEvent":157,"./getEventTarget":180,"./isEventSupported":188,"./isTextInputElement":189,"fbjs/lib/ExecutionEnvironment":46}],79:[function(require,module,exports){
 /**
  * Copyright 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -33715,7 +34992,7 @@ var DOMChildrenOperations = {
 };
 
 module.exports = DOMChildrenOperations;
-},{"./DOMLazyTree":77,"./Danger":81,"./ReactDOMComponentTree":101,"./ReactInstrumentation":130,"./createMicrosoftUnsafeLocalFunction":168,"./setInnerHTML":190,"./setTextContent":191}],77:[function(require,module,exports){
+},{"./DOMLazyTree":80,"./Danger":84,"./ReactDOMComponentTree":104,"./ReactInstrumentation":133,"./createMicrosoftUnsafeLocalFunction":171,"./setInnerHTML":193,"./setTextContent":194}],80:[function(require,module,exports){
 /**
  * Copyright 2015-present, Facebook, Inc.
  * All rights reserved.
@@ -33833,7 +35110,7 @@ DOMLazyTree.queueHTML = queueHTML;
 DOMLazyTree.queueText = queueText;
 
 module.exports = DOMLazyTree;
-},{"./DOMNamespaces":78,"./createMicrosoftUnsafeLocalFunction":168,"./setInnerHTML":190,"./setTextContent":191}],78:[function(require,module,exports){
+},{"./DOMNamespaces":81,"./createMicrosoftUnsafeLocalFunction":171,"./setInnerHTML":193,"./setTextContent":194}],81:[function(require,module,exports){
 /**
  * Copyright 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -33853,7 +35130,7 @@ var DOMNamespaces = {
 };
 
 module.exports = DOMNamespaces;
-},{}],79:[function(require,module,exports){
+},{}],82:[function(require,module,exports){
 /**
  * Copyright 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -34063,7 +35340,7 @@ var DOMProperty = {
 };
 
 module.exports = DOMProperty;
-},{"./reactProdInvariant":188,"fbjs/lib/invariant":57}],80:[function(require,module,exports){
+},{"./reactProdInvariant":191,"fbjs/lib/invariant":60}],83:[function(require,module,exports){
 /**
  * Copyright 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -34300,7 +35577,7 @@ var DOMPropertyOperations = {
 };
 
 module.exports = DOMPropertyOperations;
-},{"./DOMProperty":79,"./ReactDOMComponentTree":101,"./ReactInstrumentation":130,"./quoteAttributeValueForBrowser":187,"fbjs/lib/warning":64}],81:[function(require,module,exports){
+},{"./DOMProperty":82,"./ReactDOMComponentTree":104,"./ReactInstrumentation":133,"./quoteAttributeValueForBrowser":190,"fbjs/lib/warning":67}],84:[function(require,module,exports){
 /**
  * Copyright 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -34348,7 +35625,7 @@ var Danger = {
 };
 
 module.exports = Danger;
-},{"./DOMLazyTree":77,"./reactProdInvariant":188,"fbjs/lib/ExecutionEnvironment":43,"fbjs/lib/createNodesFromMarkup":48,"fbjs/lib/emptyFunction":49,"fbjs/lib/invariant":57}],82:[function(require,module,exports){
+},{"./DOMLazyTree":80,"./reactProdInvariant":191,"fbjs/lib/ExecutionEnvironment":46,"fbjs/lib/createNodesFromMarkup":51,"fbjs/lib/emptyFunction":52,"fbjs/lib/invariant":60}],85:[function(require,module,exports){
 /**
  * Copyright 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -34374,7 +35651,7 @@ module.exports = Danger;
 var DefaultEventPluginOrder = ['ResponderEventPlugin', 'SimpleEventPlugin', 'TapEventPlugin', 'EnterLeaveEventPlugin', 'ChangeEventPlugin', 'SelectEventPlugin', 'BeforeInputEventPlugin'];
 
 module.exports = DefaultEventPluginOrder;
-},{}],83:[function(require,module,exports){
+},{}],86:[function(require,module,exports){
 /**
  * Copyright 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -34474,7 +35751,7 @@ var EnterLeaveEventPlugin = {
 };
 
 module.exports = EnterLeaveEventPlugin;
-},{"./EventPropagators":87,"./ReactDOMComponentTree":101,"./SyntheticMouseEvent":158}],84:[function(require,module,exports){
+},{"./EventPropagators":90,"./ReactDOMComponentTree":104,"./SyntheticMouseEvent":161}],87:[function(require,module,exports){
 /**
  * Copyright 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -34752,7 +36029,7 @@ var EventPluginHub = {
 };
 
 module.exports = EventPluginHub;
-},{"./EventPluginRegistry":85,"./EventPluginUtils":86,"./ReactErrorUtils":121,"./accumulateInto":165,"./forEachAccumulated":173,"./reactProdInvariant":188,"fbjs/lib/invariant":57}],85:[function(require,module,exports){
+},{"./EventPluginRegistry":88,"./EventPluginUtils":89,"./ReactErrorUtils":124,"./accumulateInto":168,"./forEachAccumulated":176,"./reactProdInvariant":191,"fbjs/lib/invariant":60}],88:[function(require,module,exports){
 /**
  * Copyright 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -35007,7 +36284,7 @@ var EventPluginRegistry = {
 };
 
 module.exports = EventPluginRegistry;
-},{"./reactProdInvariant":188,"fbjs/lib/invariant":57}],86:[function(require,module,exports){
+},{"./reactProdInvariant":191,"fbjs/lib/invariant":60}],89:[function(require,module,exports){
 /**
  * Copyright 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -35233,7 +36510,7 @@ var EventPluginUtils = {
 };
 
 module.exports = EventPluginUtils;
-},{"./ReactErrorUtils":121,"./reactProdInvariant":188,"fbjs/lib/invariant":57,"fbjs/lib/warning":64}],87:[function(require,module,exports){
+},{"./ReactErrorUtils":124,"./reactProdInvariant":191,"fbjs/lib/invariant":60,"fbjs/lib/warning":67}],90:[function(require,module,exports){
 /**
  * Copyright 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -35367,7 +36644,7 @@ var EventPropagators = {
 };
 
 module.exports = EventPropagators;
-},{"./EventPluginHub":84,"./EventPluginUtils":86,"./accumulateInto":165,"./forEachAccumulated":173,"fbjs/lib/warning":64}],88:[function(require,module,exports){
+},{"./EventPluginHub":87,"./EventPluginUtils":89,"./accumulateInto":168,"./forEachAccumulated":176,"fbjs/lib/warning":67}],91:[function(require,module,exports){
 /**
  * Copyright 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -35462,7 +36739,7 @@ _assign(FallbackCompositionState.prototype, {
 PooledClass.addPoolingTo(FallbackCompositionState);
 
 module.exports = FallbackCompositionState;
-},{"./PooledClass":92,"./getTextContentAccessor":182,"object-assign":195}],89:[function(require,module,exports){
+},{"./PooledClass":95,"./getTextContentAccessor":185,"object-assign":198}],92:[function(require,module,exports){
 /**
  * Copyright 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -35674,7 +36951,7 @@ var HTMLDOMPropertyConfig = {
 };
 
 module.exports = HTMLDOMPropertyConfig;
-},{"./DOMProperty":79}],90:[function(require,module,exports){
+},{"./DOMProperty":82}],93:[function(require,module,exports){
 /**
  * Copyright 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -35733,7 +37010,7 @@ var KeyEscapeUtils = {
 };
 
 module.exports = KeyEscapeUtils;
-},{}],91:[function(require,module,exports){
+},{}],94:[function(require,module,exports){
 /**
  * Copyright 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -35868,7 +37145,7 @@ var LinkedValueUtils = {
 };
 
 module.exports = LinkedValueUtils;
-},{"./ReactPropTypesSecret":138,"./reactProdInvariant":188,"fbjs/lib/invariant":57,"fbjs/lib/warning":64,"react/lib/React":198}],92:[function(require,module,exports){
+},{"./ReactPropTypesSecret":141,"./reactProdInvariant":191,"fbjs/lib/invariant":60,"fbjs/lib/warning":67,"react/lib/React":201}],95:[function(require,module,exports){
 /**
  * Copyright 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -35980,7 +37257,7 @@ var PooledClass = {
 };
 
 module.exports = PooledClass;
-},{"./reactProdInvariant":188,"fbjs/lib/invariant":57}],93:[function(require,module,exports){
+},{"./reactProdInvariant":191,"fbjs/lib/invariant":60}],96:[function(require,module,exports){
 /**
  * Copyright 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -36308,7 +37585,7 @@ var ReactBrowserEventEmitter = _assign({}, ReactEventEmitterMixin, {
 });
 
 module.exports = ReactBrowserEventEmitter;
-},{"./EventPluginRegistry":85,"./ReactEventEmitterMixin":122,"./ViewportMetrics":164,"./getVendorPrefixedEventName":183,"./isEventSupported":185,"object-assign":195}],94:[function(require,module,exports){
+},{"./EventPluginRegistry":88,"./ReactEventEmitterMixin":125,"./ViewportMetrics":167,"./getVendorPrefixedEventName":186,"./isEventSupported":188,"object-assign":198}],97:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2014-present, Facebook, Inc.
@@ -36464,7 +37741,7 @@ var ReactChildReconciler = {
 
 module.exports = ReactChildReconciler;
 }).call(this,require('_process'))
-},{"./KeyEscapeUtils":90,"./ReactReconciler":140,"./instantiateReactComponent":184,"./shouldUpdateReactComponent":192,"./traverseAllChildren":193,"_process":67,"fbjs/lib/warning":64,"react/lib/ReactComponentTreeHook":202}],95:[function(require,module,exports){
+},{"./KeyEscapeUtils":93,"./ReactReconciler":143,"./instantiateReactComponent":187,"./shouldUpdateReactComponent":195,"./traverseAllChildren":196,"_process":70,"fbjs/lib/warning":67,"react/lib/ReactComponentTreeHook":205}],98:[function(require,module,exports){
 /**
  * Copyright 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -36494,7 +37771,7 @@ var ReactComponentBrowserEnvironment = {
 };
 
 module.exports = ReactComponentBrowserEnvironment;
-},{"./DOMChildrenOperations":76,"./ReactDOMIDOperations":105}],96:[function(require,module,exports){
+},{"./DOMChildrenOperations":79,"./ReactDOMIDOperations":108}],99:[function(require,module,exports){
 /**
  * Copyright 2014-present, Facebook, Inc.
  * All rights reserved.
@@ -36540,7 +37817,7 @@ var ReactComponentEnvironment = {
 };
 
 module.exports = ReactComponentEnvironment;
-},{"./reactProdInvariant":188,"fbjs/lib/invariant":57}],97:[function(require,module,exports){
+},{"./reactProdInvariant":191,"fbjs/lib/invariant":60}],100:[function(require,module,exports){
 /**
  * Copyright 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -37442,7 +38719,7 @@ var ReactCompositeComponent = {
 };
 
 module.exports = ReactCompositeComponent;
-},{"./ReactComponentEnvironment":96,"./ReactErrorUtils":121,"./ReactInstanceMap":129,"./ReactInstrumentation":130,"./ReactNodeTypes":135,"./ReactReconciler":140,"./checkReactTypeSpec":167,"./reactProdInvariant":188,"./shouldUpdateReactComponent":192,"fbjs/lib/emptyObject":50,"fbjs/lib/invariant":57,"fbjs/lib/shallowEqual":63,"fbjs/lib/warning":64,"object-assign":195,"react/lib/React":198,"react/lib/ReactCurrentOwner":203}],98:[function(require,module,exports){
+},{"./ReactComponentEnvironment":99,"./ReactErrorUtils":124,"./ReactInstanceMap":132,"./ReactInstrumentation":133,"./ReactNodeTypes":138,"./ReactReconciler":143,"./checkReactTypeSpec":170,"./reactProdInvariant":191,"./shouldUpdateReactComponent":195,"fbjs/lib/emptyObject":53,"fbjs/lib/invariant":60,"fbjs/lib/shallowEqual":66,"fbjs/lib/warning":67,"object-assign":198,"react/lib/React":201,"react/lib/ReactCurrentOwner":206}],101:[function(require,module,exports){
 /**
  * Copyright 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -37553,7 +38830,7 @@ if ("production" !== 'production') {
 }
 
 module.exports = ReactDOM;
-},{"./ReactDOMComponentTree":101,"./ReactDOMInvalidARIAHook":107,"./ReactDOMNullInputValuePropHook":108,"./ReactDOMUnknownPropertyHook":115,"./ReactDefaultInjection":118,"./ReactInstrumentation":130,"./ReactMount":133,"./ReactReconciler":140,"./ReactUpdates":145,"./ReactVersion":146,"./findDOMNode":171,"./getHostComponentFromComposite":178,"./renderSubtreeIntoContainer":189,"fbjs/lib/ExecutionEnvironment":43,"fbjs/lib/warning":64}],99:[function(require,module,exports){
+},{"./ReactDOMComponentTree":104,"./ReactDOMInvalidARIAHook":110,"./ReactDOMNullInputValuePropHook":111,"./ReactDOMUnknownPropertyHook":118,"./ReactDefaultInjection":121,"./ReactInstrumentation":133,"./ReactMount":136,"./ReactReconciler":143,"./ReactUpdates":148,"./ReactVersion":149,"./findDOMNode":174,"./getHostComponentFromComposite":181,"./renderSubtreeIntoContainer":192,"fbjs/lib/ExecutionEnvironment":46,"fbjs/lib/warning":67}],102:[function(require,module,exports){
 /**
  * Copyright 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -38554,7 +39831,7 @@ ReactDOMComponent.Mixin = {
 _assign(ReactDOMComponent.prototype, ReactDOMComponent.Mixin, ReactMultiChild.Mixin);
 
 module.exports = ReactDOMComponent;
-},{"./AutoFocusUtils":70,"./CSSPropertyOperations":73,"./DOMLazyTree":77,"./DOMNamespaces":78,"./DOMProperty":79,"./DOMPropertyOperations":80,"./EventPluginHub":84,"./EventPluginRegistry":85,"./ReactBrowserEventEmitter":93,"./ReactDOMComponentFlags":100,"./ReactDOMComponentTree":101,"./ReactDOMInput":106,"./ReactDOMOption":109,"./ReactDOMSelect":110,"./ReactDOMTextarea":113,"./ReactInstrumentation":130,"./ReactMultiChild":134,"./ReactServerRenderingTransaction":142,"./escapeTextContentForBrowser":170,"./isEventSupported":185,"./reactProdInvariant":188,"./validateDOMNesting":194,"fbjs/lib/emptyFunction":49,"fbjs/lib/invariant":57,"fbjs/lib/shallowEqual":63,"fbjs/lib/warning":64,"object-assign":195}],100:[function(require,module,exports){
+},{"./AutoFocusUtils":73,"./CSSPropertyOperations":76,"./DOMLazyTree":80,"./DOMNamespaces":81,"./DOMProperty":82,"./DOMPropertyOperations":83,"./EventPluginHub":87,"./EventPluginRegistry":88,"./ReactBrowserEventEmitter":96,"./ReactDOMComponentFlags":103,"./ReactDOMComponentTree":104,"./ReactDOMInput":109,"./ReactDOMOption":112,"./ReactDOMSelect":113,"./ReactDOMTextarea":116,"./ReactInstrumentation":133,"./ReactMultiChild":137,"./ReactServerRenderingTransaction":145,"./escapeTextContentForBrowser":173,"./isEventSupported":188,"./reactProdInvariant":191,"./validateDOMNesting":197,"fbjs/lib/emptyFunction":52,"fbjs/lib/invariant":60,"fbjs/lib/shallowEqual":66,"fbjs/lib/warning":67,"object-assign":198}],103:[function(require,module,exports){
 /**
  * Copyright 2015-present, Facebook, Inc.
  * All rights reserved.
@@ -38572,7 +39849,7 @@ var ReactDOMComponentFlags = {
 };
 
 module.exports = ReactDOMComponentFlags;
-},{}],101:[function(require,module,exports){
+},{}],104:[function(require,module,exports){
 /**
  * Copyright 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -38767,7 +40044,7 @@ var ReactDOMComponentTree = {
 };
 
 module.exports = ReactDOMComponentTree;
-},{"./DOMProperty":79,"./ReactDOMComponentFlags":100,"./reactProdInvariant":188,"fbjs/lib/invariant":57}],102:[function(require,module,exports){
+},{"./DOMProperty":82,"./ReactDOMComponentFlags":103,"./reactProdInvariant":191,"fbjs/lib/invariant":60}],105:[function(require,module,exports){
 /**
  * Copyright 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -38800,7 +40077,7 @@ function ReactDOMContainerInfo(topLevelWrapper, node) {
 }
 
 module.exports = ReactDOMContainerInfo;
-},{"./validateDOMNesting":194}],103:[function(require,module,exports){
+},{"./validateDOMNesting":197}],106:[function(require,module,exports){
 /**
  * Copyright 2014-present, Facebook, Inc.
  * All rights reserved.
@@ -38860,7 +40137,7 @@ _assign(ReactDOMEmptyComponent.prototype, {
 });
 
 module.exports = ReactDOMEmptyComponent;
-},{"./DOMLazyTree":77,"./ReactDOMComponentTree":101,"object-assign":195}],104:[function(require,module,exports){
+},{"./DOMLazyTree":80,"./ReactDOMComponentTree":104,"object-assign":198}],107:[function(require,module,exports){
 /**
  * Copyright 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -38879,7 +40156,7 @@ var ReactDOMFeatureFlags = {
 };
 
 module.exports = ReactDOMFeatureFlags;
-},{}],105:[function(require,module,exports){
+},{}],108:[function(require,module,exports){
 /**
  * Copyright 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -38913,7 +40190,7 @@ var ReactDOMIDOperations = {
 };
 
 module.exports = ReactDOMIDOperations;
-},{"./DOMChildrenOperations":76,"./ReactDOMComponentTree":101}],106:[function(require,module,exports){
+},{"./DOMChildrenOperations":79,"./ReactDOMComponentTree":104}],109:[function(require,module,exports){
 /**
  * Copyright 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -39191,7 +40468,7 @@ function _handleChange(event) {
 }
 
 module.exports = ReactDOMInput;
-},{"./DOMPropertyOperations":80,"./LinkedValueUtils":91,"./ReactDOMComponentTree":101,"./ReactUpdates":145,"./reactProdInvariant":188,"fbjs/lib/invariant":57,"fbjs/lib/warning":64,"object-assign":195}],107:[function(require,module,exports){
+},{"./DOMPropertyOperations":83,"./LinkedValueUtils":94,"./ReactDOMComponentTree":104,"./ReactUpdates":148,"./reactProdInvariant":191,"fbjs/lib/invariant":60,"fbjs/lib/warning":67,"object-assign":198}],110:[function(require,module,exports){
 /**
  * Copyright 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -39284,7 +40561,7 @@ var ReactDOMInvalidARIAHook = {
 };
 
 module.exports = ReactDOMInvalidARIAHook;
-},{"./DOMProperty":79,"fbjs/lib/warning":64,"react/lib/ReactComponentTreeHook":202}],108:[function(require,module,exports){
+},{"./DOMProperty":82,"fbjs/lib/warning":67,"react/lib/ReactComponentTreeHook":205}],111:[function(require,module,exports){
 /**
  * Copyright 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -39327,7 +40604,7 @@ var ReactDOMNullInputValuePropHook = {
 };
 
 module.exports = ReactDOMNullInputValuePropHook;
-},{"fbjs/lib/warning":64,"react/lib/ReactComponentTreeHook":202}],109:[function(require,module,exports){
+},{"fbjs/lib/warning":67,"react/lib/ReactComponentTreeHook":205}],112:[function(require,module,exports){
 /**
  * Copyright 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -39450,7 +40727,7 @@ var ReactDOMOption = {
 };
 
 module.exports = ReactDOMOption;
-},{"./ReactDOMComponentTree":101,"./ReactDOMSelect":110,"fbjs/lib/warning":64,"object-assign":195,"react/lib/React":198}],110:[function(require,module,exports){
+},{"./ReactDOMComponentTree":104,"./ReactDOMSelect":113,"fbjs/lib/warning":67,"object-assign":198,"react/lib/React":201}],113:[function(require,module,exports){
 /**
  * Copyright 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -39650,7 +40927,7 @@ function _handleChange(event) {
 }
 
 module.exports = ReactDOMSelect;
-},{"./LinkedValueUtils":91,"./ReactDOMComponentTree":101,"./ReactUpdates":145,"fbjs/lib/warning":64,"object-assign":195}],111:[function(require,module,exports){
+},{"./LinkedValueUtils":94,"./ReactDOMComponentTree":104,"./ReactUpdates":148,"fbjs/lib/warning":67,"object-assign":198}],114:[function(require,module,exports){
 /**
  * Copyright 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -39862,7 +41139,7 @@ var ReactDOMSelection = {
 };
 
 module.exports = ReactDOMSelection;
-},{"./getNodeForCharacterOffset":181,"./getTextContentAccessor":182,"fbjs/lib/ExecutionEnvironment":43}],112:[function(require,module,exports){
+},{"./getNodeForCharacterOffset":184,"./getTextContentAccessor":185,"fbjs/lib/ExecutionEnvironment":46}],115:[function(require,module,exports){
 /**
  * Copyright 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -40026,7 +41303,7 @@ _assign(ReactDOMTextComponent.prototype, {
 });
 
 module.exports = ReactDOMTextComponent;
-},{"./DOMChildrenOperations":76,"./DOMLazyTree":77,"./ReactDOMComponentTree":101,"./escapeTextContentForBrowser":170,"./reactProdInvariant":188,"./validateDOMNesting":194,"fbjs/lib/invariant":57,"object-assign":195}],113:[function(require,module,exports){
+},{"./DOMChildrenOperations":79,"./DOMLazyTree":80,"./ReactDOMComponentTree":104,"./escapeTextContentForBrowser":173,"./reactProdInvariant":191,"./validateDOMNesting":197,"fbjs/lib/invariant":60,"object-assign":198}],116:[function(require,module,exports){
 /**
  * Copyright 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -40186,7 +41463,7 @@ function _handleChange(event) {
 }
 
 module.exports = ReactDOMTextarea;
-},{"./LinkedValueUtils":91,"./ReactDOMComponentTree":101,"./ReactUpdates":145,"./reactProdInvariant":188,"fbjs/lib/invariant":57,"fbjs/lib/warning":64,"object-assign":195}],114:[function(require,module,exports){
+},{"./LinkedValueUtils":94,"./ReactDOMComponentTree":104,"./ReactUpdates":148,"./reactProdInvariant":191,"fbjs/lib/invariant":60,"fbjs/lib/warning":67,"object-assign":198}],117:[function(require,module,exports){
 /**
  * Copyright 2015-present, Facebook, Inc.
  * All rights reserved.
@@ -40322,7 +41599,7 @@ module.exports = {
   traverseTwoPhase: traverseTwoPhase,
   traverseEnterLeave: traverseEnterLeave
 };
-},{"./reactProdInvariant":188,"fbjs/lib/invariant":57}],115:[function(require,module,exports){
+},{"./reactProdInvariant":191,"fbjs/lib/invariant":60}],118:[function(require,module,exports){
 /**
  * Copyright 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -40434,7 +41711,7 @@ var ReactDOMUnknownPropertyHook = {
 };
 
 module.exports = ReactDOMUnknownPropertyHook;
-},{"./DOMProperty":79,"./EventPluginRegistry":85,"fbjs/lib/warning":64,"react/lib/ReactComponentTreeHook":202}],116:[function(require,module,exports){
+},{"./DOMProperty":82,"./EventPluginRegistry":88,"fbjs/lib/warning":67,"react/lib/ReactComponentTreeHook":205}],119:[function(require,module,exports){
 /**
  * Copyright 2016-present, Facebook, Inc.
  * All rights reserved.
@@ -40795,7 +42072,7 @@ if (/[?&]react_perf\b/.test(url)) {
 }
 
 module.exports = ReactDebugTool;
-},{"./ReactHostOperationHistoryHook":126,"./ReactInvalidSetStateWarningHook":131,"fbjs/lib/ExecutionEnvironment":43,"fbjs/lib/performanceNow":62,"fbjs/lib/warning":64,"react/lib/ReactComponentTreeHook":202}],117:[function(require,module,exports){
+},{"./ReactHostOperationHistoryHook":129,"./ReactInvalidSetStateWarningHook":134,"fbjs/lib/ExecutionEnvironment":46,"fbjs/lib/performanceNow":65,"fbjs/lib/warning":67,"react/lib/ReactComponentTreeHook":205}],120:[function(require,module,exports){
 /**
  * Copyright 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -40863,7 +42140,7 @@ var ReactDefaultBatchingStrategy = {
 };
 
 module.exports = ReactDefaultBatchingStrategy;
-},{"./ReactUpdates":145,"./Transaction":163,"fbjs/lib/emptyFunction":49,"object-assign":195}],118:[function(require,module,exports){
+},{"./ReactUpdates":148,"./Transaction":166,"fbjs/lib/emptyFunction":52,"object-assign":198}],121:[function(require,module,exports){
 /**
  * Copyright 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -40949,7 +42226,7 @@ function inject() {
 module.exports = {
   inject: inject
 };
-},{"./ARIADOMPropertyConfig":69,"./BeforeInputEventPlugin":71,"./ChangeEventPlugin":75,"./DefaultEventPluginOrder":82,"./EnterLeaveEventPlugin":83,"./HTMLDOMPropertyConfig":89,"./ReactComponentBrowserEnvironment":95,"./ReactDOMComponent":99,"./ReactDOMComponentTree":101,"./ReactDOMEmptyComponent":103,"./ReactDOMTextComponent":112,"./ReactDOMTreeTraversal":114,"./ReactDefaultBatchingStrategy":117,"./ReactEventListener":123,"./ReactInjection":127,"./ReactReconcileTransaction":139,"./SVGDOMPropertyConfig":147,"./SelectEventPlugin":148,"./SimpleEventPlugin":149}],119:[function(require,module,exports){
+},{"./ARIADOMPropertyConfig":72,"./BeforeInputEventPlugin":74,"./ChangeEventPlugin":78,"./DefaultEventPluginOrder":85,"./EnterLeaveEventPlugin":86,"./HTMLDOMPropertyConfig":92,"./ReactComponentBrowserEnvironment":98,"./ReactDOMComponent":102,"./ReactDOMComponentTree":104,"./ReactDOMEmptyComponent":106,"./ReactDOMTextComponent":115,"./ReactDOMTreeTraversal":117,"./ReactDefaultBatchingStrategy":120,"./ReactEventListener":126,"./ReactInjection":130,"./ReactReconcileTransaction":142,"./SVGDOMPropertyConfig":150,"./SelectEventPlugin":151,"./SimpleEventPlugin":152}],122:[function(require,module,exports){
 /**
  * Copyright 2014-present, Facebook, Inc.
  * All rights reserved.
@@ -40969,7 +42246,7 @@ module.exports = {
 var REACT_ELEMENT_TYPE = typeof Symbol === 'function' && Symbol['for'] && Symbol['for']('react.element') || 0xeac7;
 
 module.exports = REACT_ELEMENT_TYPE;
-},{}],120:[function(require,module,exports){
+},{}],123:[function(require,module,exports){
 /**
  * Copyright 2014-present, Facebook, Inc.
  * All rights reserved.
@@ -40999,7 +42276,7 @@ var ReactEmptyComponent = {
 ReactEmptyComponent.injection = ReactEmptyComponentInjection;
 
 module.exports = ReactEmptyComponent;
-},{}],121:[function(require,module,exports){
+},{}],124:[function(require,module,exports){
 /**
  * Copyright 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -41076,7 +42353,7 @@ if ("production" !== 'production') {
 }
 
 module.exports = ReactErrorUtils;
-},{}],122:[function(require,module,exports){
+},{}],125:[function(require,module,exports){
 /**
  * Copyright 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -41109,7 +42386,7 @@ var ReactEventEmitterMixin = {
 };
 
 module.exports = ReactEventEmitterMixin;
-},{"./EventPluginHub":84}],123:[function(require,module,exports){
+},{"./EventPluginHub":87}],126:[function(require,module,exports){
 /**
  * Copyright 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -41264,7 +42541,7 @@ var ReactEventListener = {
 };
 
 module.exports = ReactEventListener;
-},{"./PooledClass":92,"./ReactDOMComponentTree":101,"./ReactUpdates":145,"./getEventTarget":177,"fbjs/lib/EventListener":42,"fbjs/lib/ExecutionEnvironment":43,"fbjs/lib/getUnboundedScrollPosition":54,"object-assign":195}],124:[function(require,module,exports){
+},{"./PooledClass":95,"./ReactDOMComponentTree":104,"./ReactUpdates":148,"./getEventTarget":180,"fbjs/lib/EventListener":45,"fbjs/lib/ExecutionEnvironment":46,"fbjs/lib/getUnboundedScrollPosition":57,"object-assign":198}],127:[function(require,module,exports){
 /**
  * Copyright 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -41286,7 +42563,7 @@ var ReactFeatureFlags = {
 };
 
 module.exports = ReactFeatureFlags;
-},{}],125:[function(require,module,exports){
+},{}],128:[function(require,module,exports){
 /**
  * Copyright 2014-present, Facebook, Inc.
  * All rights reserved.
@@ -41354,7 +42631,7 @@ var ReactHostComponent = {
 };
 
 module.exports = ReactHostComponent;
-},{"./reactProdInvariant":188,"fbjs/lib/invariant":57}],126:[function(require,module,exports){
+},{"./reactProdInvariant":191,"fbjs/lib/invariant":60}],129:[function(require,module,exports){
 /**
  * Copyright 2016-present, Facebook, Inc.
  * All rights reserved.
@@ -41388,7 +42665,7 @@ var ReactHostOperationHistoryHook = {
 };
 
 module.exports = ReactHostOperationHistoryHook;
-},{}],127:[function(require,module,exports){
+},{}],130:[function(require,module,exports){
 /**
  * Copyright 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -41422,7 +42699,7 @@ var ReactInjection = {
 };
 
 module.exports = ReactInjection;
-},{"./DOMProperty":79,"./EventPluginHub":84,"./EventPluginUtils":86,"./ReactBrowserEventEmitter":93,"./ReactComponentEnvironment":96,"./ReactEmptyComponent":120,"./ReactHostComponent":125,"./ReactUpdates":145}],128:[function(require,module,exports){
+},{"./DOMProperty":82,"./EventPluginHub":87,"./EventPluginUtils":89,"./ReactBrowserEventEmitter":96,"./ReactComponentEnvironment":99,"./ReactEmptyComponent":123,"./ReactHostComponent":128,"./ReactUpdates":148}],131:[function(require,module,exports){
 /**
  * Copyright 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -41546,7 +42823,7 @@ var ReactInputSelection = {
 };
 
 module.exports = ReactInputSelection;
-},{"./ReactDOMSelection":111,"fbjs/lib/containsNode":46,"fbjs/lib/focusNode":51,"fbjs/lib/getActiveElement":52}],129:[function(require,module,exports){
+},{"./ReactDOMSelection":114,"fbjs/lib/containsNode":49,"fbjs/lib/focusNode":54,"fbjs/lib/getActiveElement":55}],132:[function(require,module,exports){
 /**
  * Copyright 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -41594,7 +42871,7 @@ var ReactInstanceMap = {
 };
 
 module.exports = ReactInstanceMap;
-},{}],130:[function(require,module,exports){
+},{}],133:[function(require,module,exports){
 /**
  * Copyright 2016-present, Facebook, Inc.
  * All rights reserved.
@@ -41618,7 +42895,7 @@ if ("production" !== 'production') {
 }
 
 module.exports = { debugTool: debugTool };
-},{"./ReactDebugTool":116}],131:[function(require,module,exports){
+},{"./ReactDebugTool":119}],134:[function(require,module,exports){
 /**
  * Copyright 2016-present, Facebook, Inc.
  * All rights reserved.
@@ -41655,7 +42932,7 @@ var ReactInvalidSetStateWarningHook = {
 };
 
 module.exports = ReactInvalidSetStateWarningHook;
-},{"fbjs/lib/warning":64}],132:[function(require,module,exports){
+},{"fbjs/lib/warning":67}],135:[function(require,module,exports){
 /**
  * Copyright 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -41705,7 +42982,7 @@ var ReactMarkupChecksum = {
 };
 
 module.exports = ReactMarkupChecksum;
-},{"./adler32":166}],133:[function(require,module,exports){
+},{"./adler32":169}],136:[function(require,module,exports){
 /**
  * Copyright 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -42243,7 +43520,7 @@ var ReactMount = {
 };
 
 module.exports = ReactMount;
-},{"./DOMLazyTree":77,"./DOMProperty":79,"./ReactBrowserEventEmitter":93,"./ReactDOMComponentTree":101,"./ReactDOMContainerInfo":102,"./ReactDOMFeatureFlags":104,"./ReactFeatureFlags":124,"./ReactInstanceMap":129,"./ReactInstrumentation":130,"./ReactMarkupChecksum":132,"./ReactReconciler":140,"./ReactUpdateQueue":144,"./ReactUpdates":145,"./instantiateReactComponent":184,"./reactProdInvariant":188,"./setInnerHTML":190,"./shouldUpdateReactComponent":192,"fbjs/lib/emptyObject":50,"fbjs/lib/invariant":57,"fbjs/lib/warning":64,"react/lib/React":198,"react/lib/ReactCurrentOwner":203}],134:[function(require,module,exports){
+},{"./DOMLazyTree":80,"./DOMProperty":82,"./ReactBrowserEventEmitter":96,"./ReactDOMComponentTree":104,"./ReactDOMContainerInfo":105,"./ReactDOMFeatureFlags":107,"./ReactFeatureFlags":127,"./ReactInstanceMap":132,"./ReactInstrumentation":133,"./ReactMarkupChecksum":135,"./ReactReconciler":143,"./ReactUpdateQueue":147,"./ReactUpdates":148,"./instantiateReactComponent":187,"./reactProdInvariant":191,"./setInnerHTML":193,"./shouldUpdateReactComponent":195,"fbjs/lib/emptyObject":53,"fbjs/lib/invariant":60,"fbjs/lib/warning":67,"react/lib/React":201,"react/lib/ReactCurrentOwner":206}],137:[function(require,module,exports){
 /**
  * Copyright 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -42693,7 +43970,7 @@ var ReactMultiChild = {
 };
 
 module.exports = ReactMultiChild;
-},{"./ReactChildReconciler":94,"./ReactComponentEnvironment":96,"./ReactInstanceMap":129,"./ReactInstrumentation":130,"./ReactReconciler":140,"./flattenChildren":172,"./reactProdInvariant":188,"fbjs/lib/emptyFunction":49,"fbjs/lib/invariant":57,"react/lib/ReactCurrentOwner":203}],135:[function(require,module,exports){
+},{"./ReactChildReconciler":97,"./ReactComponentEnvironment":99,"./ReactInstanceMap":132,"./ReactInstrumentation":133,"./ReactReconciler":143,"./flattenChildren":175,"./reactProdInvariant":191,"fbjs/lib/emptyFunction":52,"fbjs/lib/invariant":60,"react/lib/ReactCurrentOwner":206}],138:[function(require,module,exports){
 /**
  * Copyright 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -42733,7 +44010,7 @@ var ReactNodeTypes = {
 };
 
 module.exports = ReactNodeTypes;
-},{"./reactProdInvariant":188,"fbjs/lib/invariant":57,"react/lib/React":198}],136:[function(require,module,exports){
+},{"./reactProdInvariant":191,"fbjs/lib/invariant":60,"react/lib/React":201}],139:[function(require,module,exports){
 /**
  * Copyright 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -42827,7 +44104,7 @@ var ReactOwner = {
 };
 
 module.exports = ReactOwner;
-},{"./reactProdInvariant":188,"fbjs/lib/invariant":57}],137:[function(require,module,exports){
+},{"./reactProdInvariant":191,"fbjs/lib/invariant":60}],140:[function(require,module,exports){
 /**
  * Copyright 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -42852,7 +44129,7 @@ if ("production" !== 'production') {
 }
 
 module.exports = ReactPropTypeLocationNames;
-},{}],138:[function(require,module,exports){
+},{}],141:[function(require,module,exports){
 /**
  * Copyright 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -42869,7 +44146,7 @@ module.exports = ReactPropTypeLocationNames;
 var ReactPropTypesSecret = 'SECRET_DO_NOT_PASS_THIS_OR_YOU_WILL_BE_FIRED';
 
 module.exports = ReactPropTypesSecret;
-},{}],139:[function(require,module,exports){
+},{}],142:[function(require,module,exports){
 /**
  * Copyright 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -43047,7 +44324,7 @@ _assign(ReactReconcileTransaction.prototype, Transaction, Mixin);
 PooledClass.addPoolingTo(ReactReconcileTransaction);
 
 module.exports = ReactReconcileTransaction;
-},{"./CallbackQueue":74,"./PooledClass":92,"./ReactBrowserEventEmitter":93,"./ReactInputSelection":128,"./ReactInstrumentation":130,"./ReactUpdateQueue":144,"./Transaction":163,"object-assign":195}],140:[function(require,module,exports){
+},{"./CallbackQueue":77,"./PooledClass":95,"./ReactBrowserEventEmitter":96,"./ReactInputSelection":131,"./ReactInstrumentation":133,"./ReactUpdateQueue":147,"./Transaction":166,"object-assign":198}],143:[function(require,module,exports){
 /**
  * Copyright 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -43215,7 +44492,7 @@ var ReactReconciler = {
 };
 
 module.exports = ReactReconciler;
-},{"./ReactInstrumentation":130,"./ReactRef":141,"fbjs/lib/warning":64}],141:[function(require,module,exports){
+},{"./ReactInstrumentation":133,"./ReactRef":144,"fbjs/lib/warning":67}],144:[function(require,module,exports){
 /**
  * Copyright 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -43304,7 +44581,7 @@ ReactRef.detachRefs = function (instance, element) {
 };
 
 module.exports = ReactRef;
-},{"./ReactOwner":136}],142:[function(require,module,exports){
+},{"./ReactOwner":139}],145:[function(require,module,exports){
 /**
  * Copyright 2014-present, Facebook, Inc.
  * All rights reserved.
@@ -43394,7 +44671,7 @@ _assign(ReactServerRenderingTransaction.prototype, Transaction, Mixin);
 PooledClass.addPoolingTo(ReactServerRenderingTransaction);
 
 module.exports = ReactServerRenderingTransaction;
-},{"./PooledClass":92,"./ReactInstrumentation":130,"./ReactServerUpdateQueue":143,"./Transaction":163,"object-assign":195}],143:[function(require,module,exports){
+},{"./PooledClass":95,"./ReactInstrumentation":133,"./ReactServerUpdateQueue":146,"./Transaction":166,"object-assign":198}],146:[function(require,module,exports){
 /**
  * Copyright 2015-present, Facebook, Inc.
  * All rights reserved.
@@ -43533,7 +44810,7 @@ var ReactServerUpdateQueue = function () {
 }();
 
 module.exports = ReactServerUpdateQueue;
-},{"./ReactUpdateQueue":144,"fbjs/lib/warning":64}],144:[function(require,module,exports){
+},{"./ReactUpdateQueue":147,"fbjs/lib/warning":67}],147:[function(require,module,exports){
 /**
  * Copyright 2015-present, Facebook, Inc.
  * All rights reserved.
@@ -43759,7 +45036,7 @@ var ReactUpdateQueue = {
 };
 
 module.exports = ReactUpdateQueue;
-},{"./ReactInstanceMap":129,"./ReactInstrumentation":130,"./ReactUpdates":145,"./reactProdInvariant":188,"fbjs/lib/invariant":57,"fbjs/lib/warning":64,"react/lib/ReactCurrentOwner":203}],145:[function(require,module,exports){
+},{"./ReactInstanceMap":132,"./ReactInstrumentation":133,"./ReactUpdates":148,"./reactProdInvariant":191,"fbjs/lib/invariant":60,"fbjs/lib/warning":67,"react/lib/ReactCurrentOwner":206}],148:[function(require,module,exports){
 /**
  * Copyright 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -44010,7 +45287,7 @@ var ReactUpdates = {
 };
 
 module.exports = ReactUpdates;
-},{"./CallbackQueue":74,"./PooledClass":92,"./ReactFeatureFlags":124,"./ReactReconciler":140,"./Transaction":163,"./reactProdInvariant":188,"fbjs/lib/invariant":57,"object-assign":195}],146:[function(require,module,exports){
+},{"./CallbackQueue":77,"./PooledClass":95,"./ReactFeatureFlags":127,"./ReactReconciler":143,"./Transaction":166,"./reactProdInvariant":191,"fbjs/lib/invariant":60,"object-assign":198}],149:[function(require,module,exports){
 /**
  * Copyright 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -44024,7 +45301,7 @@ module.exports = ReactUpdates;
 'use strict';
 
 module.exports = '15.4.2';
-},{}],147:[function(require,module,exports){
+},{}],150:[function(require,module,exports){
 /**
  * Copyright 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -44326,7 +45603,7 @@ Object.keys(ATTRS).forEach(function (key) {
 });
 
 module.exports = SVGDOMPropertyConfig;
-},{}],148:[function(require,module,exports){
+},{}],151:[function(require,module,exports){
 /**
  * Copyright 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -44517,7 +45794,7 @@ var SelectEventPlugin = {
 };
 
 module.exports = SelectEventPlugin;
-},{"./EventPropagators":87,"./ReactDOMComponentTree":101,"./ReactInputSelection":128,"./SyntheticEvent":154,"./isTextInputElement":186,"fbjs/lib/ExecutionEnvironment":43,"fbjs/lib/getActiveElement":52,"fbjs/lib/shallowEqual":63}],149:[function(require,module,exports){
+},{"./EventPropagators":90,"./ReactDOMComponentTree":104,"./ReactInputSelection":131,"./SyntheticEvent":157,"./isTextInputElement":189,"fbjs/lib/ExecutionEnvironment":46,"fbjs/lib/getActiveElement":55,"fbjs/lib/shallowEqual":66}],152:[function(require,module,exports){
 /**
  * Copyright 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -44745,7 +46022,7 @@ var SimpleEventPlugin = {
 };
 
 module.exports = SimpleEventPlugin;
-},{"./EventPropagators":87,"./ReactDOMComponentTree":101,"./SyntheticAnimationEvent":150,"./SyntheticClipboardEvent":151,"./SyntheticDragEvent":153,"./SyntheticEvent":154,"./SyntheticFocusEvent":155,"./SyntheticKeyboardEvent":157,"./SyntheticMouseEvent":158,"./SyntheticTouchEvent":159,"./SyntheticTransitionEvent":160,"./SyntheticUIEvent":161,"./SyntheticWheelEvent":162,"./getEventCharCode":174,"./reactProdInvariant":188,"fbjs/lib/EventListener":42,"fbjs/lib/emptyFunction":49,"fbjs/lib/invariant":57}],150:[function(require,module,exports){
+},{"./EventPropagators":90,"./ReactDOMComponentTree":104,"./SyntheticAnimationEvent":153,"./SyntheticClipboardEvent":154,"./SyntheticDragEvent":156,"./SyntheticEvent":157,"./SyntheticFocusEvent":158,"./SyntheticKeyboardEvent":160,"./SyntheticMouseEvent":161,"./SyntheticTouchEvent":162,"./SyntheticTransitionEvent":163,"./SyntheticUIEvent":164,"./SyntheticWheelEvent":165,"./getEventCharCode":177,"./reactProdInvariant":191,"fbjs/lib/EventListener":45,"fbjs/lib/emptyFunction":52,"fbjs/lib/invariant":60}],153:[function(require,module,exports){
 /**
  * Copyright 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -44784,7 +46061,7 @@ function SyntheticAnimationEvent(dispatchConfig, dispatchMarker, nativeEvent, na
 SyntheticEvent.augmentClass(SyntheticAnimationEvent, AnimationEventInterface);
 
 module.exports = SyntheticAnimationEvent;
-},{"./SyntheticEvent":154}],151:[function(require,module,exports){
+},{"./SyntheticEvent":157}],154:[function(require,module,exports){
 /**
  * Copyright 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -44822,7 +46099,7 @@ function SyntheticClipboardEvent(dispatchConfig, dispatchMarker, nativeEvent, na
 SyntheticEvent.augmentClass(SyntheticClipboardEvent, ClipboardEventInterface);
 
 module.exports = SyntheticClipboardEvent;
-},{"./SyntheticEvent":154}],152:[function(require,module,exports){
+},{"./SyntheticEvent":157}],155:[function(require,module,exports){
 /**
  * Copyright 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -44858,7 +46135,7 @@ function SyntheticCompositionEvent(dispatchConfig, dispatchMarker, nativeEvent, 
 SyntheticEvent.augmentClass(SyntheticCompositionEvent, CompositionEventInterface);
 
 module.exports = SyntheticCompositionEvent;
-},{"./SyntheticEvent":154}],153:[function(require,module,exports){
+},{"./SyntheticEvent":157}],156:[function(require,module,exports){
 /**
  * Copyright 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -44894,7 +46171,7 @@ function SyntheticDragEvent(dispatchConfig, dispatchMarker, nativeEvent, nativeE
 SyntheticMouseEvent.augmentClass(SyntheticDragEvent, DragEventInterface);
 
 module.exports = SyntheticDragEvent;
-},{"./SyntheticMouseEvent":158}],154:[function(require,module,exports){
+},{"./SyntheticMouseEvent":161}],157:[function(require,module,exports){
 /**
  * Copyright 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -45162,7 +46439,7 @@ function getPooledWarningPropertyDefinition(propName, getVal) {
     "production" !== 'production' ? warning(warningCondition, 'This synthetic event is reused for performance reasons. If you\'re seeing this, ' + 'you\'re %s `%s` on a released/nullified synthetic event. %s. ' + 'If you must keep the original synthetic event around, use event.persist(). ' + 'See https://fb.me/react-event-pooling for more information.', action, propName, result) : void 0;
   }
 }
-},{"./PooledClass":92,"fbjs/lib/emptyFunction":49,"fbjs/lib/warning":64,"object-assign":195}],155:[function(require,module,exports){
+},{"./PooledClass":95,"fbjs/lib/emptyFunction":52,"fbjs/lib/warning":67,"object-assign":198}],158:[function(require,module,exports){
 /**
  * Copyright 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -45198,7 +46475,7 @@ function SyntheticFocusEvent(dispatchConfig, dispatchMarker, nativeEvent, native
 SyntheticUIEvent.augmentClass(SyntheticFocusEvent, FocusEventInterface);
 
 module.exports = SyntheticFocusEvent;
-},{"./SyntheticUIEvent":161}],156:[function(require,module,exports){
+},{"./SyntheticUIEvent":164}],159:[function(require,module,exports){
 /**
  * Copyright 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -45235,7 +46512,7 @@ function SyntheticInputEvent(dispatchConfig, dispatchMarker, nativeEvent, native
 SyntheticEvent.augmentClass(SyntheticInputEvent, InputEventInterface);
 
 module.exports = SyntheticInputEvent;
-},{"./SyntheticEvent":154}],157:[function(require,module,exports){
+},{"./SyntheticEvent":157}],160:[function(require,module,exports){
 /**
  * Copyright 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -45319,7 +46596,7 @@ function SyntheticKeyboardEvent(dispatchConfig, dispatchMarker, nativeEvent, nat
 SyntheticUIEvent.augmentClass(SyntheticKeyboardEvent, KeyboardEventInterface);
 
 module.exports = SyntheticKeyboardEvent;
-},{"./SyntheticUIEvent":161,"./getEventCharCode":174,"./getEventKey":175,"./getEventModifierState":176}],158:[function(require,module,exports){
+},{"./SyntheticUIEvent":164,"./getEventCharCode":177,"./getEventKey":178,"./getEventModifierState":179}],161:[function(require,module,exports){
 /**
  * Copyright 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -45391,7 +46668,7 @@ function SyntheticMouseEvent(dispatchConfig, dispatchMarker, nativeEvent, native
 SyntheticUIEvent.augmentClass(SyntheticMouseEvent, MouseEventInterface);
 
 module.exports = SyntheticMouseEvent;
-},{"./SyntheticUIEvent":161,"./ViewportMetrics":164,"./getEventModifierState":176}],159:[function(require,module,exports){
+},{"./SyntheticUIEvent":164,"./ViewportMetrics":167,"./getEventModifierState":179}],162:[function(require,module,exports){
 /**
  * Copyright 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -45436,7 +46713,7 @@ function SyntheticTouchEvent(dispatchConfig, dispatchMarker, nativeEvent, native
 SyntheticUIEvent.augmentClass(SyntheticTouchEvent, TouchEventInterface);
 
 module.exports = SyntheticTouchEvent;
-},{"./SyntheticUIEvent":161,"./getEventModifierState":176}],160:[function(require,module,exports){
+},{"./SyntheticUIEvent":164,"./getEventModifierState":179}],163:[function(require,module,exports){
 /**
  * Copyright 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -45475,7 +46752,7 @@ function SyntheticTransitionEvent(dispatchConfig, dispatchMarker, nativeEvent, n
 SyntheticEvent.augmentClass(SyntheticTransitionEvent, TransitionEventInterface);
 
 module.exports = SyntheticTransitionEvent;
-},{"./SyntheticEvent":154}],161:[function(require,module,exports){
+},{"./SyntheticEvent":157}],164:[function(require,module,exports){
 /**
  * Copyright 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -45534,7 +46811,7 @@ function SyntheticUIEvent(dispatchConfig, dispatchMarker, nativeEvent, nativeEve
 SyntheticEvent.augmentClass(SyntheticUIEvent, UIEventInterface);
 
 module.exports = SyntheticUIEvent;
-},{"./SyntheticEvent":154,"./getEventTarget":177}],162:[function(require,module,exports){
+},{"./SyntheticEvent":157,"./getEventTarget":180}],165:[function(require,module,exports){
 /**
  * Copyright 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -45588,7 +46865,7 @@ function SyntheticWheelEvent(dispatchConfig, dispatchMarker, nativeEvent, native
 SyntheticMouseEvent.augmentClass(SyntheticWheelEvent, WheelEventInterface);
 
 module.exports = SyntheticWheelEvent;
-},{"./SyntheticMouseEvent":158}],163:[function(require,module,exports){
+},{"./SyntheticMouseEvent":161}],166:[function(require,module,exports){
 /**
  * Copyright 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -45813,7 +47090,7 @@ var TransactionImpl = {
 };
 
 module.exports = TransactionImpl;
-},{"./reactProdInvariant":188,"fbjs/lib/invariant":57}],164:[function(require,module,exports){
+},{"./reactProdInvariant":191,"fbjs/lib/invariant":60}],167:[function(require,module,exports){
 /**
  * Copyright 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -45840,7 +47117,7 @@ var ViewportMetrics = {
 };
 
 module.exports = ViewportMetrics;
-},{}],165:[function(require,module,exports){
+},{}],168:[function(require,module,exports){
 /**
  * Copyright 2014-present, Facebook, Inc.
  * All rights reserved.
@@ -45898,7 +47175,7 @@ function accumulateInto(current, next) {
 }
 
 module.exports = accumulateInto;
-},{"./reactProdInvariant":188,"fbjs/lib/invariant":57}],166:[function(require,module,exports){
+},{"./reactProdInvariant":191,"fbjs/lib/invariant":60}],169:[function(require,module,exports){
 /**
  * Copyright 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -45942,7 +47219,7 @@ function adler32(data) {
 }
 
 module.exports = adler32;
-},{}],167:[function(require,module,exports){
+},{}],170:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-present, Facebook, Inc.
@@ -46031,7 +47308,7 @@ function checkReactTypeSpec(typeSpecs, values, location, componentName, element,
 
 module.exports = checkReactTypeSpec;
 }).call(this,require('_process'))
-},{"./ReactPropTypeLocationNames":137,"./ReactPropTypesSecret":138,"./reactProdInvariant":188,"_process":67,"fbjs/lib/invariant":57,"fbjs/lib/warning":64,"react/lib/ReactComponentTreeHook":202}],168:[function(require,module,exports){
+},{"./ReactPropTypeLocationNames":140,"./ReactPropTypesSecret":141,"./reactProdInvariant":191,"_process":70,"fbjs/lib/invariant":60,"fbjs/lib/warning":67,"react/lib/ReactComponentTreeHook":205}],171:[function(require,module,exports){
 /**
  * Copyright 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -46063,7 +47340,7 @@ var createMicrosoftUnsafeLocalFunction = function (func) {
 };
 
 module.exports = createMicrosoftUnsafeLocalFunction;
-},{}],169:[function(require,module,exports){
+},{}],172:[function(require,module,exports){
 /**
  * Copyright 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -46142,7 +47419,7 @@ function dangerousStyleValue(name, value, component) {
 }
 
 module.exports = dangerousStyleValue;
-},{"./CSSProperty":72,"fbjs/lib/warning":64}],170:[function(require,module,exports){
+},{"./CSSProperty":75,"fbjs/lib/warning":67}],173:[function(require,module,exports){
 /**
  * Copyright 2016-present, Facebook, Inc.
  * All rights reserved.
@@ -46265,7 +47542,7 @@ function escapeTextContentForBrowser(text) {
 }
 
 module.exports = escapeTextContentForBrowser;
-},{}],171:[function(require,module,exports){
+},{}],174:[function(require,module,exports){
 /**
  * Copyright 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -46325,7 +47602,7 @@ function findDOMNode(componentOrElement) {
 }
 
 module.exports = findDOMNode;
-},{"./ReactDOMComponentTree":101,"./ReactInstanceMap":129,"./getHostComponentFromComposite":178,"./reactProdInvariant":188,"fbjs/lib/invariant":57,"fbjs/lib/warning":64,"react/lib/ReactCurrentOwner":203}],172:[function(require,module,exports){
+},{"./ReactDOMComponentTree":104,"./ReactInstanceMap":132,"./getHostComponentFromComposite":181,"./reactProdInvariant":191,"fbjs/lib/invariant":60,"fbjs/lib/warning":67,"react/lib/ReactCurrentOwner":206}],175:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-present, Facebook, Inc.
@@ -46403,7 +47680,7 @@ function flattenChildren(children, selfDebugID) {
 
 module.exports = flattenChildren;
 }).call(this,require('_process'))
-},{"./KeyEscapeUtils":90,"./traverseAllChildren":193,"_process":67,"fbjs/lib/warning":64,"react/lib/ReactComponentTreeHook":202}],173:[function(require,module,exports){
+},{"./KeyEscapeUtils":93,"./traverseAllChildren":196,"_process":70,"fbjs/lib/warning":67,"react/lib/ReactComponentTreeHook":205}],176:[function(require,module,exports){
 /**
  * Copyright 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -46434,7 +47711,7 @@ function forEachAccumulated(arr, cb, scope) {
 }
 
 module.exports = forEachAccumulated;
-},{}],174:[function(require,module,exports){
+},{}],177:[function(require,module,exports){
 /**
  * Copyright 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -46484,7 +47761,7 @@ function getEventCharCode(nativeEvent) {
 }
 
 module.exports = getEventCharCode;
-},{}],175:[function(require,module,exports){
+},{}],178:[function(require,module,exports){
 /**
  * Copyright 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -46586,7 +47863,7 @@ function getEventKey(nativeEvent) {
 }
 
 module.exports = getEventKey;
-},{"./getEventCharCode":174}],176:[function(require,module,exports){
+},{"./getEventCharCode":177}],179:[function(require,module,exports){
 /**
  * Copyright 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -46629,7 +47906,7 @@ function getEventModifierState(nativeEvent) {
 }
 
 module.exports = getEventModifierState;
-},{}],177:[function(require,module,exports){
+},{}],180:[function(require,module,exports){
 /**
  * Copyright 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -46664,7 +47941,7 @@ function getEventTarget(nativeEvent) {
 }
 
 module.exports = getEventTarget;
-},{}],178:[function(require,module,exports){
+},{}],181:[function(require,module,exports){
 /**
  * Copyright 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -46694,7 +47971,7 @@ function getHostComponentFromComposite(inst) {
 }
 
 module.exports = getHostComponentFromComposite;
-},{"./ReactNodeTypes":135}],179:[function(require,module,exports){
+},{"./ReactNodeTypes":138}],182:[function(require,module,exports){
 /**
  * Copyright 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -46735,7 +48012,7 @@ function getIteratorFn(maybeIterable) {
 }
 
 module.exports = getIteratorFn;
-},{}],180:[function(require,module,exports){
+},{}],183:[function(require,module,exports){
 /**
  * Copyright 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -46756,7 +48033,7 @@ function getNextDebugID() {
 }
 
 module.exports = getNextDebugID;
-},{}],181:[function(require,module,exports){
+},{}],184:[function(require,module,exports){
 /**
  * Copyright 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -46830,7 +48107,7 @@ function getNodeForCharacterOffset(root, offset) {
 }
 
 module.exports = getNodeForCharacterOffset;
-},{}],182:[function(require,module,exports){
+},{}],185:[function(require,module,exports){
 /**
  * Copyright 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -46863,7 +48140,7 @@ function getTextContentAccessor() {
 }
 
 module.exports = getTextContentAccessor;
-},{"fbjs/lib/ExecutionEnvironment":43}],183:[function(require,module,exports){
+},{"fbjs/lib/ExecutionEnvironment":46}],186:[function(require,module,exports){
 /**
  * Copyright 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -46964,7 +48241,7 @@ function getVendorPrefixedEventName(eventName) {
 }
 
 module.exports = getVendorPrefixedEventName;
-},{"fbjs/lib/ExecutionEnvironment":43}],184:[function(require,module,exports){
+},{"fbjs/lib/ExecutionEnvironment":46}],187:[function(require,module,exports){
 /**
  * Copyright 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -47092,7 +48369,7 @@ function instantiateReactComponent(node, shouldHaveDebugID) {
 }
 
 module.exports = instantiateReactComponent;
-},{"./ReactCompositeComponent":97,"./ReactEmptyComponent":120,"./ReactHostComponent":125,"./getNextDebugID":180,"./reactProdInvariant":188,"fbjs/lib/invariant":57,"fbjs/lib/warning":64,"object-assign":195}],185:[function(require,module,exports){
+},{"./ReactCompositeComponent":100,"./ReactEmptyComponent":123,"./ReactHostComponent":128,"./getNextDebugID":183,"./reactProdInvariant":191,"fbjs/lib/invariant":60,"fbjs/lib/warning":67,"object-assign":198}],188:[function(require,module,exports){
 /**
  * Copyright 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -47152,7 +48429,7 @@ function isEventSupported(eventNameSuffix, capture) {
 }
 
 module.exports = isEventSupported;
-},{"fbjs/lib/ExecutionEnvironment":43}],186:[function(require,module,exports){
+},{"fbjs/lib/ExecutionEnvironment":46}],189:[function(require,module,exports){
 /**
  * Copyright 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -47203,7 +48480,7 @@ function isTextInputElement(elem) {
 }
 
 module.exports = isTextInputElement;
-},{}],187:[function(require,module,exports){
+},{}],190:[function(require,module,exports){
 /**
  * Copyright 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -47229,7 +48506,7 @@ function quoteAttributeValueForBrowser(value) {
 }
 
 module.exports = quoteAttributeValueForBrowser;
-},{"./escapeTextContentForBrowser":170}],188:[function(require,module,exports){
+},{"./escapeTextContentForBrowser":173}],191:[function(require,module,exports){
 /**
  * Copyright (c) 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -47268,7 +48545,7 @@ function reactProdInvariant(code) {
 }
 
 module.exports = reactProdInvariant;
-},{}],189:[function(require,module,exports){
+},{}],192:[function(require,module,exports){
 /**
  * Copyright 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -47284,7 +48561,7 @@ module.exports = reactProdInvariant;
 var ReactMount = require('./ReactMount');
 
 module.exports = ReactMount.renderSubtreeIntoContainer;
-},{"./ReactMount":133}],190:[function(require,module,exports){
+},{"./ReactMount":136}],193:[function(require,module,exports){
 /**
  * Copyright 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -47382,7 +48659,7 @@ if (ExecutionEnvironment.canUseDOM) {
 }
 
 module.exports = setInnerHTML;
-},{"./DOMNamespaces":78,"./createMicrosoftUnsafeLocalFunction":168,"fbjs/lib/ExecutionEnvironment":43}],191:[function(require,module,exports){
+},{"./DOMNamespaces":81,"./createMicrosoftUnsafeLocalFunction":171,"fbjs/lib/ExecutionEnvironment":46}],194:[function(require,module,exports){
 /**
  * Copyright 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -47434,7 +48711,7 @@ if (ExecutionEnvironment.canUseDOM) {
 }
 
 module.exports = setTextContent;
-},{"./escapeTextContentForBrowser":170,"./setInnerHTML":190,"fbjs/lib/ExecutionEnvironment":43}],192:[function(require,module,exports){
+},{"./escapeTextContentForBrowser":173,"./setInnerHTML":193,"fbjs/lib/ExecutionEnvironment":46}],195:[function(require,module,exports){
 /**
  * Copyright 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -47476,7 +48753,7 @@ function shouldUpdateReactComponent(prevElement, nextElement) {
 }
 
 module.exports = shouldUpdateReactComponent;
-},{}],193:[function(require,module,exports){
+},{}],196:[function(require,module,exports){
 /**
  * Copyright 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -47652,7 +48929,7 @@ function traverseAllChildren(children, callback, traverseContext) {
 }
 
 module.exports = traverseAllChildren;
-},{"./KeyEscapeUtils":90,"./ReactElementSymbol":119,"./getIteratorFn":179,"./reactProdInvariant":188,"fbjs/lib/invariant":57,"fbjs/lib/warning":64,"react/lib/ReactCurrentOwner":203}],194:[function(require,module,exports){
+},{"./KeyEscapeUtils":93,"./ReactElementSymbol":122,"./getIteratorFn":182,"./reactProdInvariant":191,"fbjs/lib/invariant":60,"fbjs/lib/warning":67,"react/lib/ReactCurrentOwner":206}],197:[function(require,module,exports){
 /**
  * Copyright 2015-present, Facebook, Inc.
  * All rights reserved.
@@ -48034,7 +49311,7 @@ if ("production" !== 'production') {
 }
 
 module.exports = validateDOMNesting;
-},{"fbjs/lib/emptyFunction":49,"fbjs/lib/warning":64,"object-assign":195}],195:[function(require,module,exports){
+},{"fbjs/lib/emptyFunction":52,"fbjs/lib/warning":67,"object-assign":198}],198:[function(require,module,exports){
 /*
 object-assign
 (c) Sindre Sorhus
@@ -48126,11 +49403,11 @@ module.exports = shouldUseNative() ? Object.assign : function (target, source) {
 	return to;
 };
 
-},{}],196:[function(require,module,exports){
-arguments[4][90][0].apply(exports,arguments)
-},{"dup":90}],197:[function(require,module,exports){
-arguments[4][92][0].apply(exports,arguments)
-},{"./reactProdInvariant":218,"dup":92,"fbjs/lib/invariant":57}],198:[function(require,module,exports){
+},{}],199:[function(require,module,exports){
+arguments[4][93][0].apply(exports,arguments)
+},{"dup":93}],200:[function(require,module,exports){
+arguments[4][95][0].apply(exports,arguments)
+},{"./reactProdInvariant":221,"dup":95,"fbjs/lib/invariant":60}],201:[function(require,module,exports){
 /**
  * Copyright 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -48219,7 +49496,7 @@ var React = {
 };
 
 module.exports = React;
-},{"./ReactChildren":199,"./ReactClass":200,"./ReactComponent":201,"./ReactDOMFactories":204,"./ReactElement":205,"./ReactElementValidator":207,"./ReactPropTypes":210,"./ReactPureComponent":212,"./ReactVersion":213,"./onlyChild":217,"fbjs/lib/warning":64,"object-assign":220}],199:[function(require,module,exports){
+},{"./ReactChildren":202,"./ReactClass":203,"./ReactComponent":204,"./ReactDOMFactories":207,"./ReactElement":208,"./ReactElementValidator":210,"./ReactPropTypes":213,"./ReactPureComponent":215,"./ReactVersion":216,"./onlyChild":220,"fbjs/lib/warning":67,"object-assign":223}],202:[function(require,module,exports){
 /**
  * Copyright 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -48410,7 +49687,7 @@ var ReactChildren = {
 };
 
 module.exports = ReactChildren;
-},{"./PooledClass":197,"./ReactElement":205,"./traverseAllChildren":219,"fbjs/lib/emptyFunction":49}],200:[function(require,module,exports){
+},{"./PooledClass":200,"./ReactElement":208,"./traverseAllChildren":222,"fbjs/lib/emptyFunction":52}],203:[function(require,module,exports){
 /**
  * Copyright 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -49127,7 +50404,7 @@ var ReactClass = {
 };
 
 module.exports = ReactClass;
-},{"./ReactComponent":201,"./ReactElement":205,"./ReactNoopUpdateQueue":208,"./ReactPropTypeLocationNames":209,"./reactProdInvariant":218,"fbjs/lib/emptyObject":50,"fbjs/lib/invariant":57,"fbjs/lib/warning":64,"object-assign":220}],201:[function(require,module,exports){
+},{"./ReactComponent":204,"./ReactElement":208,"./ReactNoopUpdateQueue":211,"./ReactPropTypeLocationNames":212,"./reactProdInvariant":221,"fbjs/lib/emptyObject":53,"fbjs/lib/invariant":60,"fbjs/lib/warning":67,"object-assign":223}],204:[function(require,module,exports){
 /**
  * Copyright 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -49245,7 +50522,7 @@ if ("production" !== 'production') {
 }
 
 module.exports = ReactComponent;
-},{"./ReactNoopUpdateQueue":208,"./canDefineProperty":214,"./reactProdInvariant":218,"fbjs/lib/emptyObject":50,"fbjs/lib/invariant":57,"fbjs/lib/warning":64}],202:[function(require,module,exports){
+},{"./ReactNoopUpdateQueue":211,"./canDefineProperty":217,"./reactProdInvariant":221,"fbjs/lib/emptyObject":53,"fbjs/lib/invariant":60,"fbjs/lib/warning":67}],205:[function(require,module,exports){
 /**
  * Copyright 2016-present, Facebook, Inc.
  * All rights reserved.
@@ -49579,7 +50856,7 @@ var ReactComponentTreeHook = {
 };
 
 module.exports = ReactComponentTreeHook;
-},{"./ReactCurrentOwner":203,"./reactProdInvariant":218,"fbjs/lib/invariant":57,"fbjs/lib/warning":64}],203:[function(require,module,exports){
+},{"./ReactCurrentOwner":206,"./reactProdInvariant":221,"fbjs/lib/invariant":60,"fbjs/lib/warning":67}],206:[function(require,module,exports){
 /**
  * Copyright 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -49610,7 +50887,7 @@ var ReactCurrentOwner = {
 };
 
 module.exports = ReactCurrentOwner;
-},{}],204:[function(require,module,exports){
+},{}],207:[function(require,module,exports){
 /**
  * Copyright 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -49780,7 +51057,7 @@ var ReactDOMFactories = {
 };
 
 module.exports = ReactDOMFactories;
-},{"./ReactElement":205,"./ReactElementValidator":207}],205:[function(require,module,exports){
+},{"./ReactElement":208,"./ReactElementValidator":210}],208:[function(require,module,exports){
 /**
  * Copyright 2014-present, Facebook, Inc.
  * All rights reserved.
@@ -50121,9 +51398,9 @@ ReactElement.isValidElement = function (object) {
 };
 
 module.exports = ReactElement;
-},{"./ReactCurrentOwner":203,"./ReactElementSymbol":206,"./canDefineProperty":214,"fbjs/lib/warning":64,"object-assign":220}],206:[function(require,module,exports){
-arguments[4][119][0].apply(exports,arguments)
-},{"dup":119}],207:[function(require,module,exports){
+},{"./ReactCurrentOwner":206,"./ReactElementSymbol":209,"./canDefineProperty":217,"fbjs/lib/warning":67,"object-assign":223}],209:[function(require,module,exports){
+arguments[4][122][0].apply(exports,arguments)
+},{"dup":122}],210:[function(require,module,exports){
 /**
  * Copyright 2014-present, Facebook, Inc.
  * All rights reserved.
@@ -50357,7 +51634,7 @@ var ReactElementValidator = {
 };
 
 module.exports = ReactElementValidator;
-},{"./ReactComponentTreeHook":202,"./ReactCurrentOwner":203,"./ReactElement":205,"./canDefineProperty":214,"./checkReactTypeSpec":215,"./getIteratorFn":216,"fbjs/lib/warning":64}],208:[function(require,module,exports){
+},{"./ReactComponentTreeHook":205,"./ReactCurrentOwner":206,"./ReactElement":208,"./canDefineProperty":217,"./checkReactTypeSpec":218,"./getIteratorFn":219,"fbjs/lib/warning":67}],211:[function(require,module,exports){
 /**
  * Copyright 2015-present, Facebook, Inc.
  * All rights reserved.
@@ -50453,9 +51730,9 @@ var ReactNoopUpdateQueue = {
 };
 
 module.exports = ReactNoopUpdateQueue;
-},{"fbjs/lib/warning":64}],209:[function(require,module,exports){
-arguments[4][137][0].apply(exports,arguments)
-},{"dup":137}],210:[function(require,module,exports){
+},{"fbjs/lib/warning":67}],212:[function(require,module,exports){
+arguments[4][140][0].apply(exports,arguments)
+},{"dup":140}],213:[function(require,module,exports){
 /**
  * Copyright 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -50889,9 +52166,9 @@ function getClassName(propValue) {
 }
 
 module.exports = ReactPropTypes;
-},{"./ReactElement":205,"./ReactPropTypeLocationNames":209,"./ReactPropTypesSecret":211,"./getIteratorFn":216,"fbjs/lib/emptyFunction":49,"fbjs/lib/warning":64}],211:[function(require,module,exports){
-arguments[4][138][0].apply(exports,arguments)
-},{"dup":138}],212:[function(require,module,exports){
+},{"./ReactElement":208,"./ReactPropTypeLocationNames":212,"./ReactPropTypesSecret":214,"./getIteratorFn":219,"fbjs/lib/emptyFunction":52,"fbjs/lib/warning":67}],214:[function(require,module,exports){
+arguments[4][141][0].apply(exports,arguments)
+},{"dup":141}],215:[function(require,module,exports){
 /**
  * Copyright 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -50933,9 +52210,9 @@ _assign(ReactPureComponent.prototype, ReactComponent.prototype);
 ReactPureComponent.prototype.isPureReactComponent = true;
 
 module.exports = ReactPureComponent;
-},{"./ReactComponent":201,"./ReactNoopUpdateQueue":208,"fbjs/lib/emptyObject":50,"object-assign":220}],213:[function(require,module,exports){
-arguments[4][146][0].apply(exports,arguments)
-},{"dup":146}],214:[function(require,module,exports){
+},{"./ReactComponent":204,"./ReactNoopUpdateQueue":211,"fbjs/lib/emptyObject":53,"object-assign":223}],216:[function(require,module,exports){
+arguments[4][149][0].apply(exports,arguments)
+},{"dup":149}],217:[function(require,module,exports){
 /**
  * Copyright 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -50961,7 +52238,7 @@ if ("production" !== 'production') {
 }
 
 module.exports = canDefineProperty;
-},{}],215:[function(require,module,exports){
+},{}],218:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-present, Facebook, Inc.
@@ -51050,9 +52327,9 @@ function checkReactTypeSpec(typeSpecs, values, location, componentName, element,
 
 module.exports = checkReactTypeSpec;
 }).call(this,require('_process'))
-},{"./ReactComponentTreeHook":202,"./ReactPropTypeLocationNames":209,"./ReactPropTypesSecret":211,"./reactProdInvariant":218,"_process":67,"fbjs/lib/invariant":57,"fbjs/lib/warning":64}],216:[function(require,module,exports){
-arguments[4][179][0].apply(exports,arguments)
-},{"dup":179}],217:[function(require,module,exports){
+},{"./ReactComponentTreeHook":205,"./ReactPropTypeLocationNames":212,"./ReactPropTypesSecret":214,"./reactProdInvariant":221,"_process":70,"fbjs/lib/invariant":60,"fbjs/lib/warning":67}],219:[function(require,module,exports){
+arguments[4][182][0].apply(exports,arguments)
+},{"dup":182}],220:[function(require,module,exports){
 /**
  * Copyright 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -51090,9 +52367,9 @@ function onlyChild(children) {
 }
 
 module.exports = onlyChild;
-},{"./ReactElement":205,"./reactProdInvariant":218,"fbjs/lib/invariant":57}],218:[function(require,module,exports){
-arguments[4][188][0].apply(exports,arguments)
-},{"dup":188}],219:[function(require,module,exports){
+},{"./ReactElement":208,"./reactProdInvariant":221,"fbjs/lib/invariant":60}],221:[function(require,module,exports){
+arguments[4][191][0].apply(exports,arguments)
+},{"dup":191}],222:[function(require,module,exports){
 /**
  * Copyright 2013-present, Facebook, Inc.
  * All rights reserved.
@@ -51268,11 +52545,11 @@ function traverseAllChildren(children, callback, traverseContext) {
 }
 
 module.exports = traverseAllChildren;
-},{"./KeyEscapeUtils":196,"./ReactCurrentOwner":203,"./ReactElementSymbol":206,"./getIteratorFn":216,"./reactProdInvariant":218,"fbjs/lib/invariant":57,"fbjs/lib/warning":64}],220:[function(require,module,exports){
-arguments[4][195][0].apply(exports,arguments)
-},{"dup":195}],221:[function(require,module,exports){
+},{"./KeyEscapeUtils":199,"./ReactCurrentOwner":206,"./ReactElementSymbol":209,"./getIteratorFn":219,"./reactProdInvariant":221,"fbjs/lib/invariant":60,"fbjs/lib/warning":67}],223:[function(require,module,exports){
+arguments[4][198][0].apply(exports,arguments)
+},{"dup":198}],224:[function(require,module,exports){
 'use strict';
 
 module.exports = require('./lib/React');
 
-},{"./lib/React":198}]},{},[5]);
+},{"./lib/React":201}]},{},[6]);
