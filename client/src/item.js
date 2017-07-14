@@ -13,7 +13,8 @@ RG.ITEM_ARMOUR = 'armour';
 RG.ITEM_SPIRITGEM = 'spiritgem';
 RG.ITEM_GOLD = 'gold';
 RG.ITEM_MISSILE = 'missile';
-RG.ITEM_MISSILE_WEAPON = 'missile_weapon';
+RG.ITEM_MISSILE_WEAPON = 'missileweapon';
+RG.ITEM_AMMUNITION = 'ammo';
 RG.ITEM_POTION = 'potion';
 RG.ITEM_GOLD_COIN = 'goldcoin';
 
@@ -52,6 +53,7 @@ RG.Item.Base = function(name) {
 RG.extend2(RG.Item.Base, RG.Object.Typed);
 RG.extend2(RG.Item.Base, RG.Object.Ownable);
 
+/* Used when showing the item in inventory lists etc. */
 RG.Item.Base.prototype.toString = function() {
     let txt = this.getName() + ', ' + this.getType() + ', ';
     const totalWeight = this.getWeight() * this.count;
@@ -207,7 +209,7 @@ RG.Item.Weapon.prototype.toJSON = function() {
     return json;
 };
 
-
+/* Base object for missile weapons. */
 RG.Item.MissileWeapon = function(name) {
     RG.Item.Weapon.call(this, name);
     this.setType(RG.ITEM_MISSILE_WEAPON);
@@ -215,6 +217,12 @@ RG.Item.MissileWeapon = function(name) {
 };
 RG.extend2(RG.Item.MissileWeapon, RG.Item.Weapon);
 
+RG.Item.Ammo = function(name) {
+    RG.Item.Weapon.call(this, name);
+    this.setType(RG.ITEM_MISSILE);
+    this.add('Ammo', new RG.Component.Ammo());
+};
+RG.extend2(RG.Item.Ammo, RG.Item.Weapon);
 
 /* Base object for armour.*/
 RG.Item.Armour = function(name) {
@@ -226,7 +234,6 @@ RG.Item.Armour = function(name) {
 
     this.setArmourType = function(type) {_armourType = type;};
     this.getArmourType = function() {return _armourType;};
-
 };
 RG.extend2(RG.Item.Armour, RG.Item.Base);
 RG.extend2(RG.Item.Armour, RG.Object.Defense);
@@ -611,16 +618,16 @@ RG.Item.SpiritGem = function(name) {
     const _getters =
         ['getStrength', 'getWillpower', 'getAccuracy', 'getAgility'];
 
-    for (let i = 0; i < _getters.length; i++) {
-        /* eslint no-loop-func: 0 */
-        const getFunc = function() {
-            const funcName = _getters[i];
-            return function() {
-                if (!_hasSpirit) {return 0;}
-                return _spirit.get('Stats')[funcName]();
-            };
+    const createGetFunc = function(i) {
+        const funcName = _getters[i];
+        return function() {
+            if (!_hasSpirit) {return 0;}
+            return _spirit.get('Stats')[funcName]();
         };
-        this[_getters[i]] = getFunc();
+    };
+
+    for (let i = 0; i < _getters.length; i++) {
+        this[_getters[i]] = createGetFunc(i);
     }
 
 };

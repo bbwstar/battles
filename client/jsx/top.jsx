@@ -15,14 +15,13 @@ const GamePanel = require('./game-panel');
 const GameMessages = require('./game-messages');
 const GameStats = require('./game-stats');
 const GameBoard = require('./game-board');
+const GameEditor = require('./game-editor');
+
+const Screen = require('../gui/screen');
 
 const Persist = require('../src/persist');
 
 const worldConf = require('../data/conf.world');
-
-/* Top-level component which renders all other components. Keeps also track
- * of the current game state.
- */
 
 /* Contains logic that is not tightly coupled to the GUI.*/
 class TopLogic {
@@ -99,18 +98,26 @@ class BattlesTop extends React.Component {
         this.resetGameState();
 
         this.viewportPlayerX = 35; // * 2
-        this.viewportPlayerY = 12; // * 2
+        this.viewportPlayerY = 15; // * 2
         this.viewportX = 35; // * 2
-        this.viewportY = 12; // * 2
+        this.viewportY = 15; // * 2
+
+        this.screen = new Screen(this.viewportX, this.viewportY);
 
         // Simple configuration for the game
         this.gameConf = {
-            cols: 80,
-            rows: 60,
+            cols: 60,
+            rows: 30,
             levels: 2,
+
             playerLevel: 'Medium',
-            sqrPerMonster: 40,
-            sqrPerItem: 100,
+            gameLength: 'Medium',
+            levelSize: 'Medium',
+            monstType: 'Medium',
+            lootType: 'Medium',
+
+            sqrPerMonster: 120,
+            sqrPerItem: 120,
             debugMode: false,
             loadedPlayer: null,
             loadedLevel: null,
@@ -136,19 +143,33 @@ class BattlesTop extends React.Component {
             loadInProgress: false,
             mapShown: false,
             invMsgStyle: '',
+            playerName: 'Player',
             render: true,
             renderFullScreen: false,
             saveInProgress: false,
             selectedCell: null,
             selectedGame: null,
-            selectedItem: null
+            selectedItem: null,
+
+            playerLevel: 'Medium',
+            gameLength: 'Medium',
+            levelSize: 'Medium',
+            monstType: 'Medium',
+            lootType: 'Medium',
+            debugMode: 'Off',
+
+            showEditor: false
         };
 
         // Binding of callbacks
         this.bindCallbacks();
         this.initGUICommandTable();
-        ROT.RNG.setSeed(0); // TODO
-        RG.RAND.setSeed(0);
+        ROT.RNG.setSeed(1); // TODO
+        RG.RAND.setSeed(1);
+    }
+
+    toggleEditor() {
+        this.setState({showEditor: !this.state.showEditor});
     }
 
     selectSaveGame(name) {
@@ -168,6 +189,7 @@ class BattlesTop extends React.Component {
 
     setPlayerName(name) {
         this.gameConf.playerName = name;
+        this.setState({playerName: name});
     }
 
     /* Sets the size of the shown map.*/
@@ -180,6 +202,7 @@ class BattlesTop extends React.Component {
             if (xOrY === 'X') {this.viewportX -= 5;}
             else {this.viewportY -= 2;}
         }
+        this.screen.setViewportXY(this.viewportX, this.viewportY);
         this.setState({render: true, renderFullScreen: true});
     }
 
@@ -190,6 +213,9 @@ class BattlesTop extends React.Component {
            this.viewportPlayerY = this.viewportY;
            this.viewportX = this.game.getPlayer().getLevel().getMap().cols;
            this.viewportY = this.game.getPlayer().getLevel().getMap().rows;
+           this.screen.setMapShown(true);
+           this.screen.setViewportXY(this.viewportX, this.viewportY);
+
            this.setState({
                render: true, renderFullScreen: true,
                boardClassName: 'game-board-map-view',
@@ -199,6 +225,8 @@ class BattlesTop extends React.Component {
         else if (type === 'player') {
             this.viewportX = this.viewportPlayerX;
             this.viewportY = this.viewportPlayerY;
+            this.screen.setMapShown(false);
+            this.screen.setViewportXY(this.viewportX, this.viewportY);
             this.setState({
                 render: true, renderFullScreen: true,
                 boardClassName: 'game-board-player-view',
@@ -423,13 +451,38 @@ class BattlesTop extends React.Component {
         const player = this.game.getPlayer();
         const inv = player.getInvEq().getInventory();
         const eq = player.getInvEq().getEquipment();
-        const fullScreen = this.state.renderFullScreen;
         const maxWeight = player.getMaxWeight();
 
         let message = [];
         if (this.game.hasNewMessages()) {
             message = this.game.getMessages();
         }
+
+        const settings = {
+            playerLevel: this.state.playerLevel,
+            gameLength: this.state.gameLength,
+            levelSize: this.state.levelSize,
+            monstType: this.state.monstType,
+            lootType: this.state.lootType,
+            debugMode: this.state.debugMode
+        };
+
+        // All computations for the GameBoard
+        const mapShown = this.state.mapShown;
+        let rowClass = 'cell-row-div-player-view';
+        if (mapShown) {rowClass = 'cell-row-div-map-view';}
+
+        const playX = player.getX();
+        const playY = player.getY();
+        if (map) {
+            this.screen.render(playX, playY, map, this.gameState.visibleCells);
+        }
+        else {
+            console.log('map undefined');
+        }
+        const charRows = this.screen.getCharRows();
+        const classRows = this.screen.getClassRows();
+        const startX = this.screen.getStartX();
 
         return (
             <div className='container main-div' id='main-div' >
@@ -438,6 +491,7 @@ class BattlesTop extends React.Component {
                     deleteGame={this.deleteGame}
                     loadGame={this.loadGame}
                     newGame={this.newGame}
+                    playerName={this.state.playerName}
                     savedPlayerList={this.savedPlayerList}
                     selectedGame={this.state.selectedGame}
                     selectGame={this.selectSaveGame}
@@ -448,9 +502,13 @@ class BattlesTop extends React.Component {
                     setMonsters={this.setMonsters}
                     setPlayerLevel={this.setPlayerLevel}
                     setPlayerName={this.setPlayerName}
+                    settings={settings}
+                    toggleEditor={this.toggleEditor}
                 />
                 <GameHelpScreen />
 
+
+                {!this.state.showEditor &&
                 <GameInventory
                     doInvCmd={this.doInvCmd}
                     eq={eq}
@@ -465,7 +523,9 @@ class BattlesTop extends React.Component {
                     selectItemTop={this.selectItemTop}
                     setInventoryMsg={this.setInventoryMsg}
                 />
+                }
 
+                {!this.state.showEditor &&
                 <div className='row game-panel-div'>
                     <div className='col-md-2'>
                         <GamePanel
@@ -493,20 +553,21 @@ class BattlesTop extends React.Component {
                         <div className='game-board-div'>
                             <GameBoard
                                 boardClassName={this.state.boardClassName}
-                                map={map}
-                                mapShown={this.state.mapShown}
+                                charRows={charRows}
+                                classRows={classRows}
+                                endY={this.screen.endY}
                                 onCellClick={this.onCellClick}
-                                player={player}
-                                renderFullScreen={fullScreen}
-                                selectedCell={this.state.selectedCell}
-                                viewportX={this.viewportX}
-                                viewportY={this.viewportY}
-                                visibleCells={this.gameState.visibleCells}
+                                rowClass={rowClass}
+                                startX={startX}
+                                startY={this.screen.startY}
                             />
                         </div>
                     </div>
                 </div>
-
+                }
+                {this.state.showEditor &&
+                    <GameEditor />
+                }
             </div>
         );
     }
@@ -597,7 +658,9 @@ class BattlesTop extends React.Component {
                 this.gameState.autoTarget = true;
                 this.game.update({cmd: 'missile', target: cell});
                 this.gameState.visibleCells = this.game.visibleCells;
+                this.screen.setSelectedCell(null);
                 this.setState({selectedCell: null});
+                this.screen.setSelectedCell(null);
             }
             this.gameState.autoTarget = false;
             this.gameState.isTargeting = false;
@@ -611,6 +674,7 @@ class BattlesTop extends React.Component {
 
             if (this.gameState.enemyCells.length > 0) {
                 const cell = this.gameState.enemyCells[0];
+                this.screen.setSelectedCell(cell);
                 this.setState({selectedCell: cell});
                 console.log('GUITarget found selected cell');
             }
@@ -640,6 +704,7 @@ class BattlesTop extends React.Component {
                 }
 
                 const nextCell = this.gameState.enemyCells[numNextCell];
+                this.screen.setSelectedCell(nextCell);
                 this.setState({selectedCell: nextCell});
                 this.gameState.numCurrCell = numNextCell;
             }
@@ -652,40 +717,54 @@ class BattlesTop extends React.Component {
 
     setLoot(lootType) {
         switch (lootType) {
-            case 'Sparse': this.gameConf.sqrPerItem = 200; break;
-            case 'Medium': this.gameConf.sqrPerItem = 120; break;
-            case 'Abundant': this.gameConf.sqrPerItem = 50; break;
+            case 'Sparse': this.gameConf.sqrPerItem = RG.LOOT_SPARSE_SQR; break;
+            case 'Medium': this.gameConf.sqrPerItem = RG.LOOT_MEDIUM_SQR; break;
+            case 'Abundant': {
+                this.gameConf.sqrPerItem = RG.LOOT_ABUNDANT_SQR; break;
+            }
             default: console.error('setLoot illegal lootType ' + lootType);
         }
+        this.gameConf.lootType = lootType;
+        this.setState({lootType});
     }
 
     setMonsters(monstType) {
         switch (monstType) {
-            case 'Sparse': this.gameConf.sqrPerMonster = 200; break;
-            case 'Medium': this.gameConf.sqrPerMonster = 120; break;
-            case 'Abundant': this.gameConf.sqrPerMonster = 50; break;
+            case 'Sparse': {
+                this.gameConf.sqrPerMonster = RG.ACTOR_SPARSE_SQR; break;
+            }
+            case 'Medium': {
+                this.gameConf.sqrPerMonster = RG.ACTOR_MEDIUM_SQR; break;
+            }
+            case 'Abundant': {
+                this.gameConf.sqrPerMonster = RG.ACTOR_ABUNDANT_SQR; break;
+            }
             default:
                 console.error('setMonsters illegal monstType ' + monstType);
         }
+        this.gameConf.monstType = monstType;
+        this.setState({monstType});
     }
 
     setLevelSize(levelSize) {
         switch (levelSize) {
-            case 'Small': this.gameConf.cols = 40;
-                this.gameConf.rows = 20; break;
-            case 'Medium': this.gameConf.cols = 60;
-                this.gameConf.rows = 30; break;
-            case 'Large': this.gameConf.cols = 80;
-                this.gameConf.rows = 40; break;
-            case 'Huge': this.gameConf.cols = 140;
-                this.gameConf.rows = 60; break;
+            case 'Small': this.gameConf.cols = RG.LEVEL_SMALL_X;
+                this.gameConf.rows = RG.LEVEL_SMALL_Y; break;
+            case 'Medium': this.gameConf.cols = RG.LEVEL_MEDIUM_X;
+                this.gameConf.rows = RG.LEVEL_MEDIUM_Y; break;
+            case 'Large': this.gameConf.cols = RG.LEVEL_LARGE_X;
+                this.gameConf.rows = RG.LEVEL_LARGE_Y; break;
+            case 'Huge': this.gameConf.cols = RG.LEVEL_HUGE_X;
+                this.gameConf.rows = RG.LEVEL_HUGE_Y; break;
             default: console.error('setLeveSize illegal size ' + levelSize);
         }
         this.gameConf.levelSize = levelSize;
+        this.setState({levelSize});
     }
 
     setPlayerLevel(level) {
         this.gameConf.playerLevel = level;
+        this.setState({playerLevel: level});
     }
 
     setGameLength(length) {
@@ -697,6 +776,7 @@ class BattlesTop extends React.Component {
             default: console.error('setGameLength illegal length ' + length);
         }
         this.gameConf.gameLength = length;
+        this.setState({gameLength: length});
     }
 
     setDebugMode(mode) {
@@ -708,6 +788,7 @@ class BattlesTop extends React.Component {
             case 'World': this.gameConf.debugMode = 'World'; break;
             default: console.error('setDebugMode illegal mode ' + mode);
         }
+        this.setState({debugMode: mode});
     }
 
     bindCallbacks() {
@@ -753,6 +834,8 @@ class BattlesTop extends React.Component {
         this.selectEquipTop = this.selectEquipTop.bind(this);
         this.selectItemTop = this.selectItemTop.bind(this);
         this.doInvCmd = this.doInvCmd.bind(this);
+
+        this.toggleEditor = this.toggleEditor.bind(this);
     }
 
 }

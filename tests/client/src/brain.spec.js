@@ -199,7 +199,6 @@ describe('RG.Brain.Rogue', function() {
     });
 
     it('Has 1st priority for enemies', function() {
-        // var brain = demon.getBrain();
         let cells = RG.Brain.getCellsAround(demon);
         expect(cells).to.have.length(9);
 
@@ -208,19 +207,104 @@ describe('RG.Brain.Rogue', function() {
         expect(cells).to.have.length(4);
     });
 
+    it('explores randomly when no enemies', () => {
+        const movSys = new RG.System.Movement('Movement', ['Movement']);
+        const arena = RG.FACT.createLevel('arena', 10, 10);
+        const rogue = new RG.Actor.Rogue('rogue');
+        arena.addActor(rogue, 1, 1);
+        const action = rogue.nextAction();
+        action.doAction();
+        movSys.update();
+        const cellChanged = rogue.getCell().getX() !== 1 ||
+            rogue.getCell().getY() !== 1;
+        expect(cellChanged, 'Actor cell changed').to.be.true;
+    });
+
+    it('flees when low on health', () => {
+        const movSys = new RG.System.Movement('Movement', ['Movement']);
+        const arena = RG.FACT.createLevel('arena', 30, 30);
+        const rogue = new RG.Actor.Rogue('rogue');
+        rogue.setFOVRange(20);
+        const player = new RG.Actor.Rogue('player');
+
+        // Check that flee action not triggered when not player seen
+        rogue.get('Health').setHP(1);
+        arena.addActor(rogue, 2, 2);
+        const action = rogue.nextAction();
+        action.doAction();
+        movSys.update();
+        const rogueX = rogue.getX();
+        const rogueY = rogue.getY();
+        const cellChanged = rogueX !== 2 || rogueY !== 2;
+        expect(cellChanged, 'Explore even when low on health').to.equal(true);
+
+        // Add player to provoke flee response in rogue
+        arena.addActor(player, 1, 1);
+        player.setIsPlayer(true);
+
+        let currDist = RG.shortestDist(rogueX, rogueY, 1, 1);
+        let prevDist = currDist;
+        for (let i = 3; i < 9; i++) {
+            const action = rogue.nextAction();
+            action.doAction();
+            movSys.update();
+            const rogueX = rogue.getX();
+            const rogueY = rogue.getY();
+            currDist = RG.shortestDist(rogueX, rogueY, 1, 1);
+            console.log(`x: ${rogueX} y: ${rogueY} dist: ${currDist}`);
+            expect(currDist).to.be.above(prevDist);
+            prevDist = currDist;
+        }
+    });
+
 });
 
 describe('Brain.Summoner', () => {
     it('can summon help when seeing enemies', () => {
         const summoner = new RG.Actor.Rogue('summoner');
         const brain = new RG.Brain.Summoner(summoner);
+        summoner.setBrain(brain);
+
         const level = RG.FACT.createLevel('arena', 10, 10);
         const player = new RG.Actor.Rogue('Player');
         player.setIsPlayer(true);
         level.addActor(summoner, 1, 1);
         level.addActor(player, 3, 3);
-        while (!brain.summonedMonster()) {continue;}
+
+        brain.summonProbability = 1.01;
+        const summonAction = summoner.nextAction();
+        summonAction.doAction();
         expect(level.getActors(), 'There should be one actor added')
             .to.have.length(3);
+    });
+});
+
+describe('Brain.Human', () => {
+    it('communicates enemies to friend actors', () => {
+        const commSystem = new RG.System.Communication(
+            'Communication', ['Communication']
+        );
+        const human = new RG.Actor.Rogue('human');
+        const brain = new RG.Brain.Human(human);
+        brain.commProbability = 1.01;
+        human.setBrain(brain);
+
+        const human2 = new RG.Actor.Rogue('human2');
+        const brain2 = new RG.Brain.Human(human2);
+        human2.setBrain(brain2);
+
+        const demon = new RG.Actor.Rogue('demon');
+        demon.setType('demon');
+
+        const level = RG.FACT.createLevel('arena', 10, 10);
+        level.addActor(human, 2, 2);
+        level.addActor(human2, 1, 1);
+        level.addActor(demon, 3, 3);
+
+        const action = human.nextAction();
+        action.doAction();
+        expect(human2.has('Communication')).to.be.true;
+        commSystem.update();
+        expect(human2.has('Communication')).to.be.false;
     });
 });

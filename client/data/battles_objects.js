@@ -9,33 +9,31 @@
 // Some info on attributes:
 //      dontCreate: true - Use with base classes, prevents object creation
 //      base: xxx        - Use xxx as a base for the object
-//      danger    - Used for rand generation, higher values means less often
+//      danger - For rand generation for actors, higher values means less often
+//      value  - For rand gen (+buy/sell) for items, higher means less often
 //      cssClass         - Used for rendering purposes.
 
-var RGObjects = {
-
+const RGObjects = {
 
     actors: [
 
         // ANIMALS
         {
-            name: 'animal', dontCreate: true,
+            name: 'animal', dontCreate: true, type: 'animal',
             className: 'cell-actor-animal',
             attack: 1, defense: 1, hp: 5,
             range: 1, danger: 1, speed: 100, brain: 'Animal'
         },
         {
-            name: 'bat', type: 'bat', char: 'b', base: 'animal',
+            name: 'rat', char: 'r', base: 'animal'
+        },
+        {
+            name: 'bat', char: 'b', base: 'animal',
             defense: 2
         },
         {
-            name: 'rat', type: 'rat', char: 'r', base: 'animal'
-        },
-        {
-            name: 'rattlesnake', char: 's', base: 'animal',
-            poison: true, // Change to weapon: venomous fangs
-            attack: 2, defense: 3, damage: '1d3',
-            hp: 10, danger: 3
+            name: 'giant ant', char: 'a', base: 'animal',
+            defense: 2, hp: 7
         },
         {
             name: 'coyote', char: 'c', base: 'animal',
@@ -48,13 +46,24 @@ var RGObjects = {
             hp: 15, danger: 3
         },
         {
+            name: 'rattlesnake', char: 's', base: 'animal',
+            poison: true, // Change to weapon: venomous fangs
+            attack: 2, defense: 3, damage: '1d3',
+            hp: 10, danger: 3
+        },
+        {
+            name: 'wolverine', char: 'W', base: 'animal',
+            attack: 4, defense: 4, damage: '1d7',
+            hp: 20, danger: 4
+        },
+        {
             name: 'bear', char: 'B', base: 'animal',
-            attack: 4, defense: 4, damage: '1d9',
-            hp: 25, danger: 5
+            attack: 5, defense: 5, damage: '1d9',
+            hp: 30, danger: 5
         },
         {
             name: 'mountain lion', char: 'f', base: 'animal',
-            attack: 5, defense: 3, damage: '2d4',
+            attack: 6, defense: 3, damage: '2d4',
             hp: 25, danger: 5
         },
 
@@ -93,7 +102,7 @@ var RGObjects = {
         {
             name: 'Glacial golem', char: 'G', base: 'WinterBeingBase',
             attack: 4, defense: 4, protection: 3, damage: '2d4', speed: 90,
-            danger: 5, hp: 30
+            danger: 10, hp: 30
         },
         {
             name: 'Mighty raven', base: 'WinterBeingBase', char: 'R',
@@ -103,17 +112,17 @@ var RGObjects = {
         {
             name: 'Winter demon', type: 'demon', char: 'D',
             attack: 5, defense: 5, protection: 2, damage: '3d3', range: 1,
-            hp: 30, danger: 6, brain: 'Demon', base: 'WinterBeingBase'
+            hp: 30, danger: 12, brain: 'Demon', base: 'WinterBeingBase'
         },
         {
             name: 'Blizzard beast', type: 'demon', char: 'B',
             attack: 7, defense: 6, protection: 4, damage: '3d4', range: 1,
-            hp: 50, danger: 8, brain: 'Demon', base: 'WinterBeingBase'
+            hp: 50, danger: 16, brain: 'Demon', base: 'WinterBeingBase'
         },
         {
             name: 'Frostburn monarch', type: 'demon', char: 'M',
             attack: 7, defense: 6, protection: 6, damage: '3d4', range: 1,
-            hp: 70, danger: 10, brain: 'Demon', base: 'WinterBeingBase'
+            hp: 70, danger: 20, brain: 'Demon', base: 'WinterBeingBase'
         },
 
         // HUMANS
@@ -123,12 +132,12 @@ var RGObjects = {
             range: 1, hp: 20, danger: 3, brain: 'Human'
         },
         {
-            name: 'miner', base: 'human',
-            attack: 4, danger: 4, damage: '1d5', equip: ['Pick-axe']
+            name: 'robber', base: 'human',
+            attack: 2, defense: 4, danger: 3
         },
         {
-            name: 'robber', base: 'human',
-            attack: 2, defense: 4
+            name: 'miner', base: 'human',
+            attack: 4, danger: 4, damage: '1d5', equip: ['Pick-axe']
         },
         {
             name: 'fighter', base: 'human', hp: 25,
@@ -144,6 +153,12 @@ var RGObjects = {
             name: 'shopkeeper', char: '@', base: 'human', hp: 50,
             attack: 10, defense: 10, damage: '3d3',
             danger: 6, inv: [{name: 'Gold coin', count: 100}]
+        },
+        {
+            name: 'summoner', char: '@', base: 'human', hp: 50,
+            type: 'summoner',
+            attack: 7, defense: 7, damage: '2d4', brain: 'Summoner',
+            danger: 10
         },
 
         // WILDLINGS
@@ -517,6 +532,10 @@ var RGObjects = {
             attack: 1, damage: '1d1', range: 2, weight: 0.1
         },
         {
+            name: 'Rock', base: 'MissileBase', className: 'cell-item-rock',
+            char: '*', damage: '1d4', range: 5, value: 10, weight: 0.2
+        },
+        {
             name: 'Shuriken', base: 'MissileBase',
             damage: '1d6', range: 3, value: 20
         },
@@ -541,6 +560,50 @@ var RGObjects = {
         {
             name: 'Throwing axe of death', base: 'MissileBase',
             attack: 5, damage: '2d10 + 3', range: 3, value: 200, weight: 0.5
+        },
+
+        // MISSILE WEAPONS
+        {
+            name: 'MissileWeaponBase', dontCreate: true,
+            type: 'missileweapon',
+            className: 'cell-item-missileweapon',
+            attack: 0, defense: 0, char: '{'
+        },
+        {
+            name: 'Bow', base: 'MissileWeaponBase',
+            attack: 1, range: 4, value: 100
+        },
+        {
+            name: 'Crossbow', base: 'MissileWeaponBase',
+            attack: 3, range: 6, value: 250
+        },
+        {
+            name: 'Double crossbow', base: 'MissileWeaponBase',
+            attack: 0, range: 5, value: 400
+        },
+        {
+            name: 'Bow of Defense', base: 'MissileWeaponBase',
+            attack: 1, range: 4, defense: 6, value: 500
+        },
+        {
+            name: 'Rifle', base: 'MissileWeaponBase',
+            attack: 4, range: 7, value: 500
+        },
+        // AMMO
+        {
+            name: 'Arrow', base: 'MissileBase',
+            type: 'ammo', range: 1,
+            attack: 0, damage: '1d6', value: 10
+        },
+        {
+            name: 'Bolt', base: 'MissileBase',
+            type: 'ammo', range: 1,
+            attack: 1, damage: '1d8', value: 20
+        },
+        {
+            name: 'Rifle bullet', base: 'MissileBase',
+            type: 'ammo', range: 1,
+            attack: 1, damage: '3d4', value: 50
         },
 
         // POTIONS

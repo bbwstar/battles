@@ -102,6 +102,9 @@ RG.ObjectShellParser = function() {
         dungeons: {}
     };
 
+    _propToCall.items.missileweapon = _propToCall.items.missile;
+    _propToCall.items.ammo = _propToCall.items.missile;
+
     // Internal cache for proc generation
     const _cache = {
         actorWeights: {}
@@ -486,8 +489,15 @@ RG.ObjectShellParser = function() {
     };
 
     /* Creates actual game object from obj shell in given category.*/
-    this.CreateFromShell = function(categ, obj) {
-        return this.createActualObj(categ, obj.name);
+    this.createFromShell = function(categ, obj) {
+        if (obj) {
+            return this.createActualObj(categ, obj.name);
+        }
+        else {
+            RG.err('RG.ObjectShellParser', 'createFromShell',
+                'obj given must be defined.');
+        }
+        return null;
     };
 
     /* Factory-method for creating the actual game objects.*/
@@ -495,8 +505,10 @@ RG.ObjectShellParser = function() {
         switch (categ) {
             case RG.TYPE_ACTOR:
                 const type = obj.type;
-                if (type === 'spirit') {return new RG.Actor.Spirit(obj.name);}
-                return new RG.Actor.Rogue(obj.name);
+                switch (type) {
+                    case 'spirit': return new RG.Actor.Spirit(obj.name);
+                    default: return new RG.Actor.Rogue(obj.name);
+                }
             case RG.TYPE_ITEM:
                 const subtype = obj.type;
                 switch (subtype) {
@@ -505,6 +517,8 @@ RG.ObjectShellParser = function() {
                     case 'gold': return new RG.Item.Gold(obj.name);
                     case 'goldcoin' : return new RG.Item.GoldCoin(obj.name);
                     case 'missile': return new RG.Item.Missile(obj.name);
+                    case 'missileweapon': return new RG.Item.MissileWeapon(obj.name);
+                    case 'ammo': return new RG.Item.Ammo(obj.name);
                     case 'potion': return new RG.Item.Potion(obj.name);
                     case 'spiritgem': return new RG.Item.SpiritGem(obj.name);
                     case 'weapon': return new RG.Item.Weapon(obj.name);
@@ -651,7 +665,7 @@ RG.ObjectShellParser = function() {
             const danger = obj.danger;
             randShell = this.dbGetRand({danger, categ: 'actors'});
             if (randShell !== null) {
-                return this.CreateFromShell('actors', randShell);
+                return this.createFromShell('actors', randShell);
             }
             else {
                 return null;
@@ -660,12 +674,12 @@ RG.ObjectShellParser = function() {
         else if (obj.hasOwnProperty('func')) {
             const res = this.filterCategWithFunc('actors', obj.func);
             randShell = RG.RAND.arrayGetRand(res);
-            return this.CreateFromShell('actors', randShell);
+            return this.createFromShell('actors', randShell);
         }
         return null;
     };
 
-    // Uses engine's internal weighting algorithm when givel a level number.
+    // Uses engine's internal weighting algorithm when given a level number.
     // Note that this method can return null, if no correct danger level is
     // found. You can supply {func: ...} as a fallback solution.
     this.createRandomActorWeighted = function(min, max, obj) {
@@ -675,6 +689,8 @@ RG.ObjectShellParser = function() {
         }
         const danger = ROT.RNG.getWeightedValue(_cache.actorWeights[key]);
         const actor = this.createRandomActor({danger});
+
+        // Fallback to using a function, obj.func
         if (RG.isNullOrUndef([actor])) {
             if (!RG.isNullOrUndef([obj])) {
                 return this.createRandomActor(obj);
@@ -694,7 +710,7 @@ RG.ObjectShellParser = function() {
         if (obj.hasOwnProperty('func')) {
             const res = this.filterCategWithFunc('items', obj.func);
             const randShell = RG.RAND.arrayGetRand(res);
-            return this.CreateFromShell('items', randShell);
+            return this.createFromShell('items', randShell);
         }
         else {
             RG.err('ObjectParser', 'createRandomItem', 'No function given.');

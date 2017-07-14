@@ -6,6 +6,7 @@ const RGTest = require('../../roguetest');
 const expectConnected = RGTest.expectConnected;
 
 describe('Factory.World', function() {
+    this.timeout(3000);
     let fact = null;
 
     beforeEach(() => {
@@ -16,12 +17,44 @@ describe('Factory.World', function() {
         fact = null;
     });
 
+    it('has scope and hier name management', () => {
+        const fact = new RG.Factory.World();
+        const conf1 = {name: 'Top'};
+        const conf2 = {name: 'Sub', constraint: 'abc'};
+        const conf3 = {name: 'SubSub'};
+        const conf4 = {name: 'Bottom', constraint: 'xyz'};
+        fact.pushScope(conf1);
+        fact.pushScope(conf2);
+        expect(fact.getHierName()).to.equal('Top.Sub');
+        expect(fact.getConstraint()).to.equal('abc');
+        fact.pushScope(conf3);
+        expect(fact.getHierName()).to.equal('Top.Sub.SubSub');
+        expect(fact.getConstraint()).to.equal('abc');
+        fact.pushScope(conf4);
+        expect(fact.getConstraint()).to.equal('xyz');
+        fact.popScope(conf4.name);
+        expect(fact.getConstraint()).to.equal('abc');
+        fact.popScope(conf3.name);
+        expect(fact.getConstraint()).to.equal('abc');
+    });
+
     it('can create cities', () => {
         const cityConf = {
-            name: 'Arkham', nLevels: 1, entranceLevel: 0
+            name: 'Arkham', nQuarters: 2,
+            connect: [
+                ['Q1', 'Q2', 0, 0]
+            ],
+            quarter: [
+                {name: 'Q1', nLevels: 1, entranceLevel: 0},
+                {name: 'Q2', nLevels: 2}
+            ]
         };
         const city = fact.createCity(cityConf);
         expect(city.getName()).to.equal(cityConf.name);
+
+        const qs = city.getQuarters();
+        expect(qs).to.have.length(2);
+        expectConnected(qs[0], qs[1], 1);
     });
 
     it('can create Branch using config object', () => {
@@ -66,7 +99,6 @@ describe('Factory.World', function() {
         expectConnected(branches[1], branches[2], 1);
     });
 
-
     it('creates properly connected dungeons with branches', () => {
         const dConf = {
             x: 0, y: 0,
@@ -95,15 +127,19 @@ describe('Factory.World', function() {
         expect(entrB2.getTargetStairs()).to.be.null;
     });
 
-
     it('can create cities within areas', () => {
         const worldConf = {
             name: 'ww',
             nAreas: 1,
             area: [
-                { name: 'a1', maxX: 3, maxY: 3, nCities: 1,
-                    city: [{ x: 2, y: 2, name: 'Ravendark', nLevels: 1,
-                    entranceLevel: 0}]
+                { name: 'a1', maxX: 1, maxY: 1, nCities: 1,
+                    city: [
+                        { x: 0, y: 0, name: 'Ravendark', nQuarters: 1,
+                            quarter: [
+                                {name: 'Q1', nLevels: 1, entranceLevel: 0}
+                            ]
+                        }
+                    ]
                 }
             ]
         };

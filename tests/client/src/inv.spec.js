@@ -81,6 +81,28 @@ describe('RG.Inv.Inventory', () => {
         expect(invEq.unequipItem('head', 0)).to.equal(true);
     });
 
+    it('Equips missile weapons and ammo correctly', () => {
+        const rifle = new RG.Item.MissileWeapon('rifle');
+        const ammo = new RG.Item.Ammo('rifle bullet');
+        const actor = new RG.Actor.Rogue('rogue');
+        const invEq = new RG.Inv.Inventory(actor);
+
+        invEq.addItem(rifle);
+        invEq.addItem(ammo);
+        expect(invEq.equipItem(rifle)).to.equal(true);
+        expect(invEq.equipItem(ammo)).to.equal(true);
+
+        const missWeaponEquipped = invEq.getEquipment()
+            .getEquipped('missileweapon');
+        const ammoWeaponEquipped = invEq.getEquipment().getEquipped('missile');
+
+        expect(missWeaponEquipped.getName()).to.equal('rifle');
+        expect(ammoWeaponEquipped.getName()).to.equal('rifle bullet');
+
+        const missWeapon = invEq.getMissileWeapon();
+        expect(missWeapon.equals(missWeaponEquipped)).to.be.true;
+    });
+
     it('Checks maximum weight allowed to carry', function() {
         const player = new RG.Actor.Rogue('player');
         const invEq = player.getInvEq();
@@ -105,5 +127,32 @@ describe('RG.Inv.Inventory', () => {
         shuriken.setWeight(0.1);
         invEq.addItem(shuriken);
         expect(inv.getWeight()).to.equal(7.0);
+    });
+
+    it('Should not lose the item count (Bug was found)', () => {
+        const player = new RG.Actor.Rogue('player');
+        const invEq = player.getInvEq();
+        const inv = invEq.getInventory();
+
+        const dart = new RG.Item.Missile('Dart');
+        dart.count = 1;
+        const arrow = new RG.Item.Missile('Arrow');
+        arrow.count = 1;
+
+        invEq.addItem(dart);
+        invEq.addItem(arrow);
+        expect(invEq.equipItem(dart)).to.equal(true);
+        expect(invEq.equipItem(arrow)).to.equal(false);
+
+        let items = inv.getItems();
+        expect(items[0].count).to.equal(1);
+
+        invEq.unequipItem('missile', 1);
+        expect(items).to.have.length(2);
+        expect(invEq.equipNItems(dart, 1)).to.equal(true);
+        expect(invEq.equipNItems(arrow, 1)).to.equal(false);
+
+        items = inv.getItems();
+        expect(items[0].count).to.equal(1);
     });
 });

@@ -502,7 +502,8 @@ RG.Game.Main = function() {
             _engine.addLevel(level);
         }
         else {
-            RG.err('Game', 'addLevel', 'Duplicate level ID ' + level.getID());
+            RG.err('Game.Main', 'addLevel',
+                'Duplicate level ID ' + level.getID());
         }
     };
 
@@ -746,7 +747,7 @@ RG.Game.Battle = function(name) {
 /* An object for saving the game in specified storage (local/etc..) */
 RG.Game.Save = function() {
     let _storageRef = null;
-    let _fromJSON = new RG.Game.FromJSON();
+    let _dungeonLevel = null;
 
     // Contains names of players for restore selection
     const _playerList = '_battles_player_data_';
@@ -754,7 +755,7 @@ RG.Game.Save = function() {
     this.setStorage = function(stor) {_storageRef = stor;};
 
     this.getDungeonLevel = function() {
-        return _fromJSON.getDungeonLevel();
+        return _dungeonLevel;
     };
 
     /* Main function which saves the full game.*/
@@ -827,8 +828,9 @@ RG.Game.Save = function() {
         if (playersObj.hasOwnProperty(name)) {
             const dbString = _storageRef.getItem('_battles_player_' + name);
             const dbObj = JSON.parse(dbString);
-            _fromJSON = new RG.Game.FromJSON();
-            const game = _fromJSON.createGame(dbObj.game);
+            const fromJSON = new RG.Game.FromJSON();
+            const game = fromJSON.createGame(dbObj.game);
+            _dungeonLevel = fromJSON.getDungeonLevel();
             return game;
         }
         else {
@@ -1004,6 +1006,7 @@ RG.Game.FromJSON = function() {
     this.getItemObjectType = function(item) {
         if (item.setType === 'spiritgem') {return 'SpiritGem';}
         if (item.setType === 'goldcoin') {return 'GoldCoin';}
+        if (item.setType === 'missileweapon') {return 'MissileWeapon';}
         if (!RG.isNullOrUndef([item])) {
             if (!RG.isNullOrUndef([item.setType])) {
                 return item.setType.capitalize();

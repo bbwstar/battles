@@ -358,6 +358,9 @@ const RG = { // {{{2
     getMissileDamage: function(att, miss) {
         let dmg = miss.getDamage();
         dmg += Math.round(att.get('Stats').getAgility() / 3);
+        if (miss.has('Ammo')) {
+            dmg += att.getMissileWeapon().getDamage();
+        }
         return dmg;
     },
 
@@ -369,6 +372,16 @@ const RG = { // {{{2
         attack += miss.getAttack();
 
         return attack;
+    },
+
+    getMissileRange: function(att, miss) {
+        let range = miss.getAttackRange();
+        if (miss.has('Ammo')) {
+            const missWeapon = att.getMissileWeapon();
+            const weaponRange = missWeapon.getAttackRange();
+            range += weaponRange;
+        }
+        return range;
     },
 
     /* Given actor and cells it sees, returns first enemy cell found.*/
@@ -730,6 +743,33 @@ RG.K_NEXT_ITEM = ROT.VK_H;
 RG.K_DOOR = ROT.VK_O;
 RG.K_REST = ROT.VK_S;
 
+// These determine the size of one block in a level. These numbers are important
+// because they determine a sub-area used for procedural generation of shops,
+// vaults and other special features.
+RG.BLOCK_X = 20;
+RG.BLOCK_Y = 7;
+
+// Level size determined as function of BLOCK_X/Y. Note that due to different
+// block size or x/y, levels are not square shaped, but x > y.
+RG.LEVEL_SMALL_X = 3 * RG.BLOCK_X;
+RG.LEVEL_SMALL_Y = 3 * RG.BLOCK_Y;
+RG.LEVEL_MEDIUM_X = 4 * RG.BLOCK_X;
+RG.LEVEL_MEDIUM_Y = 4 * RG.BLOCK_Y;
+RG.LEVEL_LARGE_X = 5 * RG.BLOCK_X;
+RG.LEVEL_LARGE_Y = 5 * RG.BLOCK_Y;
+RG.LEVEL_HUGE_X = 7 * RG.BLOCK_X;
+RG.LEVEL_HUGE_Y = 7 * RG.BLOCK_Y;
+
+// Controls the number of items generated for each N squares
+RG.LOOT_SPARSE_SQR = 200;
+RG.LOOT_MEDIUM_SQR = 120;
+RG.LOOT_ABUNDANT_SQR = 50;
+
+// Controls the number of actors generated for each N squares
+RG.ACTOR_SPARSE_SQR = 200;
+RG.ACTOR_MEDIUM_SQR = 120;
+RG.ACTOR_ABUNDANT_SQR = 50;
+
 /* Contains generic 2D geometric functions for square/rectangle/triangle
  * generation.*/
 RG.Geometry = {
@@ -855,15 +895,17 @@ RG.POOL = new RG.EventPool(); // Dangerous, global objects
 /* Handles the game message listening and storing of the messages.  */
 RG.MessageHandler = function() { // {{{2
 
-    let _message = [];
-    let _prevMessage = [];
+    let _lastMsg = null;
+
+    let _messages = [];
+    let _prevMessages = [];
     let _hasNew = false;
 
     this.hasNotify = true;
     this.notify = function(evtName, msg) {
         if (evtName === RG.EVT_MSG) {
             if (msg.hasOwnProperty('msg')) {
-                const msgObj = {msg: msg.msg, style: 'prim'};
+                const msgObj = {msg: msg.msg, style: 'prim', count: 1};
 
                 if (msg.hasOwnProperty('cell')) {
                     msgObj.cell = msg.cell;
@@ -873,7 +915,13 @@ RG.MessageHandler = function() { // {{{2
                     msgObj.style = msg.style;
                 }
 
-                _message.push(msgObj);
+                if (_lastMsg && _lastMsg.msg === msgObj.msg) {
+                    _lastMsg.count += 1;
+                }
+                else {
+                    _lastMsg = msgObj;
+                    _messages.push(msgObj);
+                }
                 _hasNew = true;
             }
         }
@@ -884,14 +932,14 @@ RG.MessageHandler = function() { // {{{2
 
     this.getMessages = function() {
         _hasNew = false;
-        if (_message.length > 0) {return _message;}
-        else if (_prevMessage.length > 0) {return _prevMessage;}
+        if (_messages.length > 0) {return _messages;}
+        else if (_prevMessages.length > 0) {return _prevMessages;}
         else {return [];}
     };
 
     this.clear = function() {
-        if (_message.length > 0) {_prevMessage = _message.slice();}
-        _message = [];
+        if (_messages.length > 0) {_prevMessages = _messages.slice();}
+        _messages = [];
     };
 
 }; // }}} Messages

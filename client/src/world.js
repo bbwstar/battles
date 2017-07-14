@@ -3,6 +3,59 @@
  * dungeons, dungeon branches etc.
  */
 
+/* Returns stairs leading to other branches/features. Used only for testing
+* purposes. */
+function getStairsOther(name, levels) {
+    const stairs = [];
+    levels.forEach(level => {
+        const sList = level.getStairs();
+        sList.forEach(s => {
+            const levelStair = s.getTargetLevel();
+            if (levelStair) {
+                if (levelStair.getParent() !== name) {
+                    stairs.push(s);
+                }
+            }
+        });
+    });
+    return stairs;
+}
+
+/* Connects to sub-features like dungeon branch or city quarter together.*/
+function connectSubFeatures(features, q1Arg, q2Arg, l1, l2) {
+    let q1 = q1Arg;
+    let q2 = q2Arg;
+
+    // Lookup objects by name
+    if (typeof q1Arg === 'string' && typeof q2Arg === 'string') {
+        q1 = features.find( q => q.getName() === q1Arg);
+        q2 = features.find( q => q.getName() === q2Arg);
+    }
+
+    if (RG.isNullOrUndef([q1, q2])) {
+        RG.err('RG.World', 'connectSubFeatures',
+            'Cannot connect null features. Check the names.');
+        return;
+    }
+
+    let down = true;
+    if (l1 > l2) {down = false;}
+    const b2Stairs = new Stairs(down);
+    const b2Levels = q2.getLevels();
+    if (l2 < b2Levels.length) {
+        const cell = b2Levels[l2].getFreeRandCell();
+        b2Levels[l2].addStairs(b2Stairs, cell.getX(), cell.getY());
+        b2Stairs.setSrcLevel(b2Levels[l2]);
+        q1.connectLevelToStairs(l1, b2Stairs);
+    }
+    else {
+        RG.err('RG.World', 'connectSubFeatures',
+            'Level ' + l2 + " doesn't exist in sub-feature " + q2.getName());
+    }
+
+}
+
+
 const RG = require('./rg.js');
 RG.Factory = require('./factory');
 
@@ -12,6 +65,7 @@ RG.World = {};
 
 RG.World.Base = function(name) {
     this.name = name;
+    this.type = 'base';
 };
 
 RG.World.Base.prototype.getName = function() {
@@ -26,12 +80,21 @@ RG.World.Base.prototype.setHierName = function(hierName) {
     this.hierName = hierName;
 };
 
+RG.World.Base.prototype.getType = function() {
+    return this.type;
+};
+
+RG.World.Base.prototype.setType = function(type) {
+    this.type = type;
+};
+
 /* Branch, as name suggests, is a branch of dungeon. A branch is linear
  * progression of connected levels (usually with increasing difficulty).
  * Branch can have
  * entry points to other branches (or out of the dungeon). */
 RG.World.Branch = function(name) {
     RG.World.Base.call(this, name);
+    this.setType('branch');
     const _levels = [];
     let _entrance = null;
     let _numCount = 1;
@@ -46,6 +109,8 @@ RG.World.Branch = function(name) {
     /* Returns stairs leading to other branches/features. Used only for testing
     * purposes. */
     this.getStairsOther = function() {
+        return getStairsOther(this.getName(), _levels);
+        /*
         const stairs = [];
         _levels.forEach(level => {
             const sList = level.getStairs();
@@ -59,6 +124,7 @@ RG.World.Branch = function(name) {
             });
         });
         return stairs;
+        */
     };
 
     /* Adds entrance stairs for this branch. */
@@ -78,7 +144,13 @@ RG.World.Branch = function(name) {
     };
 
     this.setEntranceLocation = function(entrance) {
-        _entrance = entrance;
+        if (!RG.isNullOrUndef([entrance])) {
+            _entrance = entrance;
+        }
+        else {
+            RG.err('World.Branch', 'setEntranceLocation',
+                'Arg entrance is not defined.');
+        }
     };
 
     /* Returns entrance/exit for the branch.*/
@@ -168,9 +240,11 @@ RG.World.Branch = function(name) {
             name: this.getName(),
             hierName: this.getHierName(),
             nLevels: _levels.length,
-            levels: _levels.map(level => level.getID()),
-            entrance: _entrance
+            levels: _levels.map(level => level.getID())
         };
+        if (_entrance) {
+            obj.entrance = _entrance;
+        }
         return obj;
     };
 
@@ -180,6 +254,7 @@ RG.extend2(RG.World.Branch, RG.World.Base);
 /* Dungeons is a collection of branches.*/
 RG.World.Dungeon = function(name) {
     RG.World.Base.call(this, name);
+    this.setType('dungeon');
     const _branches = [];
     let _entranceNames = [];
 
@@ -242,41 +317,7 @@ RG.World.Dungeon = function(name) {
     /* Connects two branches b1 and b2 together from specified level
      * numbers l1 and l2. */
     this.connectBranches = function(b1Arg, b2Arg, l1, l2) {
-        let b1 = b1Arg;
-        let b2 = b2Arg;
-
-        // Lookup objects by name
-        if (typeof b1Arg === 'string' && typeof b2Arg === 'string') {
-            b1 = _branches.find( br => br.getName() === b1Arg);
-            b2 = _branches.find( br => br.getName() === b2Arg);
-        }
-
-        if (RG.isNullOrUndef([b1, b2])) {
-            RG.err('World.Dungeon', 'connectBranches',
-                'Cannot connect null branches. Check branch names.');
-            return;
-        }
-
-        if (this.hasBranch(b1) && this.hasBranch(b2)) {
-            let down = true;
-            if (l1 > l2) {down = false;}
-            const b2Stairs = new Stairs(down);
-            const b2Levels = b2.getLevels();
-            if (l2 < b2Levels.length) {
-                const cell = b2Levels[l2].getFreeRandCell();
-                b2Levels[l2].addStairs(b2Stairs, cell.getX(), cell.getY());
-                b2Stairs.setSrcLevel(b2Levels[l2]);
-                b1.connectLevelToStairs(l1, b2Stairs);
-            }
-            else {
-                RG.err('World.Dungeon', 'connectBranches',
-                    'Level ' + l2 + " doesn't exist in branch " + b2.getName());
-            }
-        }
-        else {
-            RG.err('World.Dungeon', 'connectBranches',
-                `Use addBranch ${b1} and ${b2} to dungeon before connection.`);
-        }
+        connectSubFeatures(_branches, b1Arg, b2Arg, l1, l2);
     };
 
     this.toJSON = function() {
@@ -392,6 +433,7 @@ RG.World.AreaTile = function(x, y, area) {
  * */
 RG.World.Area = function(name, maxX, maxY, cols, rows, levels) {
     RG.World.Base.call(this, name);
+    this.setType('area');
     const _maxX = maxX;
     const _maxY = maxY;
 
@@ -413,7 +455,6 @@ RG.World.Area = function(name, maxX, maxY, cols, rows, levels) {
             const tileColumn = [];
             for (let y = 0; y < _maxY; y++) {
                 const newTile = new RG.World.AreaTile(x, y, this);
-                // const level = RG.FACT.createLevel('ruins', 30, 30, {});
                 const levelConf = {
                     forest: {
                         ratio: 0.5,
@@ -427,8 +468,8 @@ RG.World.Area = function(name, maxX, maxY, cols, rows, levels) {
                 else {
                     level = RG.FACT.createLevel('forest',
                         _cols, _rows, levelConf);
-                    level.setParent(this.getName());
                 }
+                level.setParent(this.getName());
                 newTile.setLevel(level);
                 tileColumn.push(newTile);
             }
@@ -530,6 +571,7 @@ RG.extend2(RG.World.Area, RG.World.Base);
  */
 RG.World.Mountain = function(name) {
     RG.World.Base.call(this, name);
+    this.setType('mountain');
     let _summit = null;
     const _faces = [];
 
@@ -615,6 +657,7 @@ RG.extend2(RG.World.Mountain, RG.World.Base);
 * Areas. */
 RG.World.MountainFace = function(name) {
     RG.World.Base.call(this, name);
+    this.setType('face');
     // const _stages = [];
     const _levels = [];
     let _entrance = null;
@@ -648,7 +691,13 @@ RG.World.MountainFace = function(name) {
     };
 
     this.setEntranceLocation = function(entrance) {
-        _entrance = entrance;
+        if (!RG.isNullOrUndef([entrance])) {
+            _entrance = entrance;
+        }
+        else {
+            RG.err('World.MountainFace', 'setEntranceLocation',
+                'Arg entrance is not defined.');
+        }
     };
 
     this.getEntrance = function() {
@@ -663,9 +712,11 @@ RG.World.MountainFace = function(name) {
             name: this.getName(),
             hierName: this.getHierName(),
             nLevels: _levels.length,
-            levels: _levels.map(level => level.getID()),
-            entrance: _entrance
+            levels: _levels.map(level => level.getID())
         };
+        if (_entrance) {
+            obj.entrance = _entrance;
+        }
         return obj;
     };
 
@@ -676,35 +727,136 @@ RG.extend2(RG.World.MountainFace, RG.World.Base);
 * this object. */
 RG.World.City = function(name) {
     RG.World.Base.call(this, name);
-    const _levels = [];
-    let _entrances = [];
+    this.setType('city');
+    const _quarters = [];
 
-    this.getLevels = () => (_levels);
+    this.getLevels = function() {
+        let result = [];
+        _quarters.forEach(q => {
+            result = result.concat(q.getLevels());
+        });
+        return result;
+    };
 
     this.getEntrances = function() {
         const entrances = [];
-        _entrances.forEach(entr => {
-            const entrLevel = _levels[entr.levelNumber];
-            const entrCell = entrLevel.getMap().getCell(entr.x, entr.y);
-            entrances.push(entrCell.getStairs());
+        _quarters.forEach(q => {
+            const qEntr = q.getEntrance();
+            if (qEntr) {
+                entrances.push(qEntr);
+            }
         });
         return entrances;
     };
 
-    this.setEntranceLocations = function(entrances) {
-        _entrances = entrances;
+    this.getQuarters = function() {
+        return _quarters;
     };
+
+    this.addQuarter = function(quarter) {
+        if (!RG.isNullOrUndef([quarter])) {
+            _quarters.push(quarter);
+        }
+        else {
+            RG.err('World.City', 'addQuarter',
+                `City ${this.getName()} quarter not defined.`);
+        }
+    };
+
+    this.toJSON = function() {
+        const obj = {
+            name: this.getName(),
+            hierName: this.getHierName(),
+            // nLevels: _levels.length,
+            // levels: _levels.map(level => level.getID()),
+            // entrances: _entrances,
+            nQuarters: _quarters.length,
+            quarter: _quarters.map(q => q.toJSON())
+        };
+        return obj;
+    };
+
+    this.hasQuarter = function(q) {
+        const index = _quarters.indexOf(q);
+        return index >= 0;
+    };
+
+    /* Connects two city quarters together. */
+    this.connectQuarters = function(q1Arg, q2Arg, l1, l2) {
+        connectSubFeatures(_quarters, q1Arg, q2Arg, l1, l2);
+    };
+
+};
+RG.extend2(RG.World.City, RG.World.Base);
+
+/* City quarter is a subset of the City. It contains the actual level and
+ * special features for that level. */
+RG.World.CityQuarter = function(name) {
+    RG.World.Base.call(this, name);
+    this.setType('quarter');
+    const _levels = [];
+    let _entrance = null;
+
+    this.getLevels = () => (_levels);
 
     this.addLevel = function(level) {
         _levels.push(level);
         level.setParent(this.getName());
     };
 
+    this.getStairsOther = function() {
+        return getStairsOther(this.getName(), _levels);
+    };
+
+    this.setEntranceLocation = function(entrance) {
+        if (!RG.isNullOrUndef([entrance])) {
+            _entrance = entrance;
+        }
+        else {
+            RG.err('World.CityQuarter', 'setEntranceLocation',
+                'Arg entrance is not defined.');
+        }
+    };
+
+    /* Returns entrance/exit for the quarter.*/
+    this.getEntrance = function() {
+        if (_entrance === null) {return null;}
+        const entrLevel = _levels[_entrance.levelNumber];
+        const entrCell = entrLevel.getMap().getCell(_entrance.x, _entrance.y);
+        return entrCell.getStairs();
+    };
+
     this.addEntrance = function(levelNumber) {
-        const level = _levels[levelNumber];
-        const stairs = new Stairs(true, level);
-        level.addStairs(stairs, 1, 1);
-        _entrances.push({levelNumber, x: 1, y: 1});
+        if (_entrance === null) {
+            const level = _levels[levelNumber];
+            const stairs = new Stairs(true, level);
+            level.addStairs(stairs, 1, 1);
+            _entrance = {levelNumber, x: 1, y: 1};
+        }
+        else {
+            RG.err('World.CityQuarter', 'addEntrance',
+                'Entrance already added.');
+        }
+    };
+
+    /* Connects specified level to the given stairs (Usually external to this
+     * quarter) .*/
+    this.connectLevelToStairs = function(nLevel, stairs) {
+        const level = _levels[nLevel];
+        const otherQuartLevel = stairs.getSrcLevel();
+
+        if (!RG.isNullOrUndef([otherQuartLevel])) {
+            const down = !stairs.isDown();
+            const newStairs = new Stairs(down,
+                level, otherQuartLevel);
+            const cell = level.getFreeRandCell();
+            level.addStairs(newStairs, cell.getX(), cell.getY());
+            newStairs.connect(stairs);
+        }
+        else {
+            RG.err('World.CityQuarter', 'connectLevelToStairs',
+                'Stairs must be first connected to other level.');
+        }
     };
 
     this.toJSON = function() {
@@ -712,18 +864,20 @@ RG.World.City = function(name) {
             name: this.getName(),
             hierName: this.getHierName(),
             nLevels: _levels.length,
-            levels: _levels.map(level => level.getID()),
-            entrances: _entrances
+            levels: _levels.map(level => level.getID())
         };
+        if (_entrance) {
+            obj.entrance = _entrance;
+        }
         return obj;
     };
-
 };
-RG.extend2(RG.World.City, RG.World.Base);
+RG.extend2(RG.World.CityQuarter, RG.World.Base);
 
 /* Largest place. Contains a number of areas, mountains and dungeons. */
 RG.World.World = function(name) {
     RG.World.Base.call(this, name);
+    this.setType('world');
 
     const _allLevels = {}; // Lookup table for all levels
     const _areas = [];
