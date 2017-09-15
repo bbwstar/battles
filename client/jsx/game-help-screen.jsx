@@ -1,63 +1,112 @@
 'use strict';
 
-const React = require('react');
+/* eslint max-len: 100 */
+
+import React, {Component} from 'react';
+import PropTypes from 'prop-types';
+import ModalHeader from './modal-header';
+
 const RG = require('../src/rg.js');
-const ModalHeader = require('./modal-header');
+
+/* Small helper component. */
+export const TextHelp = props => (
+  <p>
+    <span className='text-primary'>{props.char}</span>
+    {'- ' + props.descr}
+  </p>
+);
+
+TextHelp.propTypes = {
+  char: PropTypes.string,
+  descr: PropTypes.string
+};
+
+const cmdDescr = [
+  <TextHelp char={'b'} descr={'Use stairs/passage.'} key={'b'}/>,
+  <TextHelp char={'f'} descr={'Change fight mode.'} key={'f'} />,
+  <TextHelp char={'h'} descr={'See next item in the cell.'} key={'h'} />,
+  <TextHelp char={'H'} descr={'Show/hide help.'} key={'H'} />,
+  <TextHelp char={'i'} descr={'Show inventory.'} key={'i'} />,
+  <TextHelp char={'l'} descr={'Look around.'} key={'l'} />,
+  <TextHelp char={'m'} descr={'Toggle the map or player view.'} key={'m'} />,
+  <TextHelp char={'M'} descr={'Show overworld map.'} key={'M'} />,
+  <TextHelp char={'n'} descr={'Next target (target-look).'} key={'n'} />,
+  <TextHelp char={'o'} descr={'Open or close door.'} key={'o'} />,
+  <TextHelp char={'p'} descr={'Use your powers.'} key={'p'} />,
+  <TextHelp char={'r'} descr={'Toggle run mode (1.5 x speed).'} key={'r'} />,
+  <TextHelp char={'t'} descr={'Enter targeting mode. Press again to fire.'}
+    key={'t'} />,
+  <TextHelp char={'u'} descr={'Use an item.'} key={'u'} />,
+  <TextHelp char={','} descr={'Pick up an item.'} key={','} />,
+  <TextHelp char={'.'} descr={'Rest (takes less energy than moving).'} key={'.'} />
+];
 
 /** This component contains short info on keys and how to play the game.*/
-var GameHelpScreen = React.createClass({
+export default class GameHelpScreen extends Component {
 
-    shouldComponentUpdate: function(nextProps, nextState) {
-        return false;
-    },
+  shouldComponentUpdate() {
+    return false;
+  }
 
-    render: function() {
-        console.log('render() GameHelpScreen');
-        return (
-            <div className='modal fade' role='dialog' id='gameHelpModal' tabIndex='-1' role='dialog' aria-labelledby='game-help-modal-label' aria-hidden='true'>
-                <div className='modal-dialog modal-lg'>
-                    <div className='modal-content'>
-                        <ModalHeader id='game-help-modal-label' text={RG.gameTitle + 'Help'}/>
-                        <div className='modal-body row'>
-                            <div className='col-md-6'>
-                                <p>To move around, use:</p>
-                                <table className='table table-large mov-buttons-table'>
-                                    <thead />
-                                    <tbody>
-                                        <tr><td>{'\u2B09'} q</td><td>{'\u2B06'} w</td><td>{'\u2B08'} e</td></tr>
-                                        <tr><td>{'\u2B05'} a</td><td>Rest: s</td><td>{'\u27A1'} d</td></tr>
-                                        <tr><td>{'\u2B0B'} z</td><td>{'\u2B07'} x</td><td>{'\u2B0A'} c</td></tr>
-                                    </tbody>
-                                </table>
-                            </div>
-                            <div className='col-md-6 help-info-buttons'>
-                                <p><span className='text-primary'>b</span> - Use stairs.</p>
-                                <p><span className='text-primary'>f</span> - Change fight mode.</p>
-                                <p><span className='text-primary'>h</span> - See next item in the cell.</p>
-                                <p><span className='text-primary'>m</span> - Toggle the map/player view.</p>
-                                <p><span className='text-primary'>n</span> - Next target (when in targeting mode).</p>
-                                <p><span className='text-primary'>i</span> - View inventory.</p>
-                                <p><span className='text-primary'>o</span> - Open/close door.</p>
-                                <p><span className='text-primary'>r</span> - Toggle run mode (1.5 x speed).</p>
-                                <p><span className='text-primary'>t</span> - Enter targeting mode. Press again to fire.</p>
-                                <p><span className='text-primary'>u</span> - Use an item.</p>
-                                <p><span className='text-primary'>,</span> - Pick up an item.</p>
-                                <p><span className='text-primary'>.</span> - Rest (takes less energy than moving).</p>
-                            </div>
-                        </div>
+  render() {
+    return (
+      <div
+        aria-hidden='true'
+        aria-labelledby='game-help-modal-label'
+        className='modal fade'
+        id='gameHelpModal'
+        role='dialog'
+        tabIndex='-1'
+      >
+        <div className='modal-dialog modal-lg'>
+          <div className='modal-content'>
+            <ModalHeader id='game-help-modal-label' text={RG.gameTitle + 'Help'}/>
+            <div className='modal-body row'>
 
-                        <div className='modal-footer row'>
-                            <div className='col-md-6'>
-                                <button type='button' className='btn btn-secondary' data-dismiss='modal'>Close</button>
-                            </div>
-                        </div>
+              <div className='col-md-6'>
+                <p>To move around, use:</p>
+                <table className='table table-large mov-buttons-table'>
+                  <thead />
+                  <tbody>
+                    <tr>
+                      <td>{'\u2B09'} q</td>
+                      <td>{'\u2B06'} w</td>
+                      <td>{'\u2B08'} e</td>
+                    </tr>
+                    <tr>
+                      <td>{'\u2B05'} a</td>
+                      <td>Rest: s</td>
+                      <td>{'\u27A1'} d</td>
+                    </tr>
+                    <tr>
+                      <td>{'\u2B0B'} z</td>
+                      <td>{'\u2B07'} x</td>
+                      <td>{'\u2B0A'} c</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
 
-                    </div>
-                </div>
+              <div className='col-md-6 help-info-buttons'>
+                {cmdDescr}
+              </div>
             </div>
-        );
-    }
 
-});
+            <div className='modal-footer row'>
+              <div className='col-md-6'>
+                <button
+                  className='btn btn-secondary'
+                  data-dismiss='modal'
+                  type='button'
+                >Close</button>
+              </div>
+            </div>
 
-module.exports = GameHelpScreen;
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+};
+

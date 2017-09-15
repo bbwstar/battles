@@ -1,45 +1,84 @@
 'use strict';
 
-const React = require('react');
+import React, {Component} from 'react';
+import PropTypes from 'prop-types';
+
 /** This component contains non-game instance specific controls like starting
  * new game and changing screen size.*/
-var GamePanel = React.createClass({
+export default class GamePanel extends Component {
 
-    shouldComponentUpdate: function(nextProps, nextState) {
-        return false;
-    },
+  constructor(props) {
+    super(props);
 
-    setViewSizeXPlus: function(evt) {
-        this.props.setViewSize(evt, '+', 'X');
-    },
+    this.setViewSizeXPlus = this.setViewSizeXPlus.bind(this);
+    this.setViewSizeXNeg = this.setViewSizeXNeg.bind(this);
+    this.setViewSizeYPlus = this.setViewSizeYPlus.bind(this);
+    this.setViewSizeYNeg = this.setViewSizeYNeg.bind(this);
 
-    setViewSizeXNeg: function(evt) {
-        this.props.setViewSize(evt, '-', 'X');
-    },
+  }
 
-    setViewSizeYPlus: function(evt) {
-        this.props.setViewSize(evt, '+', 'Y');
-    },
+  shouldComponentUpdate() {
+    return false;
+  }
 
-    setViewSizeYNeg: function(evt) {
-        this.props.setViewSize(evt, '-', 'Y');
-    },
+  setViewSizeXPlus(evt) {
+    this.props.setViewSize(evt, '+', 'X');
+  }
 
-    render: function() {
-        return (
-            <div>
-                <button id='start-button' className='btn btn-info' data-toggle='modal' data-target='#gameStartModal'>Start</button>
-                <button id='load-button' className='btn btn-info' data-toggle='modal' data-target='#gameLoadModal'>Load</button>
-                <button id='save-button' className='btn btn-info' onClick={this.props.saveGame}>Save</button>
-                <button id='help-button' className='btn btn-info' data-toggle='modal' data-target='#gameHelpModal'>Help</button>
-                <button onClick={this.setViewSizeXPlus}>+X</button>
-                <button onClick={this.setViewSizeXNeg}>-X</button>
-                <button onClick={this.setViewSizeYPlus}>+Y</button>
-                <button onClick={this.setViewSizeYNeg}>-Y</button>
-            </div>
-        );
-    }
+  setViewSizeXNeg(evt) {
+    this.props.setViewSize(evt, '-', 'X');
+  }
 
-});
+  setViewSizeYPlus(evt) {
+    this.props.setViewSize(evt, '+', 'Y');
+  }
 
-module.exports = GamePanel;
+  setViewSizeYNeg(evt) {
+    this.props.setViewSize(evt, '-', 'Y');
+  }
+
+  render() {
+    return (
+      <div>
+        <button
+          className='btn btn-info'
+          data-target='#gameStartModal'
+          data-toggle='modal'
+          id='start-button'
+          onClick={this.props.showStartScreen}
+        >Start</button>
+        <button
+          className='btn btn-info'
+          data-target='#gameLoadModal'
+          data-toggle='modal'
+          id='load-button'
+          onClick={this.props.showLoadScreen}
+        >Load</button>
+        <button
+          className='btn btn-info'
+          id='save-button'
+          onClick={this.props.saveGame}
+        >Save</button>
+        <button
+          className='btn btn-info'
+          data-target='#gameHelpModal'
+          data-toggle='modal'
+          id='help-button'
+        >Help</button>
+        <button onClick={this.setViewSizeXPlus}>+X</button>
+        <button onClick={this.setViewSizeXNeg}>-X</button>
+        <button onClick={this.setViewSizeYPlus}>+Y</button>
+        <button onClick={this.setViewSizeYNeg}>-Y</button>
+      </div>
+    );
+  }
+
+};
+
+GamePanel.propTypes = {
+  saveGame: PropTypes.func.isRequired,
+  setViewSize: PropTypes.func.isRequired,
+  showLoadScreen: PropTypes.func.isRequired,
+  showStartScreen: PropTypes.func.isRequired
+};
+

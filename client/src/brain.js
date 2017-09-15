@@ -8,551 +8,56 @@ const Models = BTree.Models;
 // Dummy callback to return, if the actor's action provides a state
 // changing action without callback.
 const ACTION_ALREADY_DONE = () => {};
+const NO_ACTION_TAKEN = () => {};
+
 
 //---------------------------------------------------------------------------
-// BRAINS {{{1
+// BRAINS
 //---------------------------------------------------------------------------
 
 RG.Brain = {};
 
 /* Returns a list of cells in 3x3 around the actor with the brain.*/
-RG.Brain.getCellsAround = function(actor) {
+RG.Brain.getCellsAroundActor = actor => {
     const map = actor.getLevel().getMap();
     const x = actor.getX();
     const y = actor.getY();
     const cells = [];
     for (let xx = x - 1; xx <= x + 1; xx++) {
         for (let yy = y - 1; yy <= y + 1; yy++) {
-            if (map.hasXY(xx, yy)) {cells.push(map.getCell(xx, yy));}
+            if (map.hasXY(xx, yy)) {
+                if (xx !== x || yy !== y) {
+                    cells.push(map.getCell(xx, yy));
+                }
+            }
         }
     }
     return cells;
 };
 
-/* This brain is used by the player actor. It simply handles the player input
- * but by having brain, player actor looks like other actors.  */
-RG.Brain.Player = function(actor) { // {{{2
-    const _actor = actor;
-    const _guiCallbacks = {}; // For attaching GUI callbacks
-    const _type = 'player';
-
-    /* For given code, adds a GUI callback. When this keycode is given, a GUI
-     * callback is called instead. */
-    this.addGUICallback = function(code, callback) {
-        _guiCallbacks[code] = callback;
-    };
-
-    this.energy = 1; // Consumed energy per action
-
-    let _confirmCallback = null;
-    let _wantConfirm = false;
-    let _confirmEnergy = 1;
-
-    let _runModeEnabled = false;
-
-    let _fightMode = RG.FMODE_NORMAL;
-
-    /* Restores the base speed after run-mode.*/
-    const _restoreBaseSpeed = function() {
-        _runModeEnabled = false;
-        // this.energy = 1;
-        _actor.get('StatsMods').setSpeed(0);
-    };
-
-    this.getType = function() {return _type;};
-
-    this.isRunModeEnabled = function() {return _runModeEnabled;};
-
-    this.cmdNotPossible = function(msg) {
-        this.energy = 0;
-        RG.gameWarn(msg);
-        return null;
-    };
-
-    /* Main function which returns next action as function. TODO: Refactor into
-    * something bearable. It's 150 lines now! */
-    this.decideNextAction = function(obj) {
-
-        // Workaround at the moment, because missile attacks are GUI-driven
-        if (obj.hasOwnProperty('cmd')) {
-            this.resetBoosts();
-            return this.handleCommand(obj);
-        }
-
-        const code = obj.code;
-        if (RG.isNullOrUndef([code])) {
-            RG.err('Brain.Player', 'decideNextAction',
-                `obj.code must exist. Got obj: ${JSON.stringify(obj)}`);
-        }
-
-        // Stop here, if action must be confirmed by player by pressing Y
-        if (_wantConfirm && _confirmCallback !== null) {
-            // Want y/n answer
-            _wantConfirm = false;
-            if (RG.KeyMap.isConfirmYes(code)) {
-                this.energy = _confirmEnergy;
-                // If confirmed, return action to be done
-                return _confirmCallback;
-            }
-            RG.gameMsg('You cancel the action.');
-            return this.noAction();
-        }
-
-        // Invoke GUI callback with given code
-        if (_guiCallbacks.hasOwnProperty(code)) {
-            return _guiCallbacks[code](code);
-        }
-
-
-        // Enable/disable run mode
-        if (RG.KeyMap.isRunMode(code)) {
-            this.toggleRunMode();
-            return this.noAction();
-        }
-
-        // Enable/disable fight mode
-        if (RG.KeyMap.isFightMode(code)) {
-            this.toggleFightMode();
-            return this.noAction();
-        }
-
-        // Need existing position for move/attack commands
-        const level = _actor.getLevel();
-        let x = _actor.getX();
-        let y = _actor.getY();
-        const currMap = level.getMap();
-        const currCell = currMap.getCell(x, y);
-
-        // For digging through item stack on curr cell
-        if (RG.KeyMap.isNextItem(code)) {
-            this.getNextItemOnTop(currCell);
-            return this.noAction();
-        }
-
-        let cmdType = 'NULL';
-        if (RG.KeyMap.inMoveCodeMap(code)) {
-            const diffXY = RG.KeyMap.getDiff(code, x, y);
-            x = diffXY[0];
-            y = diffXY[1];
-            cmdType = 'MOVE';
-        }
-        else {
-            _restoreBaseSpeed(); // Speedup only during move
-        }
-
-        if (cmdType === 'NULL') { // Not a move command
-            this.resetBoosts();
-
-            if (RG.KeyMap.isRest(code)) {cmdType = 'REST';}
-
-            if (RG.KeyMap.isPickup(code)) {
-                cmdType = 'PICKUP';
-                if (currCell.hasProp('items')) {
-                    if (currCell.hasShop()) {
-                        _createBuyConfirmCallback(currCell);
-                        return this.noAction();
-                    }
-                    else {
-                        this.energy = RG.energy.PICKUP;
-                        return function() {
-                            level.pickupItem(_actor, x, y);
-                        };
-                    }
-                }
-                else {
-                    return this.cmdNotPossible(
-                        'There are no items to pick up.');
-                }
-            }
-
-            if (RG.KeyMap.isUseStairs(code)) {
-                cmdType = 'STAIRS';
-                if (currCell.hasStairs()) {
-                    return function() {level.useStairs(_actor);};
-                }
-                else {
-                    return this.cmdNotPossible('There are no stairs here.');
-                }
-            }
-
-            if (RG.KeyMap.isToggleDoor(code)) {
-                return this.tryToToggleDoor();
+/* Returns all cells with actors in them. */
+RG.Brain.findCellsWithActors = (actor, seenCells) => {
+    const cells = [];
+    for (let i = 0, iMax = seenCells.length; i < iMax; i++) {
+        if (seenCells[i].hasProp('actors')) {
+            const actors = seenCells[i].getProp('actors');
+            // Exclude itself from list
+            if (actors[0].getID() !== actor.getID()) {
+                cells.push(seenCells[i]);
             }
         }
+    }
+    return cells;
+};
 
-        if (cmdType === 'MOVE') {
-            if (currMap.hasXY(x, y)) {
-                if (currMap.isPassable(x, y)) {
-
-                    if (_runModeEnabled) {this.energy = RG.energy.RUN;}
-                    else {
-                        this.resetBoosts();
-                        this.energy = RG.energy.MOVE;
-                    }
-
-                    return function() {
-                        const movComp = new RG.Component.Movement(x, y, level);
-                        _actor.add('Movement', movComp);
-                    };
-                }
-                else if (currMap.getCell(x, y).hasProp('actors')) {
-                    _restoreBaseSpeed();
-                    const target = _getAttackTarget(currMap, x, y);
-
-                    if (target === null) {
-                        RG.err('Brain.Player', 'decideNextAction',
-                            'Null target for attack x,y: ' + x + ',' + y);
-                    }
-
-                    const attackCallback = function() {
-                        _setAttackStats();
-                        const attackComp = new RG.Component.Attack(target);
-                        _actor.add('Attack', attackComp);
-                    };
-
-                    if (target.isEnemy(_actor)) {
-                        this.energy = RG.energy.ATTACK;
-                        return attackCallback;
-                    }
-                    else {
-                        _confirmEnergy = RG.energy.ATTACK;
-                        _wantConfirm = true;
-                        _confirmCallback = attackCallback;
-                        RG.gameMsg("Press 'y' to attack non-hostile actor.");
-                        return this.noAction();
-                    }
-                }
-                else {
-                    return this.cmdNotPossible('You cannot venture there.');
-                }
-            }
-            else {
-                // TODO add moving out of the map
-                return this.cmdNotPossible('You cannot move that way.');
-            }
-        }
-        else if (cmdType === 'REST') {
-            this.energy = RG.energy.REST;
-            return function() {};
-        }
-
-        return this.noAction();
-    };
-
-    /* Returned for keypresses when no action is taken.*/
-    this.noAction = function() {
-        this.energy = 0;
-        return null; // Null action
-    };
-
-    /* Returns current fighting mode.*/
-    this.getFightMode = function() {return _fightMode;};
-
-    /* Toggle between walking/running modes.*/
-    this.toggleRunMode = function() {
-        if (_runModeEnabled) {
-            _restoreBaseSpeed();
-        }
-        else {
-            _runModeEnabled = true;
-            const baseSpeed = _actor.get('Stats').getSpeed();
-            const speedBoost = Math.floor( 0.5 * baseSpeed);
-            _actor.get('StatsMods').setSpeed(speedBoost);
-        }
-    };
-
-    /* Toggles between different fighting modes.*/
-    this.toggleFightMode = function() {
-        _fightMode += 1;
-        if (_fightMode >= RG.FMODES.length) {_fightMode = RG.FMODE_NORMAL;}
-    };
-
-    /* If there are multiple items per cell, digs next item to the top.*/
-    this.getNextItemOnTop = function(cell) {
-        if (cell.hasProp('items')) {
-            const items = cell.getProp('items');
-            const name = items[0].getName();
-            if (items.length > 1) {
-                const firstItem = items.shift();
-                items.push(firstItem);
-                RG.gameMsg('You see now ' + name + ' on top of the heap.');
-            }
-            else {
-                RG.gameMsg('You see only ' + name + ' here');
-            }
-        }
-        else {
-            RG.gameMsg('There are no items here to look through');
-        }
-    };
-
-
-    /* Creates the callback for buying an item, and sets up the confirmation
-     * request from player.*/
-    const _createBuyConfirmCallback = function(currCell) {
-        const topItem = currCell.getProp('items')[0];
-        const shopElem = currCell.getPropType('shop')[0];
-        const nCoins = shopElem.getItemPriceForBuying(topItem);
-
-        const buyItemCallback = function() {
-            shopElem.buyItem(topItem, _actor);
-        };
-
-        _confirmEnergy = 0;
-        _wantConfirm = true;
-        _confirmCallback = buyItemCallback;
-        RG.gameMsg("Press 'y' to buy " + topItem.getName() + ' for ' +
-            nCoins + ' gold coins');
-    };
-
-    /* Sets the stats for attack for special modes.*/
-    const _setAttackStats = function() {
-        const stats = _actor.get('Stats');
-        const combat = _actor.get('Combat');
-        let speedBoost = 0;
-        let attackBoost = 0;
-        let damageBoost = 0;
-
-        if (_fightMode === RG.FMODE_FAST) {
-            speedBoost = Math.round(0.2 * stats.getSpeed());
-            attackBoost = -Math.round(0.2 * combat.getAttack());
-            attackBoost = attackBoost <= 0 ? -1 : attackBoost;
-            damageBoost = -1;
-        }
-        else if (_fightMode === RG.FMODE_SLOW) {
-            speedBoost = -Math.round(0.2 * stats.getSpeed());
-            attackBoost = Math.round(0.2 * combat.getAttack());
-            attackBoost = attackBoost === 0 ? 1 : attackBoost;
-            damageBoost = 2;
-        }
-        _actor.get('StatsMods').setSpeed(speedBoost);
-        _actor.get('CombatMods').setAttack(attackBoost);
-        _actor.get('CombatMods').setDamage(damageBoost);
-    };
-
-    /* Handles a complex command.
-    * TODO remove if/else and use a dispatch table.*/
-    this.handleCommand = function(obj) {
-        _restoreBaseSpeed();
-        if (obj.cmd === 'missile') {
-            const invEq = _actor.getInvEq();
-            // TODO changes to fire more than 1 missile
-            const missile = invEq.unequipAndGetItem('missile', 1);
-
-            if (!RG.isNullOrUndef([missile])) {
-
-                // Check for missile weapon for ammunition
-                if (missile.has('Ammo')) {
-                    const missWeapon = invEq.getEquipment()
-                        .getEquipped('missileweapon');
-                    if (missWeapon === null) {
-                        const msg = 'No missile weapon equipped.';
-                        return this.cmdNotPossible(msg);
-                    }
-                }
-
-                if (!RG.isNullOrUndef([obj.target])) {
-                    const x = obj.target.getX();
-                    const y = obj.target.getY();
-                    const mComp = new RG.Component.Missile(_actor);
-                    mComp.setTargetXY(x, y);
-                    mComp.setDamage(RG.getMissileDamage(_actor, missile));
-                    mComp.setAttack(RG.getMissileAttack(_actor, missile));
-                    mComp.setRange(missile.getAttackRange());
-                    missile.add('Missile', mComp);
-                    this.energy = RG.energy.MISSILE;
-                }
-                else {
-                    RG.err('Brain.Player', 'handleCommand',
-                        'No x,y given for missile.');
-                }
-            }
-            else {
-                return this.cmdNotPossible('No missile equipped.');
-            }
-        }
-        else if (obj.cmd === 'use') {
-            if (obj.hasOwnProperty('item')) {
-                const item = obj.item;
-                let result = false;
-                let msg = `You failed to use ${item.getName()}.`;
-                if (item.hasOwnProperty('useItem')) {
-                    this.energy = RG.energy.USE;
-                    item.useItem({target: obj.target});
-                    result = true;
-                }
-
-                if (obj.hasOwnProperty('callback')) {
-                    if (result) {
-                        msg = `You used ${item.getName()}!`;
-                    }
-                    obj.callback({msg: msg, result});
-                }
-                else if (!result) {
-                    return this.cmdNotPossible('You cannot use that item.');
-                }
-            }
-            else {
-                RG.err('Brain.Player', 'handleCommand', 'obj has no item');
-            }
-        }
-        else if (obj.cmd === 'drop') {
-            const invEq = _actor.getInvEq();
-            const actorCell = _actor.getCell();
-            let result = false;
-            let msg = `Failed to drop ${obj.item.getName()}`;
-            if (actorCell.hasShop()) {
-                const shopElem = actorCell.getPropType('shop')[0];
-                const price = shopElem.getItemPriceForSelling(obj.item);
-
-                _wantConfirm = true;
-                _confirmCallback = function() {
-                    const sellOk = shopElem.sellItem(obj.item, _actor);
-                    if (obj.hasOwnProperty('callback')) {
-                        if (sellOk) {
-                            msg = `${obj.item.getName()} was sold.`;
-                        }
-                        else {
-                            msg = `Cannot sell ${obj.item.getName()}.`;
-                        }
-                        obj.callback({msg: msg, result: sellOk});
-                    }
-                };
-
-                msg = `Press y to sell item for ${price} gold coins.`;
-                if (obj.hasOwnProperty('callback')) {
-                    obj.callback({msg: msg, result});
-                }
-            }
-            else if (invEq.dropItem(obj.item)) {
-                result = true;
-                msg = 'Item dropped!';
-            }
-            if (obj.hasOwnProperty('callback')) {
-                obj.callback({msg: msg, result});
-            }
-        }
-        else if (obj.cmd === 'equip') {
-            const invEq = _actor.getInvEq();
-            const item = obj.item;
-            let result = false;
-            let msg = `Failed to equip ${item.getName()}`;
-            if (item.getType() === 'missile') {
-                if (invEq.equipNItems(item, item.count)) {
-                    result = true;
-                }
-            }
-            else if (invEq.equipItem(item)) {
-                result = true;
-            }
-            if (obj.hasOwnProperty('callback')) {
-                if (result) {
-                    msg = `Equipping ${item.getName()} succeeded!`;
-                }
-                obj.callback({msg: msg, result});
-            }
-        }
-        else if (obj.cmd === 'unequip') {
-            const name = obj.slot;
-            const invEq = _actor.getInvEq();
-            let result = false;
-            let msg = `Failed to remove item from slot ${name}.`;
-
-            if (name === 'missile') {
-                const eqItem = invEq.getEquipment().getItem('missile');
-
-                if (eqItem !== null) {
-                    if (invEq.unequipItem(name, eqItem.count)) {
-                        result = true;
-                    }
-                }
-            }
-            else if (invEq.unequipItem(name)) {
-                result = true;
-            }
-
-            if (obj.hasOwnProperty('callback')) {
-                if (result) {
-                    msg = `Unequipping from ${name} succeeded!`;
-                }
-                obj.callback({msg: msg, result});
-            }
-
-        }
-        return function() {};
-    };
-
-    // Not used to store anything, used only to map setters to components
-    const _statBoosts = {
-        CombatMods: {
-            setAttack: 0,
-            setDefense: 0,
-            setProtection: 0
-        },
-        StatsMods: {
-            setSpeed: 0,
-            setAccuracy: 0,
-            setWillpower: 0,
-            setStrength: 0,
-            setAgility: 0
-        }
-    };
-
-    /* Returns all stats to their nominal values.*/
-    this.resetBoosts = function() {
-        this.energy = 1;
-        for (const compName in _statBoosts) {
-            if (compName) {
-                const setters = _statBoosts[compName];
-                for (const setFunc in setters) {
-                    if (setFunc) {
-                        const baseStatVal = setters[setFunc];
-                        _actor.get(compName)[setFunc](baseStatVal);
-                    }
-                }
-            }
-        }
-    };
-
-    /* Returns possible target for attack, or null if none are found.*/
-    const _getAttackTarget = function(map, x, y) {
-        const targets = map.getCell(x, y).getProp('actors');
-        for (let i = 0; i < targets.length; i++) {
-            if (!targets[i].has('Ethereal')) {return targets[i];}
-        }
-        return null;
-    };
-
-
-    /* Tries to open/close a door nearby the player.*/
-    this.tryToToggleDoor = function() {
-        const cellsAround = RG.Brain.getCellsAround(_actor);
-        for (let i = 0; i < cellsAround.length; i++) {
-            if (cellsAround[i].hasDoor()) {
-                const door = cellsAround[i].getPropType('door')[0];
-                if (door.isOpen()) {
-                    door.closeDoor();
-                }
-                else {
-                    door.openDoor();
-                }
-                return function() {};
-            }
-        }
-        return this.cmdNotPossible('There are no doors close by');
-
-    };
-
-    /* Required for damage dealing. Does nothing for the player.*/
-    this.addEnemy = function() {};
-
-    this.toJSON = function() {
-        return {
-            type: this.getType()
-        };
-    };
-
-}; // }}} Brain.Player
+RG.Brain.getEnemyCellsAround = actor => {
+    const cellsAround = RG.Brain.getCellsAroundActor(actor);
+    const res = cellsAround.filter(cell => (
+        cell.hasActors() &&
+            actor.getBrain().getMemory().isEnemy(cell.getActors()[0])
+    ));
+    return res;
+};
 
 /* Memory is used by the actor to hold information about enemies, items etc.
  * It's a separate object from decision-making brain.*/
@@ -562,14 +67,16 @@ RG.Brain.Memory = function() {
     const _enemyTypes = []; // List of enemy types for this actor
     let _communications = [];
 
+    let _lastAttackedID = null;
+
     // TODO add memory of player closing a door/using stairs
 
-    this.addEnemyType = function(type) {
+    this.addEnemyType = type => {
         _enemyTypes.push(type);
     };
 
     /* Checks if given actor is an enemy. */
-    this.isEnemy = function(actor) {
+    this.isEnemy = actor => {
         let index = _enemies.indexOf(actor);
         if (index !== -1) {return true;}
         const type = actor.getType();
@@ -586,7 +93,7 @@ RG.Brain.Memory = function() {
         }
     };
 
-    this.getEnemies = function() {return _enemies;};
+    this.getEnemies = () => _enemies;
 
     /* Adds a communication with given actor. */
     this.addCommunicationWith = function(actor) {
@@ -595,39 +102,70 @@ RG.Brain.Memory = function() {
         }
     };
 
+    this.setLastAttacked = actor => {
+        if (actor) {
+            _lastAttackedID = actor.getID();
+        }
+        else {
+            _lastAttackedID = null;
+        }
+    };
+
+    this.wasLastAttacked = actor => _lastAttackedID === actor.getID();
+
     /* Returns true if has communicated with given actor.*/
-    this.hasCommunicatedWith = function(actor) {
+    this.hasCommunicatedWith = actor => {
         const index = _communications.indexOf(actor);
         return index !== -1;
+    };
+
+    this.toJSON = () => {
+        const obj = {
+            enemies: _enemies.map(enemy => enemy.getID()),
+            enemyTypes: _enemyTypes
+        };
+        if (_lastAttackedID) {
+            obj.lastAttackedID = _lastAttackedID;
+        }
+        return obj;
     };
 
 };
 
 /* Brain is used by the AI to perform and decide on actions. Brain returns
  * actionable callbacks but doesn't know Action objects.  */
-RG.Brain.Rogue = function(actor) { // {{{2
+RG.Brain.Rogue = function(actor) {
     let _actor = actor; // Owner of the brain
     const _explored = {}; // Memory of explored cells
-    let _type = 'rogue';
+    let _type = 'Rogue';
 
     const _memory = new RG.Brain.Memory(this);
 
-    this.getType = function() {return _type;};
-    this.setType = function(type) {_type = type;};
+    this.getType = () => _type;
+    this.setType = type => {_type = type;};
 
-    this.getMemory = function() {return _memory;};
+    this.getMemory = () => _memory;
 
-    this.setActor = function(actor) {_actor = actor;};
-    this.getActor = function() {return _actor;};
+    this.setActor = actor => {_actor = actor;};
+    this.getActor = () => _actor;
 
-    this.addEnemy = function(actor) {_memory.addEnemy(actor);};
+    this.addEnemy = actor => {_memory.addEnemy(actor);};
+    this.addEnemyType = type => {_memory.addEnemyType(type);};
 
     this._seenCached = null;
 
-    const _passableCallback = function(x, y) {
+    /* Callback used for actor's path finding. */
+    const _passableCallback = (x, y) => {
         const map = _actor.getLevel().getMap();
+        const hasFlying = _actor.has('Flying');
         if (!RG.isNullOrUndef([map])) {
-            let res = map.isPassable(x, y);
+            let res = false;
+            if (hasFlying) {
+                res = map.isPassableByAir(x, y);
+            }
+            else {
+                res = map.isPassable(x, y);
+            }
             if (!res) {
                 res = (x === _actor.getX()) && (y === _actor.getY());
             }
@@ -661,7 +199,7 @@ RG.Brain.Rogue = function(actor) { // {{{2
         const playX = enemyCell.getX();
         const playY = enemyCell.getY();
         if (this.canAttack(playX, playY)) {
-            return function() {
+            return () => {
                 const cell = level.getMap().getCell(playX, playY);
                 const target = cell.getProp('actors')[0];
                 const attackComp = new RG.Component.Attack(target);
@@ -712,18 +250,18 @@ RG.Brain.Rogue = function(actor) { // {{{2
             const level = _actor.getLevel();
             const x = pathCells[1].getX();
             const y = pathCells[1].getY();
-            return function() {
+            return () => {
                 const movComp = new RG.Component.Movement(x, y, level);
                 _actor.add('Movement', movComp);
             };
         }
         else {
-            return function() {}; // Don't move, rest
+            return NO_ACTION_TAKEN; // Don't move, rest
         }
     };
 
     /* Checks if the actor can attack given x,y coordinate.*/
-    this.canAttack = function(x, y) {
+    this.canAttack = (x, y) => {
         const actorX = _actor.getX();
         const actorY = _actor.getY();
         const attackRange = _actor.get('Combat').getAttackRange();
@@ -732,27 +270,34 @@ RG.Brain.Rogue = function(actor) { // {{{2
         return false;
     };
 
+
     /* Given a list of cells, returns a cell with an enemy in it or null.*/
-    this.findEnemyCell = function(seenCells) {
-        for (let i = 0, iMax = seenCells.length; i < iMax; i++) {
-            if (seenCells[i].hasProp('actors')) {
-                const actors = seenCells[i].getProp('actors');
-                if (_memory.isEnemy(actors[0])) {return seenCells[i];}
+    this.findEnemyCell = seenCells => {
+        const enemyCells = [];
+        const cells = RG.Brain.findCellsWithActors(_actor, seenCells);
+        for (let i = 0; i < cells.length; i++) {
+            const actors = cells[i].getActors();
+            if (_memory.isEnemy(actors[0])) {
+                if (_memory.wasLastAttacked(actors[0])) {
+                    return cells[i];
+                }
+                else {
+                    enemyCells.push(cells[i]);
+                }
             }
         }
+        // Return random enemy cell to make behav less predictable
+        if (enemyCells.length > 0) {return RG.RAND.arrayGetRand(enemyCells);}
         return null;
     };
 
     /* Finds a friend cell among seen cells.*/
     this.findFriendCell = function(seenCells) {
         const memory = this.getMemory();
-        for (let i = 0, iMax = seenCells.length; i < iMax; i++) {
-            if (seenCells[i].hasProp('actors')) {
-                const actors = seenCells[i].getProp('actors');
-                if (actors[0] !== _actor) { // Exclude itself
-                    if (!memory.isEnemy(actors[0])) {return seenCells[i];}
-                }
-            }
+        const cells = RG.Brain.findCellsWithActors(_actor, seenCells);
+        for (let i = 0; i < cells.length; i++) {
+            const actors = cells[i].getActors();
+            if (!memory.isEnemy(actors[0])) {return cells[i];}
         }
         return null;
     };
@@ -773,6 +318,9 @@ RG.Brain.Rogue = function(actor) { // {{{2
             if (newCell.isPassable()) {
                 return this.tryToMoveTowardsCell(newCell);
             }
+            else if (_actor.has('Flying') && newCell.isPassableByAir()) {
+                return this.tryToMoveTowardsCell(newCell);
+            }
         }
         return this.exploreLevel(seenCells);
     };
@@ -780,7 +328,7 @@ RG.Brain.Rogue = function(actor) { // {{{2
     /* Returns shortest path from actor to the given cell. Resulting cells are
      * returned in order: closest to the actor first. Thus moving to the
      * next cell can be done by taking the first returned cell.*/
-    this.getShortestPathTo = function(cell) {
+    this.getShortestPathTo = cell => {
         const path = [];
         const toX = cell.getX();
         const toY = cell.getY();
@@ -793,7 +341,7 @@ RG.Brain.Rogue = function(actor) { // {{{2
             RG.err('Brain', 'getShortestPathTo', 'Null/undef coords.');
         }
 
-        pathFinder.compute(sourceX, sourceY, function(x, y) {
+        pathFinder.compute(sourceX, sourceY, (x, y) => {
             if (map.hasXY(x, y)) {
                 path.push(map.getCell(x, y));
             }
@@ -803,30 +351,21 @@ RG.Brain.Rogue = function(actor) { // {{{2
 
     this.toJSON = function() {
         return {
-            type: this.getType()
+            type: this.getType(),
+            memory: this.getMemory().toJSON()
         };
     };
 
-}; // }}} RogueBrain
+}; // RogueBrain
 
 /* Brain used by most of the animals. TODO: Add some corpse eating behaviour. */
 RG.Brain.Animal = function(actor) {
     RG.Brain.Rogue.call(this, actor);
-    this.setType('animal');
+    this.setType('Animal');
 
     const _memory = this.getMemory();
     _memory.addEnemyType('player');
     _memory.addEnemyType('human');
-
-    this.findEnemyCell = function(seenCells) {
-        for (let i = 0, iMax = seenCells.length; i < iMax; i++) {
-            if (seenCells[i].hasProp('actors')) {
-                const actors = seenCells[i].getProp('actors');
-                if (_memory.isEnemy(actors[0])) {return seenCells[i];}
-            }
-        }
-        return null;
-    };
 
 };
 RG.extend2(RG.Brain.Animal, RG.Brain.Rogue);
@@ -834,36 +373,37 @@ RG.extend2(RG.Brain.Animal, RG.Brain.Rogue);
 /* Brain used by most of the animals. TODO: Add some corpse eating behaviour. */
 RG.Brain.Demon = function(actor) {
     RG.Brain.Rogue.call(this, actor);
-    this.setType('demon');
+    this.setType('Demon');
 
     const _memory = this.getMemory();
     _memory.addEnemyType('player');
     _memory.addEnemyType('human');
-
-    this.findEnemyCell = function(seenCells) {
-        const memory = this.getMemory();
-        for (let i = 0, iMax = seenCells.length; i < iMax; i++) {
-            if (seenCells[i].hasProp('actors')) {
-                const actors = seenCells[i].getProp('actors');
-                if (memory.isEnemy(actors[0])) {return seenCells[i];}
-            }
-        }
-        return null;
-    };
 
 };
 RG.extend2(RG.Brain.Demon, RG.Brain.Rogue);
 
 RG.Brain.Zombie = function(actor) {
     RG.Brain.Rogue.call(this, actor);
-    this.setType('zombie');
+    this.setType('Zombie');
 };
 RG.extend2(RG.Brain.Zombie, RG.Brain.Rogue);
+
+/* Brain object used by Undead. */
+RG.Brain.Undead = function(actor) {
+    RG.Brain.Rogue.call(this, actor);
+    this.setType('Undead');
+
+    const _memory = this.getMemory();
+    _memory.addEnemyType('player');
+    _memory.addEnemyType('human');
+    _memory.addEnemyType('dwarf');
+};
+RG.extend2(RG.Brain.Undead, RG.Brain.Rogue);
 
 /* Brain used by summoners. */
 RG.Brain.Summoner = function(actor) {
     RG.Brain.Rogue.call(this, actor);
-    this.setType('summoner');
+    this.setType('Summoner');
 
     const _actor = actor;
     this.numSummoned = 0;
@@ -883,7 +423,6 @@ RG.Brain.Summoner = function(actor) {
         if (this.numSummoned === this.maxSummons) {return false;}
         const summon = RG.RAND.getUniform();
         if (summon > (1.0 - this.summonProbability)) {
-            console.log('SUMMONING NOW');
             return true;
         }
         return false;
@@ -911,13 +450,9 @@ RG.Brain.Summoner = function(actor) {
     };
 
     /* Returns all free cells around the actor owning the brain.*/
-    this.getFreeCellsAround = function() {
-        const cellsAround = RG.Brain.getCellsAround(_actor);
-        const freeCells = [];
-        for (let i = 0; i < cellsAround.length; i++) {
-            if (cellsAround[i].isFree()) {freeCells.push(cellsAround[i]);}
-        }
-        return freeCells;
+    this.getFreeCellsAround = () => {
+        const cellsAround = RG.Brain.getCellsAroundActor(_actor);
+        return cellsAround.filter(cell => cell.isFree());
     };
 
 };
@@ -926,7 +461,7 @@ RG.extend2(RG.Brain.Summoner, RG.Brain.Rogue);
 /* This brain is used by humans who are not hostile to the player.*/
 RG.Brain.Human = function(actor) {
     RG.Brain.Rogue.call(this, actor);
-    this.setType('human');
+    this.setType('Human');
 
     this.commProbability = 0.5;
 
@@ -935,7 +470,6 @@ RG.Brain.Human = function(actor) {
     this.willCommunicate = function() {
         const communicateOrAttack = RG.RAND.getUniform();
         const seenCells = this.getSeenCells();
-        // const enemyCell = this.findEnemyCell(seenCells);
         const friendCell = this.findFriendCell(seenCells);
         const memory = this.getMemory();
 
@@ -984,19 +518,128 @@ RG.Brain.Human = function(actor) {
 };
 RG.extend2(RG.Brain.Human, RG.Brain.Rogue);
 
+/* Brain object used by the bearfolk. */
+RG.Brain.Bearfolk = function(actor) {
+    RG.Brain.Rogue.call(this, actor);
+    this.setType('Bearfolk');
+};
+RG.extend2(RG.Brain.Bearfolk, RG.Brain.Rogue);
+
 /* Brain object used by Spirit objects.*/
 RG.Brain.Spirit = function(actor) {
     RG.Brain.Rogue.call(this, actor);
-    this.setType('spirit');
+    this.setType('Spirit');
 
     /* Returns the next action for the spirit.*/
     this.decideNextAction = function() {
+        this._seenCached = null;
         const seenCells = this.getSeenCells();
         return this.exploreLevel(seenCells);
     };
 };
 RG.extend2(RG.Brain.Spirit, RG.Brain.Rogue);
 
-// }}} BRAINS
+/* Brain object used by archers. */
+RG.Brain.Archer = function(actor) {
+    RG.Brain.Rogue.call(this, actor);
+    this.setType('Archer');
+    const _actor = actor;
+
+    this.decideNextAction = function() {
+        this._seenCached = null;
+        return BTree.startBehavTree(Models.Archer.tree, _actor)[0];
+    };
+
+    /* Checks if the actor can attack given x,y coordinate.*/
+    this.canDoRangedAttack = function() {
+        const seenCells = this.getSeenCells();
+        const enemy = this.findEnemyCell(seenCells);
+        const x = enemy.getX();
+        const y = enemy.getY();
+        const actorX = _actor.getX();
+        const actorY = _actor.getY();
+        const miss = _actor.getInvEq().getEquipment().getItem('missile');
+        if (miss) {
+            const range = RG.getMissileRange(_actor, miss);
+            const getDist = RG.shortestDist(x, y, actorX, actorY);
+            if (getDist <= range) {return true;}
+            // TODO test for a clean shot
+        }
+        return false;
+    };
+
+    /* Performs a ranged attack on enemy cell. */
+    this.doRangedAttack = function() {
+        const seenCells = this.getSeenCells();
+        const enemy = this.findEnemyCell(seenCells);
+        return () => {
+            const x = enemy.getX();
+            const y = enemy.getY();
+            const mComp = new RG.Component.Missile(_actor);
+            const missile = _actor.getInvEq().unequipAndGetItem('missile', 1);
+            mComp.setTargetXY(x, y);
+            mComp.setDamage(RG.getMissileDamage(_actor, missile));
+            mComp.setAttack(RG.getMissileAttack(_actor, missile));
+            mComp.setRange(RG.getMissileRange(_actor, missile));
+            missile.add('Missile', mComp);
+        };
+    };
+};
+RG.extend2(RG.Brain.Archer, RG.Brain.Rogue);
+
+/* Brain object for spellcasting actors. This model focuses on aggressive
+ * spellcasting intended to harm opponents. */
+RG.Brain.SpellCaster = function(actor) {
+    RG.Brain.Rogue.call(this, actor);
+    this.setType('SpellCaster');
+    const _actor = actor;
+
+    const _castingProb = 0.2;
+
+    this.decideNextAction = function() {
+        this._seenCached = null;
+        this._spell = this.getRandomSpell();
+        this._spellDir = null;
+        return BTree.startBehavTree(Models.SpellCaster.tree, _actor)[0];
+    };
+
+    this.getRandomSpell = () => {
+        if (_actor.getBook() && _actor.getBook().getSpells().length > 0) {
+            return RG.RAND.arrayGetRand(_actor.getBook().getSpells());
+        }
+        return null;
+    };
+
+    /* Returns true if spellcaster can cast a spell. */
+    this.canCastSpell = function() {
+        if (_actor.get('SpellPower').getPP() >= this._spell.getPower()) {
+            if (RG.RAND.getUniform() <= _castingProb) {
+                return true;
+            }
+        }
+        return false;
+    };
+
+    /* Returns true if spellcaster should cast the spell. */
+    this.shouldCastSpell = function() {
+        const seenCells = this.getSeenCells();
+        const enemy = this.findEnemyCell(seenCells).getActors()[0];
+        const args = {enemy, actor: _actor};
+        return this._spell.aiShouldCastSpell(args);
+    };
+
+    /* Casts a spell. */
+    this.castSpell = function() {
+        return this._spell.getCastFunc(_actor, this._spellArgs);
+    };
+
+    /* Sets the arguments for spell to be cast. */
+    this.setSpellArgs = function(args) {
+        this._spellArgs = args;
+    };
+
+};
+RG.extend2(RG.Brain.SpellCaster, RG.Brain.Rogue);
+
 
 module.exports = RG.Brain;

@@ -1,4 +1,5 @@
 
+/* gulpfile for battles roguelike. */
 
 const spawn = require('child_process').spawn;
 
@@ -11,16 +12,14 @@ const browserifyInc = require('browserify-incremental');
 
 const source = require('vinyl-source-stream');
 const notify = require('gulp-notify');
-
 const nodemon = require('gulp-nodemon');
-const ctags = require('gulp-ctags');
 
 const port = process.env.PORT || 8080;
 
 // Define paths for all source files here
 const paths = {
     jsxDir: './client/jsx',
-    client: ['./client/jsx/*.jsx', './client/**/*.js'],
+    client: ['./client/**/*.jsx', './client/**/*.js', './lib/*.js'],
     sass: ['./scss/*.*'],
     tests: ['./tests/client/src/*.js'],
 
@@ -140,16 +139,59 @@ gulp.task('tests', function() {
 
 });
 
+let tagsRunning = false;
+
 gulp.task('tags', function() {
-    return gulp.src(paths.tags)
-        .pipe(ctags({name: 'tags'}))
-        .pipe(gulp.dest('./'));
+    if (!tagsRunning) {
+        tagsRunning = true;
+        const tagsProc = spawn('bin/gen_tags.sh');
+        const errors = [];
+        tagsProc.stderr.on('data', (data) => {
+            errors.push(data);
+        });
+        tagsProc.on('close', (code) => {
+            if (code !== 0) {
+                const tagsError = errors.join('\n');
+                notify.onError({
+                    title: 'Tags Error',
+                    message: tagsError
+                }).apply(this, errors);
+            }
+            else {
+                gulp.src('./tags')
+                .pipe(
+                    notify('OK. Tags exited with 0')
+                );
+            }
+            tagsRunning = false;
+        });
+    }
+    else {
+        gulp.src('./tags')
+        .pipe(
+            notify('Tags already running. Skipping.')
+        );
+    }
 });
+
+
+gulp.task('apply-prod-environment', function() {
+    process.env.NODE_ENV = 'production';
+});
+
+
+//---------------------------------------------------------------------------
+// WATCH TASSKS
+//---------------------------------------------------------------------------
 
 const watchDependents = [
     'build-js-inc',
     'tags',
     'build-sass'
+];
+
+const prodDependents = [
+    'apply-prod-environment'
 ];
 
 gulp.task('watch-dev', watchDependents, function() {
@@ -165,6 +207,12 @@ gulp.task('watch-tests', ['tests'], function() {
 
 gulp.task('watch', ['watch-dev', 'serve'], function() {
     gulp.watch(paths.server, ['serve']);
+});
+
+gulp.task('watch-prod', prodDependents, function() {
+    gulp.watch(paths.client, ['build-js-inc']);
+    gulp.watch(paths.sass, ['build-sass']);
+    gulp.watch(paths.tags, ['tags']);
 });
 
 gulp.task('default', ['watch']);

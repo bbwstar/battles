@@ -7,7 +7,8 @@ RG.Element = require('./element.js');
 RG.Map = {};
 
 /* Object representing one game cell. It can hold actors, items, traps or
- * elements. */
+ * elements. Cell has x,y for convenient access to coordinates.
+ * */
 RG.Map.Cell = function(x, y, elem) { // {{{2
 
     this._baseElem = elem;
@@ -21,6 +22,11 @@ RG.Map.Cell = function(x, y, elem) { // {{{2
 
 RG.Map.Cell.prototype.getX = function() {return this._x;};
 RG.Map.Cell.prototype.getY = function() {return this._y;};
+RG.Map.Cell.prototype.setX = function(x) {this._x = x;};
+RG.Map.Cell.prototype.setY = function(y) {this._y = y;};
+RG.Map.Cell.prototype.isAtXY = function(x, y) {
+    return x === this._x && y === this._y;
+};
 
 /* Sets/gets the base element for this cell. There can be only one element.*/
 RG.Map.Cell.prototype.setBaseElem = function(elem) { this._baseElem = elem; };
@@ -28,6 +34,17 @@ RG.Map.Cell.prototype.getBaseElem = function() { return this._baseElem; };
 
 /* Returns true if cell has any actors.*/
 RG.Map.Cell.prototype.hasActors = function() {return this.hasProp('actors');};
+RG.Map.Cell.prototype.getActors = function() {return this.getProp('actors');};
+RG.Map.Cell.prototype.getFirstActor = function() {
+    const actors = this.getProp('actors');
+    if (actors && actors.length > 0) {
+        return actors[0];
+    }
+    return null;
+};
+
+RG.Map.Cell.prototype.hasItems = function() {return this.hasProp('items');};
+RG.Map.Cell.prototype.getItems = function() {return this.getProp('items');};
 
 /* Returns true if cell has any props. */
 RG.Map.Cell.prototype.hasProps = function() {
@@ -39,8 +56,17 @@ RG.Map.Cell.prototype.hasStairs = function() {
     return this.hasPropType('stairsUp') || this.hasPropType('stairsDown');
 };
 
+/* Returns true if cell has passage to another tile. */
+RG.Map.Cell.prototype.hasPassage = function() {
+    return this.hasPropType('passage');
+};
+
 RG.Map.Cell.prototype.hasShop = function() {
     return this.hasPropType('shop');
+};
+
+RG.Map.Cell.prototype.getShop = function() {
+    return this.getPropType('shop')[0];
 };
 
 RG.Map.Cell.prototype.hasDoor = function() {
@@ -58,24 +84,38 @@ RG.Map.Cell.prototype.getStairs = function() {
     return null;
 };
 
+/* Returns passage in this cell, or null if not found. */
+RG.Map.Cell.prototype.getPassage = function() {
+    if (this.hasPropType('passage')) {
+        return this.getPropType('passage')[0];
+    }
+    return null;
+};
 
 /* Returns true if light passes through this map cell.*/
 RG.Map.Cell.prototype.lightPasses = function() {
-    if (this._baseElem.getType() === 'wall') {return false;}
-    else if (this.hasPropType('door')) {
+    if (!this._baseElem.lightPasses()) {return false;}
+    if (this.hasPropType('door')) {
         return this.getPropType('door')[0].isOpen();
     }
     return true;
 };
 
 RG.Map.Cell.prototype.isPassable = function() {return this.isFree();};
+RG.Map.Cell.prototype.isPassableByAir = function() {
+    return this._baseElem.isPassableByAir();
+};
+
+RG.Map.Cell.prototype.isSpellPassable = function() {
+    return this._baseElem.isSpellPassable();
+};
 
 RG.Map.Cell.prototype.setExplored = function() {this._explored = true;};
 
 RG.Map.Cell.prototype.isExplored = function() {return this._explored;};
 
 /* Returns true if it's possible to move to this cell.*/
-RG.Map.Cell.prototype.isFree = function() {
+RG.Map.Cell.prototype.isFree = function(isFlying = false) {
     if (this.hasProp('actors')) {
         for (let i = 0; i < this._p.actors.length; i++) {
             if (!this._p.actors[i].has('Ethereal')) {return false;}
@@ -85,7 +125,13 @@ RG.Map.Cell.prototype.isFree = function() {
     else if (this.hasPropType('door')) {
         return this.getPropType('door')[0].isOpen();
     }
-    return this._baseElem.isPassable();
+    // Handle flying/non-flying here
+    if (!isFlying) {
+        return this._baseElem.isPassable();
+    }
+    else {
+        return this._baseElem.isPassableByAir();
+    }
 };
 
 /* Add given obj with specified property type.*/
@@ -93,7 +139,7 @@ RG.Map.Cell.prototype.setProp = function(prop, obj) {
     if (!this._p.hasOwnProperty(prop)) {this._p[prop] = [];}
     if (this._p.hasOwnProperty(prop)) {
         this._p[prop].push(obj);
-        if (obj.hasOwnProperty('setOwner')) {
+        if (obj.isOwnable) {
             obj.setOwner(this);
         }
     }
@@ -133,6 +179,9 @@ RG.Map.Cell.prototype.toString = function() {
             if (arrProps[i].hasOwnProperty('toString')) {
                 str += arrProps[i].toString();
             }
+            else if (arrProps[i].hasOwnProperty('toJSON')) {
+                str += JSON.stringify(arrProps[i].toJSON());
+            }
         }
     });
     return str;
@@ -142,13 +191,17 @@ RG.Map.Cell.prototype.toJSON = function() {
     const json = {
         type: this._baseElem.getType(),
         x: this._x,
-        y: this._y,
-        explored: this._explored
+        y: this._y
     };
+
+    if (this._explored) {
+        json.ex = 1;
+    }
+
     if (this._p.hasOwnProperty(RG.TYPE_ELEM)) {
         const elements = [];
         this._p[RG.TYPE_ELEM].forEach(elem => {
-            if (/(tree|grass|stone|water)/.test(elem.getType())) {
+            if (/(snow|tree|grass|stone|water)/.test(elem.getType())) {
                 elements.push(elem.toJSON());
             }
         });
@@ -164,15 +217,18 @@ RG.Map.Cell.prototype.toJSON = function() {
 RG.Map.Cell.prototype.hasPropType = function(propType) {
     if (this._baseElem.getType() === propType) {return true;}
 
-    for (const prop in this._p) {
-        if (this._p.hasOwnProperty(prop)) {
+    const keys = Object.keys(this._p);
+    for (let i = 0; i < keys.length; i++) {
+    // for (const prop in this._p) {
+        // if (this._p.hasOwnProperty(prop)) {
+            const prop = keys[i];
             const arrProps = this._p[prop];
             for (let i = 0; i < arrProps.length; i++) {
                 if (arrProps[i].getType() === propType) {
                     return true;
                 }
             }
-        }
+        // }
     }
     return false;
 };
@@ -219,7 +275,8 @@ RG.Map.CellList = function(cols, rows) { // {{{2
     for (let x = 0; x < this.cols; x++) {
         this._map.push([]);
         for (let y = 0; y < this.rows; y++) {
-            const elem = new RG.Element.Base('floor');
+            // const elem = new RG.Element.Base('floor');
+            const elem = RG.ELEM.FLOOR;
             this._map[x].push(new RG.Map.Cell(x, y, elem));
         }
     }
@@ -299,9 +356,7 @@ RG.Map.CellList = function(cols, rows) { // {{{2
     };
 
     /* Returns true if the this._map has a cell in given x,y location.*/
-    const _hasXY = function(x, y) {
-        return (x >= 0) && (x < _cols) && (y >= 0) && (y < _rows);
-    };
+    const _hasXY = (x, y) => (x >= 0) && (x < _cols) && (y >= 0) && (y < _rows);
 
     /* Returns true if light passes through this cell.*/
     const lightPasses = function(x, y) {
@@ -318,7 +373,14 @@ RG.Map.CellList = function(cols, rows) { // {{{2
         return false;
     };
 
-    const fov = new ROT.FOV.PreciseShadowcasting(lightPasses.bind(this));
+    this.isPassableByAir = function(x, y) {
+        if (_hasXY(x, y)) {
+            return this._map[x][y].isPassableByAir();
+        }
+        return false;
+    };
+
+    const fov = new ROT.FOV.RecursiveShadowcasting(lightPasses.bind(this));
 
     /* Returns visible cells for given actor.*/
     this.getVisibleCells = function(actor) {
@@ -377,8 +439,46 @@ RG.Map.CellList = function(cols, rows) { // {{{2
         console.log(mapInASCII);
     };
 
+    /* Queries a row of cells. _optimizeForRowAccess must be called before this
+     * function is used. */
+    this.getCellRowFast = function(y) {
+        return this._rowMap[y];
+    };
+
 
 }; // }}} this._map.CellList
+
+RG.Map.CellList.prototype.setBaseElems = function(coord, elem) {
+    coord.forEach(xy => {
+        this._map[xy[0]][xy[1]].setBaseElem(elem);
+    });
+};
+
+RG.Map.CellList.invertMap = map => {
+    for (let x = 0; x < map.cols; x++) {
+        for (let y = 0; y < map.rows; y++) {
+            const type = map._map[x][y].getBaseElem().getType();
+            if (type === 'wall') {
+                map._map[x][y].setBaseElem(RG.ELEM.FLOOR);
+            }
+            else if (type === 'floor') {
+                map._map[x][y].setBaseElem(RG.ELEM.WALL);
+            }
+        }
+    }
+};
+
+/* Creates another internal representation of the map. This can be used for fast
+ * row access. */
+RG.Map.CellList.prototype._optimizeForRowAccess = function() {
+    this._rowMap = [];
+    for (let y = 0; y < this.rows; y++) {
+        this._rowMap[y] = [];
+        for (let x = 0; x < this.cols; x++) {
+            this._rowMap[y][x] = this._map[x][y];
+        }
+    }
+};
 
 RG.Map.CellList.prototype.toJSON = function() {
     const map = [];
@@ -395,278 +495,6 @@ RG.Map.CellList.prototype.toJSON = function() {
     };
 };
 
-/* Map generator for the roguelike game.  */
-RG.Map.Generator = function() { // {{{2
-
-    this.cols = 50;
-    this.rows = 30;
-    let _mapGen = new ROT.Map.Arena(50, 30);
-    let _mapType = null;
-
-    const _types = ['arena', 'cellular', 'digger', 'divided', 'dungeon',
-        'eller', 'icey', 'uniform', 'rogue', 'ruins', 'rooms'];
-
-    let _wall = 1;
-
-    this.getRandType = function() {
-        const index = RG.RAND.randIndex(_types);
-        return _types[index];
-    };
-
-    let _nHouses = 5;
-    this.setNHouses = function(nHouses) {_nHouses = nHouses;};
-    this.getNHouses = function() {return _nHouses;};
-
-    /* Sets the generator for room generation.*/
-    this.setGen = function(type, cols, rows) {
-        this.cols = cols;
-        this.rows = rows;
-        type = type.toLowerCase();
-        _mapType = type;
-        switch (type) {
-            case 'arena': _mapGen = new ROT.Map.Arena(cols, rows); break;
-            case 'cellular': _mapGen = this.createCellular(cols, rows); break;
-            case 'digger': _mapGen = new ROT.Map.Digger(cols, rows); break;
-            case 'divided':
-                _mapGen = new ROT.Map.DividedMaze(cols, rows); break;
-            case 'eller': _mapGen = new ROT.Map.EllerMaze(cols, rows); break;
-            case 'icey': _mapGen = new ROT.Map.IceyMaze(cols, rows); break;
-            case 'rogue': _mapGen = new ROT.Map.Rogue(cols, rows); break;
-            case 'uniform': _mapGen = new ROT.Map.Uniform(cols, rows); break;
-            case 'ruins': _mapGen = this.createRuins(cols, rows); break;
-            case 'rooms': _mapGen = this.createRooms(cols, rows); break;
-            default: RG.err('MapGen',
-                'setGen', '_mapGen type ' + type + ' is unknown');
-        }
-    };
-
-    /* Returns an object containing randomized map + all special features
-     * based on initialized generator settings. */
-    this.getMap = function() {
-        const map = new RG.Map.CellList(this.cols, this.rows);
-        _mapGen.create(function(x, y, val) {
-            if (val === _wall) {
-                map.setBaseElemXY(x, y, new RG.Element.Base('wall'));
-            }
-            else {
-                map.setBaseElemXY(x, y, new RG.Element.Base('floor'));
-            }
-        });
-        const obj = {map};
-        if (_mapType === 'uniform' || _mapType === 'digger') {
-            obj.rooms = _mapGen.getRooms(); // ROT.Map.Feature.Room
-            obj.corridors = _mapGen.getCorridors(); // ROT.Map.Feature.Corridor
-        }
-
-        return obj;
-    };
-
-
-    /* Creates "ruins" type level with open outer edges and inner
-     * "fortress" with some tunnels. */
-    this.createRuins = function(cols, rows) {
-        const conf = {born: [4, 5, 6, 7, 8],
-            survive: [2, 3, 4, 5], connected: true};
-        const map = new ROT.Map.Cellular(cols, rows, conf);
-        map.randomize(0.9);
-        for (let i = 0; i < 5; i++) {map.create();}
-        map.connect(null, 1);
-        _wall = 0;
-        return map;
-    };
-
-    /* Creates a cellular type dungeon and makes all areas connected.*/
-    this.createCellular = function(cols, rows) {
-        const map = new ROT.Map.Cellular(cols, rows);
-        map.randomize(0.5);
-        for (let i = 0; i < 5; i++) {map.create();}
-        map.connect(null, 1);
-        _wall = 0;
-        return map;
-    };
-
-    this.createRooms = function(cols, rows) {
-        const map = new ROT.Map.Digger(cols, rows,
-            {roomWidth: [5, 20], dugPercentage: 0.7});
-        return map;
-    };
-
-    /* Creates a town level of size cols X rows. */
-    this.createTown = function(cols, rows, conf) {
-        const maxTriesHouse = 100;
-        const doors = {};
-        const wallsHalos = {};
-
-        let nHouses = 5;
-        let minX = 5;
-        let maxX = 5;
-        let minY = 5;
-        let maxY = 5;
-
-        if (conf.hasOwnProperty('nHouses')) {nHouses = conf.nHouses;}
-        if (conf.hasOwnProperty('minHouseX')) {minX = conf.minHouseX;}
-        if (conf.hasOwnProperty('minHouseY')) {minY = conf.minHouseY;}
-        if (conf.hasOwnProperty('maxHouseX')) {maxX = conf.maxHouseX;}
-        if (conf.hasOwnProperty('maxHouseY')) {maxY = conf.maxHouseY;}
-
-        const houses = [];
-        this.setGen('arena', cols, rows);
-        const mapObj = this.getMap();
-        const map = mapObj.map;
-
-        for (let i = 0; i < nHouses; i++) {
-
-            let houseCreated = false;
-            let tries = 0;
-            const xSize = RG.RAND.getUniformInt(minX, maxX);
-            const ySize = RG.RAND.getUniformInt(minY, maxY);
-
-            // Select random starting point, try to build house there
-            while (!houseCreated && tries < maxTriesHouse) {
-                const x0 = RG.RAND.getUniformInt(0, cols - 1);
-                const y0 = RG.RAND.getUniformInt(0, rows - 1);
-                houseCreated = this.createHouse(
-                    map, x0, y0, xSize, ySize, doors, wallsHalos);
-                ++tries;
-                if (typeof houseCreatd === 'object') {break;}
-            }
-            if (houseCreated) {houses.push(houseCreated);}
-
-        }
-        return {map, houses};
-    };
-
-    /* Creates a house into a given map to a location x0,y0 with given
-     * dimensions. Existing doors and walls must be passed to prevent
-     * overlapping.*/
-    this.createHouse = function(map, x0, y0, xDim, yDim, doors, wallsHalos) {
-        const maxX = x0 + xDim;
-        const maxY = y0 + yDim;
-        const wallCoords = [];
-
-        // House doesn't fit on the map
-        if (maxX >= map.cols) {return false;}
-        if (maxY >= map.rows) {return false;}
-
-        const possibleRoom = [];
-        const wallXY = RG.Geometry.getHollowBox(x0, y0, maxX, maxY);
-
-        // Store x,y for house until failed
-        for (let i = 0; i < wallXY.length; i++) {
-            const x = wallXY[i][0];
-            const y = wallXY[i][1];
-            if (map.hasXY(x, y)) {
-                if (wallsHalos.hasOwnProperty(x + ',' + y)) {
-                    return false;
-                }
-                else if (!doors.hasOwnProperty(x + ',' + y)) {
-                        possibleRoom.push([x, y]);
-                        // Exclude map border from door generation
-                        if (!map.isBorderXY(x, y)) {wallCoords.push([x, y]);}
-                    }
-            }
-        }
-
-        // House generation has succeeded at this point, true will be returned
-
-        // Didn't fail, now we can build the actual walls
-        for (let i = 0; i < possibleRoom.length; i++) {
-            const roomX = possibleRoom[i][0];
-            const roomY = possibleRoom[i][1];
-            map.setBaseElemXY(roomX, roomY, new RG.Element.Base('wall'));
-        }
-
-        // Create the halo, prevents houses being too close to each other
-        const haloX0 = x0 - 1;
-        const haloY0 = y0 - 1;
-        const haloMaxX = maxX + 1;
-        const haloMaxY = maxY + 1;
-        const haloBox = RG.Geometry.getHollowBox(
-            haloX0, haloY0, haloMaxX, haloMaxY);
-        for (let i = 0; i < haloBox.length; i++) {
-            const haloX = haloBox[i][0];
-            const haloY = haloBox[i][1];
-            wallsHalos[haloX + ',' + haloY] = true;
-        }
-
-        // Finally randomly insert the door for the house
-        // const coordLength = wallCoords.length - 1;
-        // const doorIndex = Math.floor(Math.random() * coordLength);
-        const doorIndex = RG.RAND.randIndex(wallCoords);
-        const doorX = wallCoords[doorIndex][0];
-        const doorY = wallCoords[doorIndex][1];
-        wallCoords.slice(doorIndex, 1);
-
-        // At the moment, "door" is a hole in the wall
-        map.setBaseElemXY(doorX, doorY, new RG.Element.Base('floor'));
-        doors[doorX + ',' + doorY] = true;
-
-        for (let i = 0; i < wallCoords.length; i++) {
-            const xHalo = wallCoords[i][0];
-            const yHalo = wallCoords[i][1];
-            wallsHalos[xHalo + ',' + yHalo] = true;
-        }
-
-        const floorCoords = [];
-        for (let x = x0 + 1; x < maxX; x++) {
-            for (let y = y0 + 1; y < maxY; y++) {
-                floorCoords.push([x, y]);
-            }
-        }
-
-        // Return room object
-        return {
-            llx: x0, lly: y0, urx: maxX, ury: maxY,
-            walls: wallCoords,
-            floor: floorCoords,
-            door: [doorX, doorY]
-        };
-    };
-
-    /* Creates a forest map. Uses the same RNG but instead of walls, populates
-     * using trees. Ratio is conversion ratio of walls to trees. For example,
-     * 0.5 on average replaces half the walls with tree, and removes rest of
-     * the walls. */
-    this.createForest = function(ratio = 1.0) {
-        const map = new RG.Map.CellList(this.cols, this.rows);
-        _mapGen.create(function(x, y, val) {
-            map.setBaseElemXY(x, y, new RG.Element.Base('floor'));
-            const createTree = RG.RAND.getUniform() <= ratio;
-            if (val === 1 && createTree) {
-                map.setElemXY(x, y, new RG.Element.Tree('tree'));
-            }
-            else if (val === 1) {
-                map.setElemXY(x, y, new RG.Element.Grass('grass'));
-            }
-        });
-        return {map};
-    };
-
-    this.createMountain = function() {
-        const map = new RG.Map.CellList(this.cols, this.rows);
-        _mapGen.create(function(x, y, val) {
-            map.setBaseElemXY(x, y, new RG.Element.Base('floor'));
-            if (val === _wall) {
-                map.setElemXY(x, y, new RG.Element.Stone('stone'));
-            }
-        });
-        return {map};
-    };
-
-}; // }}} Map.Generator
-
-/* Decorates given map with snow.*/
-RG.Map.Generator.prototype.addRandomSnow = function(map, ratio) {
-    const freeCells = map.getFree();
-    for (let i = 0; i < freeCells.length; i++) {
-        const addSnow = RG.RAND.getUniform();
-        if (addSnow <= ratio) {
-            freeCells[i].setBaseElem(new RG.Element.Base('snow'));
-        }
-    }
-};
-
-
 /* Object for the game levels. Contains map, actors and items.  */
 RG.Map.Level = function() { // {{{2
     let _map = null;
@@ -681,14 +509,14 @@ RG.Map.Level = function() { // {{{2
     };
 
     let _levelNo = 0;
-    this.setLevelNumber = function(no) {_levelNo = no;};
-    this.getLevelNumber = function() {return _levelNo;};
+    this.setLevelNumber = no => {_levelNo = no;};
+    this.getLevelNumber = () => _levelNo;
 
-    this.getID = function() {return _id;};
-    this.setID = function(id) {_id = id;};
+    this.getID = () => _id;
+    this.setID = id => {_id = id;};
 
-    this.getParent = function() {return _parent;};
-    this.setParent = function(parent) {
+    this.getParent = () => _parent;
+    this.setParent = parent => {
         if (!RG.isNullOrUndef([parent])) {
             _parent = parent;
         }
@@ -698,12 +526,12 @@ RG.Map.Level = function() { // {{{2
         }
     };
 
-    this.getActors = function() {return _p.actors;};
-    this.getItems = function() {return _p.items;};
-    this.getElements = function() {return _p.elements;};
+    this.getActors = () => _p.actors;
+    this.getItems = () => _p.items;
+    this.getElements = () => _p.elements;
 
     /* Returns all stairs elements. */
-    this.getStairs = function() {
+    this.getStairs = () => {
         const res = [];
         _p.elements.forEach(elem => {
             if (_isStairs(elem)) {
@@ -713,12 +541,10 @@ RG.Map.Level = function() { // {{{2
         return res;
     };
 
-    const _isStairs = function(elem) {
-        return (/stairs(Down|Up)/).test(elem.getType());
-    };
+    const _isStairs = elem => (/stairs(Down|Up)/).test(elem.getType());
 
-    this.setMap = function(map) {_map = map;};
-    this.getMap = function() {return _map;};
+    this.setMap = map => {_map = map;};
+    this.getMap = () => _map;
 
     /* Given a level, returns stairs which lead to that level.*/
     this.getStairsToLevel = function(level) {
@@ -756,8 +582,15 @@ RG.Map.Level = function() { // {{{2
     /* Adds stairs for this level.*/
     this.addStairs = function(stairs, x, y) {
         if (!RG.isNullOrUndef([x, y])) {
-            stairs.setSrcLevel(this);
-            return this._addPropToLevelXY(RG.TYPE_ELEM, stairs, x, y);
+            if (_map.hasXY(x, y)) {
+              stairs.setSrcLevel(this);
+              return this._addPropToLevelXY(RG.TYPE_ELEM, stairs, x, y);
+            }
+            else {
+              const msg = `x,y ${x},${y} out of map bounds.`;
+                RG.err('Map.Level', 'addStairs',
+                  `${msg}: cols ${_map.cols}, rows: ${_map.rows}`);
+            }
         }
         else {
             RG.err('Map.Level', 'addStairs',
@@ -767,7 +600,7 @@ RG.Map.Level = function() { // {{{2
     };
 
     /* Uses stairs for given actor if it's on top of the stairs.*/
-    this.useStairs = function(actor) {
+    this.useStairs = actor => {
         const cell = _map.getCell(actor.getX(), actor.getY());
         if (cell.hasStairs()) {
             const stairs = cell.getStairs();
@@ -776,6 +609,15 @@ RG.Map.Level = function() { // {{{2
             }
             else {
                 RG.err('Level', 'useStairs', 'Failed to use the stairs.');
+            }
+        }
+        else if (cell.hasPassage()) {
+            const passage = cell.getPassage();
+            if (passage.useStairs(actor)) {
+                return true;
+            }
+            else {
+                RG.err('Level', 'useStairs', 'Failed to use the passage.');
             }
         }
         return false;
@@ -858,8 +700,9 @@ RG.Map.Level = function() { // {{{2
         }
     };
 
-    /* USing this method, actor can be added to a free cell without knowing the
-     * exact x,y coordinates.*/
+    /* Using this method, actor can be added to a free cell without knowing the
+     * exact x,y coordinates. This is not random, such that top-left (0,0) is
+     * always preferred. */
     this.addActorToFreeCell = function(actor) {
         RG.debug(this, 'Adding actor to free slot');
         const freeCells = _map.getFree();
@@ -883,7 +726,7 @@ RG.Map.Level = function() { // {{{2
     this._addPropToLevelXY = function(propType, obj, x, y) {
         if (_p.hasOwnProperty(propType)) {
             _p[propType].push(obj);
-            if (!obj.hasOwnProperty('getOwner')) {
+            if (!obj.isOwnable) {
                 obj.setXY(x, y);
                 obj.setLevel(this);
             }
@@ -907,7 +750,7 @@ RG.Map.Level = function() { // {{{2
 
             if (index >= 0) {
                 _p[propType].splice(index, 1);
-                if (!obj.hasOwnProperty('getOwner')) {
+                if (!obj.getOwner) {
                     obj.setXY(null, null);
                     obj.unsetLevel();
                 }
@@ -930,7 +773,7 @@ RG.Map.Level = function() { // {{{2
     };
 
     /* Removes given actor from level. Returns true if successful.*/
-    this.removeActor = function(actor) {
+    this.removeActor = actor => {
         const index = _p.actors.indexOf(actor);
         const x = actor.getX();
         const y = actor.getY();
@@ -945,7 +788,7 @@ RG.Map.Level = function() { // {{{2
 
     /* Explores the level from given actor's viewpoint. Sets new cells as
      * explored. There's no exploration tracking per actor.*/
-    this.exploreCells = function(actor) {
+    this.exploreCells = actor => {
         const visibleCells = _map.getVisibleCells(actor);
         if (actor.isPlayer()) {
             for (let i = 0; i < visibleCells.length; i++) {
@@ -956,9 +799,7 @@ RG.Map.Level = function() { // {{{2
     };
 
     /* Returns all explored cells in the map.*/
-    this.getExploredCells = function() {
-        return _map.getExploredCells();
-    };
+    this.getExploredCells = () => _map.getExploredCells();
 
     //-----------------------------------------------------------------
     // CALLBACKS
@@ -966,10 +807,10 @@ RG.Map.Level = function() { // {{{2
     const _callbacks = {};
 
     // For setting the callbacks
-    this.setOnEnter = function(cb) {_callbacks.OnEnter = cb;};
-    this.setOnFirstEnter = function(cb) {_callbacks.OnFirstEnter = cb;};
-    this.setOnExit = function(cb) {_callbacks.OnExit = cb;};
-    this.setOnFirstExit = function(cb) {_callbacks.OnFirstExit = cb;};
+    this.setOnEnter = cb => {_callbacks.OnEnter = cb;};
+    this.setOnFirstEnter = cb => {_callbacks.OnFirstEnter = cb;};
+    this.setOnExit = cb => {_callbacks.OnExit = cb;};
+    this.setOnFirstExit = cb => {_callbacks.OnFirstExit = cb;};
 
     const _cbState = {
         onFirstEnterDone: false,
@@ -1063,5 +904,12 @@ RG.Map.Level = function() { // {{{2
 
 }; // }}} Level
 RG.Map.Level.prototype.idCount = 0;
+
+RG.Map.Level.createLevelID = () => {
+    const id = RG.Map.Level.prototype.idCount;
+    RG.Map.Level.prototype.idCount += 1;
+    return id;
+};
+
 
 module.exports = RG.Map;

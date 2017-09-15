@@ -1,14 +1,15 @@
 
-
 const RG = require('../../../client/src/battles');
-const Obs = require('../../../client/data/battles_objects.js');
+const RGObjects = require('../../../client/data/battles_objects.js');
 const RGTest = require('../../roguetest.js');
 
 const Effects = require('../../../client/data/effects.js');
 
 const expect = require('chai').expect;
 
-const Parser = RG.ObjectShellParser;
+const Parser = RG.ObjectShell.Parser;
+const Creator = RG.ObjectShell.Creator;
+
 const Actor = RG.Actor.Rogue;
 
 RG.cellRenderArray = RG.cellRenderVisible;
@@ -22,9 +23,9 @@ const wolfShell = {
 // PARSER TESTS
 //---------------------------------------------------------------------------
 
-describe('How actors are created from file', function() {
+describe('RG.ObjectShell.Parser', () => {
 
-    it('Returns base objects and supports also base', function() {
+    it('Returns base objects and supports also base', () => {
         const parser = new Parser();
         const wolfNew = parser.parseObjShell('actors', wolfShell);
         expect(wolfNew.attack).to.equal(15);
@@ -53,7 +54,7 @@ describe('How actors are created from file', function() {
         wolfObj.setType('wolf');
         wolfObj.get('Combat').setAttack(15);
         wolfObj.get('Combat').setDefense(10);
-        wolfObj.get('Combat').setDamage('1d6 + 2');
+        wolfObj.get('Combat').setDamageDie('1d6 + 2');
         wolfObj.get('Health').setHP(9);
         const wolfComp = wolfObj.get('Combat');
 
@@ -67,7 +68,7 @@ describe('How actors are created from file', function() {
         RGTest.expectEqualHealth(createdWolf, wolfObj);
 
         const player = RG.FACT.createPlayer('player', {});
-        const cell = new RG.FACT.createFloorCell();
+        const cell = RG.FACT.createFloorCell();
         cell.setProp('actors', player);
         cell.setExplored(true);
 
@@ -99,7 +100,7 @@ describe('How actors are created from file', function() {
         parser.parseObjShell(RG.TYPE_ACTOR, wolf);
 
         let func = actor => (actor.danger <= 1 && actor.type === 'animal');
-        expect(parser.createRandomActor.bind(parser, {func})).to.throw(Error);
+        expect(parser.createRandomActor({func})).to.be.null;
 
         let wolfObj = null;
         func = actor => (actor.danger <= 2 && actor.type === 'animal');
@@ -108,7 +109,7 @@ describe('How actors are created from file', function() {
 
     });
 
-    it('Parses Spirits/Gems and creates them correctly', function() {
+    it('Parses Spirits/Gems and creates them correctly', () => {
         const parser = new Parser();
         const spiritShell = {
             name: 'Wolf spirit', type: 'spirit',
@@ -173,6 +174,7 @@ describe('How actors are created from file', function() {
         const eqSword = actualGoblin.getWeapon();
         expect(eqSword).to.exist;
         expect(eqSword.getType()).to.equal('weapon');
+
     });
 
     it('can add inventory items with count into the created actors', () => {
@@ -193,11 +195,23 @@ describe('How actors are created from file', function() {
         expect(gold.count, 'Keeper has 100 gold coins').to.equal(100);
     });
 
-});
+    describe('addComponent(shell, newObj)', () => {
+        it('can add component with a string attribute', () => {
+            const creator = new Creator();
+            const parser = new Parser();
+            const bat = {name: 'bat', addComp: 'Flying'};
+            const shell = parser.parseObjShell(RG.TYPE_ACTOR, bat);
+            const batActor = new RG.Actor.Rogue('bat');
 
-describe('How food items are created from objects', function() {
+            creator.addComponent(shell, batActor);
+            expect(batActor.has('Flying')).to.equal(true);
+        });
+
+    });
+
+describe('How food items are created from objects', () => {
    const parser = new Parser();
-    it('Creates food objects items from shells', function() {
+    it('Creates food objects items from shells', () => {
         const foodBase = parser.parseObjShell('items',
             {type: 'food', name: 'foodBase',
             weight: 0.1, misc: 'XXX', dontCreate: true, char: '%',
@@ -250,14 +264,18 @@ describe('How food items are created from objects', function() {
 // PARSING THE FULL OBJECTS FILE
 //---------------------------------------------------------------------------
 
-describe('It contains all game content info', function() {
-    const parser = new Parser();
-    parser.parseShellData(Effects);
-    parser.parseShellData(Obs);
+describe('It contains all game content info', () => {
 
-    it('Should parse all actors properly', function() {
+    let parser = null;
+    before(() => {
+        parser = new Parser();
+        parser.parseShellData(Effects);
+        parser.parseShellData(RGObjects);
+    });
+
+    it('Should parse all actors properly', () => {
         const rsnake = parser.get('actors', 'rattlesnake');
-        expect(rsnake.poison).to.equal(true);
+        expect(rsnake.poison).to.exist;
         const coyote = parser.get('actors', 'coyote');
         expect(coyote.attack).to.equal(3);
         expect(coyote.danger).to.equal(2);
@@ -272,12 +290,13 @@ describe('It contains all game content info', function() {
         expect(ratObj.get('Combat').getAttack()).to.equal(1);
         expect(ratObj.get('Combat').getDefense()).to.equal(1);
         expect(ratObj.get('Stats').getSpeed()).to.equal(100);
+        console.log('ratObj: ' + JSON.stringify(ratObj));
         RGTest.checkChar(ratObj, 'r');
         RGTest.checkCSSClassName(ratObj, 'cell-actor-animal');
 
     });
 
-    it('Should parse all items properly', function() {
+    it('Should parse all items properly', () => {
         const bayShell = parser.get('items', 'Bayonette');
         expect(bayShell.base).to.equal('MeleeWeaponBase');
         const bayon = parser.createActualObj('items', 'Bayonette');
@@ -285,7 +304,7 @@ describe('It contains all game content info', function() {
         RGTest.checkCSSClassName(bayon, 'cell-item-melee-weapon');
     });
 
-    it('Should parse weapons properly', function() {
+    it('Should parse weapons properly', () => {
         const rubySwordShell = parser.get('items', 'Ruby glass sword');
         const rubySwordObj = parser.createActualObj('items',
             'Ruby glass sword');
@@ -293,8 +312,7 @@ describe('It contains all game content info', function() {
         expect(rubySwordShell.attack).to.equal(rubySwordObj.getAttack());
     });
 
-
-    it('Should parse all armour properly', function() {
+    it('Should parse all armour properly', () => {
         const larmour = parser.get('items', 'Leather armour');
         expect(larmour.defense).to.equal(2);
 
@@ -305,7 +323,7 @@ describe('It contains all game content info', function() {
         expect(armObj.getWeight()).to.equal(2.0);
     });
 
-    it('Should parse missiles with correct ranges', function() {
+    it('Should parse missiles with correct ranges', () => {
         const missObj = parser.createActualObj('items', 'Shuriken');
         expect(missObj.getAttackRange()).to.equal(3);
         expect(missObj.getWeight()).to.equal(0.1);
@@ -320,7 +338,7 @@ describe('It contains all game content info', function() {
 
     });
 
-    it('Parses/creates spirits/gems properly', function() {
+    it('Parses/creates spirits/gems properly', () => {
         const demonSpirit = parser.createActualObj('actors',
             'Winter demon spirit');
         expect(demonSpirit.has('Stats')).to.equal(true);
@@ -329,7 +347,7 @@ describe('It contains all game content info', function() {
         // const spiritGem =
     });
 
-    it('Can generate actors using weighted algorithms', function() {
+    it('Can generate actors using weighted algorithms', () => {
         let newActor = parser.createRandomActorWeighted(1, 1);
         expect(RG.isNullOrUndef([newActor])).to.equal(false);
 
@@ -337,7 +355,7 @@ describe('It contains all game content info', function() {
         // expect(RG.isNullOrUndef([newActor])).to.equal(false);
     });
 
-    it('Creates healing potion correctly with useItem attribute', function() {
+    it('Creates healing potion correctly with useItem attribute', () => {
         const healPotion = parser.createActualObj('items', 'Healing potion');
         expect(healPotion).to.have.property('useFuncs');
         expect(healPotion).to.have.property('useItem');
@@ -355,8 +373,8 @@ describe('It contains all game content info', function() {
 
     });
 
-    it('Creates a proper pickaxe with digger capability', function() {
-        const cell = new RG.FACT.createWallCell();
+    it('Creates a proper pickaxe with digger capability', () => {
+        const cell = RG.FACT.createWallCell();
         const pickaxe = parser.createActualObj('items', 'Pick-axe');
         expect(pickaxe).to.have.property('useItem');
 
@@ -365,7 +383,6 @@ describe('It contains all game content info', function() {
         expect(cell.getBaseElem().getType()).to.equal('wall');
         pickaxe.useItem({target: cell});
         expect(cell.getBaseElem().getType()).to.equal('floor');
-
     });
 
     it('can create gold coins', () => {
@@ -375,12 +392,77 @@ describe('It contains all game content info', function() {
         RGTest.checkCSSClassName(goldcoin, 'cell-item-gold-coin');
     });
 
+    it('can create stat-boosting potions', () => {
+        const potion = parser.createItem('Potion of agility');
+        const user = new RG.Actor.Rogue('user');
+        user.getInvEq().addItem(potion);
+        const cell = RGTest.wrapObjWithCell(user);
+        const agil = user.get('Stats').getAgility();
+        potion.useItem({target: cell});
+        const agilAfter = user.get('Stats').getAgility();
+        expect(agilAfter).to.be.above(agil);
+    });
+
+    it('suppors multiple base shells', () => {
+        const parser = new Parser();
+        const b1 = {name: 'base1', hp: 10, damage: 10};
+        const b2 = {name: 'base2', hp: 15, defense: 20};
+        const shell = {name: 'shell', base: ['base2', 'base1']};
+
+        parser.parseObjShell('actors', b1);
+        parser.parseObjShell('actors', b2);
+        const objShell = parser.parseObjShell('actors', shell);
+
+        expect(objShell.damage).to.equal(10);
+        expect(objShell.hp).to.equal(15);
+        expect(objShell.defense).to.equal(20);
+    });
+
+    it('creates actors with type', () => {
+        const miner = parser.createActor('miner');
+        expect(miner.getType()).to.equal('human');
+        const json = miner.toJSON();
+        expect(json.type).to.equal('human');
+    });
+
+    it('can create actors with equipped items with count', () => {
+        const goblinSlinger = parser.createActor('goblin slinger');
+        const inv = goblinSlinger.getInvEq();
+        const rocks = inv.getEquipped('missile');
+        expect(rocks.count).to.equal(10);
+    });
+
+    it('can add enemies for actors', () => {
+        const goblin = parser.createActor('goblin');
+        const fighter = parser.createActor('fighter');
+        let mem = goblin.getBrain().getMemory();
+        expect(mem.isEnemy(fighter)).to.equal(true);
+
+        const goblinSlinger = parser.createActor('goblin slinger');
+        mem = goblinSlinger.getBrain().getMemory();
+        expect(mem.isEnemy(fighter)).to.equal(true);
+    });
+
+    it('also supports non-random shells', () => {
+        const bossShell = {
+            name: 'Unique boss', noRandom: true,
+            danger: 2
+        };
+        const boss = parser.parseObjShell(RG.TYPE_ACTOR, bossShell);
+        expect(boss.noRandom).to.equal(true);
+        const bossObj = parser.createActor('Unique boss');
+        expect(bossObj.getName()).to.equal('Unique boss');
+    });
 });
 
-describe('It has query functions for objects', function() {
-    const parser = new Parser();
-    parser.parseShellData(Effects);
-    parser.parseShellData(Obs);
+describe('Data query functions for objects', () => {
+
+    let parser = null;
+    before(() => {
+        parser = new Parser();
+        parser.parseShellData(Effects);
+        parser.parseShellData(RGObjects);
+    });
 
     it('can filter query with category/function', () => {
         const actor = parser.dbGet({name: 'Winter demon'});
@@ -407,11 +489,42 @@ describe('It has query functions for objects', function() {
             }
         }
     });
+
+    it('can create flying actors', () => {
+        const flying = ['bat', 'hawk', 'eagle', 'black vulture'];
+        flying.forEach(name => {
+            const flyEnt = parser.createActualObj(RG.TYPE_ACTOR, name);
+            expect(flyEnt.has('Flying'), `${name} has Flying`).to.equal(true);
+            const actor = flyEnt.getBrain().getActor();
+            expect(flyEnt).to.deep.equal(actor);
+            expect(actor.has('Flying'), `${name} has Flying`).to.equal(true);
+
+        });
+
+    });
+
+    it('can create venomous actors', () => {
+        const viper = parser.createActualObj(RG.TYPE_ACTOR, 'Frost viper');
+        expect(viper.has('AddOnHit')).to.equal(true);
+
+        const addOnHit = viper.get('AddOnHit');
+        expect(addOnHit.getComp().getType()).to.equal('Poison');
+    });
+
+    it('can create spellcasters', () => {
+        const cryomancer = parser.createActor('Cryomancer');
+        expect(cryomancer.has('SpellPower')).to.equal(true);
+        expect(cryomancer.get('SpellPower').getPP()).to.equal(21);
+        expect(cryomancer.get('SpellPower').getMaxPP()).to.equal(22);
+
+        const spellbook = cryomancer.getBook();
+        expect(spellbook.getSpells()).to.have.length(1);
+    });
 });
 
-describe('ObjectShellParser error handling', function() {
-    it('It should detect invalid object shells', function() {
-        const parser = new RG.ObjectShellParser();
+describe('ObjectShell.Parser error handling', () => {
+    it('It should detect invalid object shells', () => {
+        const parser = new Parser();
         RG.suppressErrorMessages = true;
         const noObj = parser.createActualObj('items', 'Void Item');
         expect(noObj).to.be.null;
@@ -421,3 +534,5 @@ describe('ObjectShellParser error handling', function() {
         expect(parser.validShellGiven(invalidShell)).to.be.false;
     });
 });
+
+}); // describe ObjectShell.Parser

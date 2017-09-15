@@ -11,8 +11,8 @@ const Game = require('../../../client/src/game.js');
 const Actor = require('../../../client/src/actor');
 
 /* Creates a game engine with 2 actors scheduled for actions.*/
-const setupEngineWithActors = function() {
-    this.engine = new Game.Engine();
+const setupEngineWithActors = function(pool) {
+    this.engine = new Game.Engine(pool);
     this.actor = new Actor.Rogue('TestActor');
     this.actor2 = new Actor.Rogue('TestActor2');
 
@@ -24,17 +24,20 @@ const setupEngineWithActors = function() {
     this.level = level;
 };
 
-describe('Game.Engine', function() {
+describe('Game.Engine', () => {
     let eng = null;
     let engine = null;
+    let pool = null;
 
     beforeEach( () => {
-        eng = new setupEngineWithActors();
+        pool = new RG.EventPool();
+        RG.resetEventPools();
+        RG.pushEventPool(pool);
+        eng = new setupEngineWithActors(pool);
         engine = eng.engine;
     });
 
-    it('has game messages', function() {
-        const pool = RG.POOL;
+    it('has game messages', () => {
         let msg = engine.getMessages();
         expect(msg).to.have.length(0);
 
@@ -51,14 +54,14 @@ describe('Game.Engine', function() {
         expect(msg).to.have.length(1);
     });
 
-    it('Executes scheduled actors one by one', function() {
+    it('Executes scheduled actors one by one', () => {
         const actor = eng.actor;
         const action = actor.nextAction({});
         engine.simulateGame();
         engine.simulateGame();
     });
 
-    it('manages a list of active levels', function() {
+    it('manages a list of active levels', () => {
         const actor = eng.actor;
         expect(engine.nextActor).to.be.null;
         engine.addActiveLevel(eng.level);
@@ -79,7 +82,7 @@ describe('Game.Engine', function() {
     });
 
     // This a bit too thorough test for Engine
-    it('Uses Systems to manage entity behaviour', function() {
+    it('Uses Systems to manage entity behaviour', () => {
         const timeSystem = engine.timeSystems.TimeEffects;
 
         const poison = new RG.Component.Poison();
@@ -89,7 +92,7 @@ describe('Game.Engine', function() {
         expect(expiration.hasEffect(poison)).to.equal(true);
         // poison.setDuration(20);
         poison.setProb(1.0);
-        poison.setDamage(new RG.Die(1, 1, 10));
+        poison.setDamageDie(new RG.Die(1, 1, 10));
         poison.setSource(eng.actor2);
 
         const currHP = eng.actor.get('Health').getHP();
@@ -121,17 +124,17 @@ describe('Game.Engine', function() {
 
     });
 
-    it('has high-level update() function for GUI', function() {
+    it('has high-level update() function for GUI', () => {
         const player = new RG.Actor.Rogue('player');
         player.setIsPlayer(true);
-        engine.playerCommandCallback = function() {return true;};
+        engine.playerCommandCallback = () => true;
 
         eng.level.addActorToFreeCell(player);
         engine.addActiveLevel(eng.level);
         engine.simulateGame();
         expect(engine.nextActor).to.not.be.null;
         engine.nextActor = player;
-        engine.update({code: RG.K_REST});
+        engine.update({code: RG.KEY.REST});
         expect(engine.nextActor).to.not.be.null;
     });
 });

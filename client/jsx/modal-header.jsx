@@ -1,34 +1,27 @@
 'use strict';
 
-const React = require('react');
+import React, {Component} from 'react';
+import PropTypes from 'prop-types';
 
 /* Header component for modals.*/
-class ModalHeader extends React.Component {
-
-    render() {
-        var id = this.props.id;
-        var text = this.props.text;
-        return (
-            <div className='modal-header'>
-                <button
-                    aria-label='Close'
-                    className='close'
-                    data-dismiss='modal'
-                    type='button'
-                    >
-                    <span aria-hidden='true'>&times;</span>
-                </button>
-                <h4 className='modal-title' id={id}>{text}</h4>
-            </div>
-        );
-    }
-
-}
+const ModalHeader = props => (
+    <div className='modal-header'>
+        <button
+            aria-label='Close'
+            className='close'
+            data-dismiss='modal'
+            type='button'
+        >
+            <span aria-hidden='true'>&times;</span>
+        </button>
+        <h4 className='modal-title' id={props.id}>{props.text}</h4>
+    </div>
+);
 
 ModalHeader.propTypes = {
-    id: React.PropTypes.string,
-    text: React.PropTypes.string
-
+    id: PropTypes.string,
+    text: PropTypes.string
 };
 
-module.exports = ModalHeader;
+export default ModalHeader;
+

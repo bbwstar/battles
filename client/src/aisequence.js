@@ -12,6 +12,9 @@
  *
  */
 
+const RG = require('./rg');
+const debug = require('debug')('bitn:aisequence');
+
 function SelectorNode(condFunc, actionIfTrue, actionIfFalse) {
     this.condFunc = condFunc;
     this.actionIfTrue = actionIfTrue;
@@ -34,36 +37,15 @@ function SequencerRandomNode(actionArray) {
 // Utility functions
 //--------------------------------------------------------------------
 
-/*
- * From http:// stackoverflow.com/questions/2450954/how-to-randomize-shuffle-a-javascript-array
- */
-function shuffle(array) {
-    let currentIndex = array.length, temporaryValue, randomIndex;
-
-    // While there remain elements to shuffle...
-    while (0 !== currentIndex) {
-
-        // Pick a remaining element...
-        randomIndex = Math.floor(Math.random() * currentIndex);
-        currentIndex -= 1;
-
-        // And swap it with the current element.
-        temporaryValue = array[currentIndex];
-        array[currentIndex] = array[randomIndex];
-        array[randomIndex] = temporaryValue;
-    }
-
-    return array;
-}
-
 function startBehavTree(behaviourTreeNode, actor) {
     const resArray = [];
+    debug('startBehavTree for actor ' + actor.getName());
     execBehavTree(behaviourTreeNode, actor, resArray);
     return resArray;
 }
 
 function execBehavTree(behaviourTreeNode, actor, resArray) {
-    if (typeof actor.completedCurrentAction === 'undefined' || actor.completedCurrentAction === true) {
+    if (typeof actor.currActionDone === 'undefined' || actor.currActionDone === true) {
 
         if (Object.getPrototypeOf(behaviourTreeNode) === SelectorNode.prototype) {
             selector(behaviourTreeNode, actor, resArray);
@@ -109,24 +91,16 @@ function sequencer(sequencerNode, actor, arr) {
 }
 
 function sequencerRandom(sequencerRandomNode, actor, arr) {
-    shuffle(sequencerRandomNode.actionArray);
+    RG.RAND.shuffle(sequencerRandomNode.actionArray);
     for (let i = 0; i < sequencerRandomNode.actionArray.length; i++) {
         execBehavTree(sequencerRandomNode.actionArray[i], actor, arr);
     }
 }
 
 function selectorRandom(selectorRandomNode, actor, arr) {
-    const randomIndex = Math.floor(Math.random() * selectorRandomNode.actionArray.length);
+    const randomIndex = RG.RAND.randIndex(selectorRandomNode.actionArray.length);
     execBehavTree(selectorRandomNode.actionArray[randomIndex], actor, arr);
 }
-
-/*
-function tick(behaviourTreeNode, actor) {
-    setInterval(function() {
-        execBehavTree(behaviourTreeNode, actor);
-    }, 50);
-}
-*/
 
 //----------------------------------------------------------------------
 // MODELS
@@ -136,14 +110,15 @@ const Models = {}; // Namespace for models
 
 Models.Rogue = {};
 
-Models.Rogue.ifPlayerIsInSight = function(actor) {
+Models.Rogue.ifEnemyIsInSight = actor => {
     const brain = actor.getBrain();
     const seenCells = brain.getSeenCells();
     const playerCell = brain.findEnemyCell(seenCells);
+    debug(`${actor.getName()} playerSeen: ${playerCell}`);
     return playerCell !== null;
 };
 
-Models.Rogue.attackEnemy = function(actor) {
+Models.Rogue.attackEnemy = actor => {
     const brain = actor.getBrain();
     const seenCells = brain.getSeenCells();
     const playerCell = brain.findEnemyCell(seenCells);
@@ -151,20 +126,20 @@ Models.Rogue.attackEnemy = function(actor) {
 };
 
 /* Returns true if actor has 10% of health. */
-Models.Rogue.ifSeriouslyWounded = function(actor) {
+Models.Rogue.ifSeriouslyWounded = actor => {
     const healthComp = actor.get('Health');
     const thr = Math.round(healthComp.getMaxHP() * 0.1);
     return healthComp.getHP() <= thr;
 };
 
-Models.Rogue.flee = function(actor) {
+Models.Rogue.flee = actor => {
     const brain = actor.getBrain();
     const seenCells = brain.getSeenCells();
     const playerCell = brain.findEnemyCell(seenCells);
     return brain.fleeFromCell(playerCell, seenCells);
 };
 
-Models.Rogue.exploreLevel = function(actor) {
+Models.Rogue.exploreLevel = actor => {
     const brain = actor.getBrain();
     const seenCells = brain.getSeenCells();
     return brain.exploreLevel(seenCells);
@@ -181,7 +156,7 @@ Models.Rogue.Nodes.combat =
 
 Models.Rogue.tree =
     new SelectorNode(
-        Models.Rogue.ifPlayerIsInSight,
+        Models.Rogue.ifEnemyIsInSight,
         Models.Rogue.Nodes.combat,
         Models.Rogue.exploreLevel
     );
@@ -189,17 +164,11 @@ Models.Rogue.tree =
 /* Human models for AI. */
 Models.Human = {};
 
-Models.Human.isEnemyInSight = function(actor) {
-    return Models.Rogue.ifPlayerIsInSight(actor);
-};
+Models.Human.isEnemyInSight = actor => Models.Rogue.ifEnemyIsInSight(actor);
 
-Models.Human.willCommunicate = function(actor) {
-    return actor.getBrain().willCommunicate();
-};
+Models.Human.willCommunicate = actor => actor.getBrain().willCommunicate();
 
-Models.Human.communicateEnemies = function(actor) {
-    return actor.getBrain().communicateEnemies();
-};
+Models.Human.communicateEnemies = actor => actor.getBrain().communicateEnemies();
 
 Models.Human.tree =
     new SelectorNode(
@@ -224,21 +193,64 @@ Models.Demon = {};
 //------------------------------
 Models.Summoner = {};
 
-Models.Summoner.willSummon = function(actor) {
-    return actor.getBrain().willSummon();
-};
+Models.Summoner.willSummon = actor => actor.getBrain().willSummon();
 
-Models.Summoner.summonMonster = function(actor) {
-    return actor.getBrain().summonMonster();
-};
+Models.Summoner.summonMonster = actor => actor.getBrain().summonMonster();
 
 Models.Summoner.tree =
     new SelectorNode(
-        Models.Rogue.ifPlayerIsInSight,
+        Models.Rogue.ifEnemyIsInSight,
         new SelectorNode(
             Models.Summoner.willSummon,
             Models.Summoner.summonMonster,
             Models.Rogue.tree
+        ),
+        Models.Rogue.exploreLevel
+    );
+
+//------------------------------
+/* Archer models for AI. */
+//------------------------------
+Models.Archer = {};
+
+Models.Archer.canDoRangedAttack = actor => actor.getBrain().canDoRangedAttack();
+
+Models.Archer.doRangedAttack = actor => actor.getBrain().doRangedAttack();
+
+Models.Archer.tree =
+    new SelectorNode(
+        Models.Rogue.ifEnemyIsInSight,
+        new SelectorNode(
+            Models.Archer.canDoRangedAttack,
+            Models.Archer.doRangedAttack,
+            Models.Rogue.Nodes.combat
+        ),
+        Models.Rogue.exploreLevel
+    );
+
+//------------------------------
+/* SpellCaster model for AI. */
+//------------------------------
+
+Models.SpellCaster = {};
+
+Models.SpellCaster.shouldCastSpell = actor => actor.getBrain().shouldCastSpell();
+
+Models.SpellCaster.canCastSpell = actor => actor.getBrain().canCastSpell();
+
+Models.SpellCaster.castSpell = actor => actor.getBrain().castSpell();
+
+Models.SpellCaster.tree =
+    new SelectorNode(
+        Models.Rogue.ifEnemyIsInSight,
+        new SelectorNode(
+            Models.SpellCaster.shouldCastSpell,
+            new SelectorNode(
+                Models.SpellCaster.canCastSpell,
+                Models.SpellCaster.castSpell,
+                Models.Rogue.Nodes.combat
+            ),
+            Models.Rogue.Nodes.combat
         ),
         Models.Rogue.exploreLevel
     );

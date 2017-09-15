@@ -7,12 +7,13 @@ $ground-color: #a52a2a;
 $wall-color: #f00;
 
 $stone-color: #808080;
+$dark-stone-color: darken($stone-color, 30%);
+
+$floor-bg-color: $stone-color;
+$tree-color: lighten($green, 20%);
 
 $door-color: #a52a2a;;
-$door-bg-color: white;
-
-$floor-bg-color: $stone-color;;
-$tree-color: lighten(green, 20%);
+$door-bg-color: $floor-bg-color;
 
 @mixin green-elem {
     background-color: $floor-bg-color;
@@ -20,50 +21,85 @@ $tree-color: lighten(green, 20%);
 }
 
 .cell-elements {
-    color: white;
-    background-color: purple;
+    background-color: $purple;
+    color: $white;
 }
 
 .cell-dark {
-    background-color: #101010;
+    background-color: $color-dark-cell;
 }
 
 .cell-not-explored {
-    background-color: black;
-    color: black;
+    background-color: $black;
+    color: $black;
 };
 
 .cell-element-door {
-    color: $door-color;
     background-color: $door-bg-color;
+    color: $door-color;
 }
 
 .cell-element-floor {
     background-color: $floor-bg-color;
 }
 
-.cell-element-ice-wall {
-    background-color: blue;
-    color: white;
-};
+.cell-element-floor-cave {
+    background-color: $floor-bg-color;
+}
+
+.cell-element-floor-crypt {
+    background-color: $black;
+    color: $gray;
+}
+
+.cell-element-fort {
+    background-color: $floor-bg-color;
+    color: $black;
+}
+
 
 .cell-element-shop {
-    color: white;
-    background-color: darken(cyan, 30%);
+    background-color: $shop-bg-color;
+    color: $white;
 }
 
 .cell-element-snow {
     background-color: $snow-white;
-    color: black;
+    color: $black;
 };
+
+//--------------
+// WALL STYLES
+//--------------
 
 .cell-element-wall {
     background-color: $wall-color;
 }
 
+.cell-element-wall-cave {
+    background-color: $black;
+    color: $brown;
+}
+
+.cell-element-wall-crypt {
+    background-color: $black;
+    color: $gray;
+}
+
+.cell-element-wall-wooden {
+    background-color: $floor-bg-color;
+    color: $wooden-color;
+}
+
+.cell-element-wall-ice {
+    background-color: $blue;
+    color: $white;
+};
+
+
 .cell-element-water {
-    background-color: white;
-    color: blue;
+    background-color: $floor-bg-color;
+    color: $blue;
 };
 
 .cell-element-tree {
@@ -78,4 +114,34 @@ $tree-color: lighten(green, 20%);
     background-color: $ground-color;
     color: $stone-color;
 };
+
+.cell-element-highrock {
+    background-color: $ground-color;
+    color: $white;
+}
+
+.cell-element-stairs {
+    background-color: $wall-color;
+}
+
+.cell-element-road {
+    // background-color: $floor-bg-color;
+    background-color: $white;
+    color: $brown;
+}
+
+.cell-element-chasm {
+    background-color: $black;
+    color: $gray;
+}
+
+.cell-element-bridge {
+    background-color: $brown;
+    color: $white;
+}
+
+.cell-element-passage {
+    background-color: $floor-bg-color;
+    color: $white;
+}
 

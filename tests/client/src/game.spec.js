@@ -15,7 +15,7 @@ const RGObjects = require('../../../client/data/battles_objects.js');
 RG.Effects = require('../../../client/data/effects.js');
 
 
-const globalParser = new RG.ObjectShellParser();
+const globalParser = new RG.ObjectShell.Parser();
 globalParser.parseShellData(RG.Effects);
 globalParser.parseShellData(RGObjects);
 
@@ -33,14 +33,14 @@ function getNewLevel(cols, rows) {
 }
 
 
-describe('Game.Main', function() {
+describe('Game.Main', () => {
     let game = null;
     beforeEach( () => {
         game = new Game.Main();
     });
 
-    it('Initializes the game and adds player', function() {
-        const movSystem = new RG.System.Movement('Movement', ['Movement']);
+    it('Initializes the game and adds player', () => {
+        const movSystem = new RG.System.Movement(['Movement']);
         const cols = 50;
         const rows = 30;
         const level = getNewLevel(cols, rows);
@@ -64,10 +64,28 @@ describe('Game.Main', function() {
         expect(actor.getY()).to.equal(13);
 
         const explCells = level.exploreCells(actor);
-        expect(explCells.length).to.equal(11 * 11);
+        expect(explCells.length).to.equal(145);
+    });
 
-        // expect(level.moveActorTo(actor, 11, 13)).to.equal(true);
+    it('can add player to the specified location', () => {
+        const fact = new RG.Factory.World();
+        const worldConf = {
+            name: 'StartPlace',
+            nAreas: 1, area: [{name: 'a1', maxX: 2, maxY: 2}]
+        };
+        const world = fact.createWorld(worldConf);
+        const game = new RG.Game.Main();
+        game.addPlace(world);
+        expect(game.getLevels()).to.have.length(4);
 
+        const player = new RG.Actor.Rogue('PlayerHero');
+        player.setIsPlayer(true);
+        game.addPlayer(player, {place: 'StartPlace', x: 1, y: 1});
+
+        const playerLevelID = player.getLevel().getID();
+        const area = world.getAreas()[0];
+        const expectedLevelID = area.getTileXY(1, 1).getLevel().getID();
+        expect(playerLevelID).to.equal(expectedLevelID);
     });
 });
 
@@ -88,12 +106,12 @@ const KillListener = function(actor) {
     RG.POOL.listenEvent(RG.EVT_ACTOR_KILLED, this);
 };
 
-describe('How combat should evolve', function() {
+describe('How combat should evolve', () => {
 
 
-    it('Deals damage from attacker to defender', function() {
-        const comSystem = new RG.System.Attack('Attack', ['Attack']);
-        const dmgSystem = new RG.System.Damage('Damage', ['Damage']);
+    it('Deals damage from attacker to defender', () => {
+        const comSystem = new RG.System.Attack(['Attack']);
+        const dmgSystem = new RG.System.Damage(['Damage']);
 
         const cols = 50;
         const rows = 30;
@@ -104,7 +122,7 @@ describe('How combat should evolve', function() {
         const defender = new Actor('Defender');
         expect(defender.get('Health').isAlive()).to.equal(true);
         attacker.get('Combat').setAttack(10);
-        attacker.get('Combat').setDamage('1d4');
+        attacker.get('Combat').setDamageDie('1d4');
         defender.get('Health').setHP(1);
         defender.get('Combat').setDefense(0);
         defender.get('Combat').setProtection(0);
@@ -160,7 +178,7 @@ describe('How combat should evolve', function() {
     });
 });
 
-describe('How AI brain works', function() {
+describe('How AI brain works', () => {
     const cols = 30;
     const rows = 20;
     const level = getNewLevel(cols, rows);
@@ -169,7 +187,7 @@ describe('How AI brain works', function() {
     player.setType('player');
     player.setIsPlayer(true);
 
-    it('Brain should find player cell', function() {
+    it('Brain should find player cell', () => {
         expect(level.addActor(player, 2, 2)).to.equal(true);
         expect(level.addActor(mons1, 3, 5)).to.equal(true);
 
@@ -188,8 +206,8 @@ describe('How AI brain works', function() {
     });
 
 
-    it('Moves towards player when seen.', function() {
-        const movSystem = new RG.System.Movement('Movement', ['Movement']);
+    it('Moves towards player when seen.', () => {
+        const movSystem = new RG.System.Movement(['Movement']);
         expect(level.addActor(player, 2, 2)).to.equal(true);
         expect(level.addActor(mons1, 2, 4)).to.equal(true);
         const action = mons1.nextAction();
@@ -200,8 +218,8 @@ describe('How AI brain works', function() {
 
 });
 
-describe('How poison item is used, and experience propagates', function() {
-    it('Kills an actor after some time', function() {
+describe('How poison item is used, and experience propagates', () => {
+    it('Kills an actor after some time', () => {
 
         const game = new RG.Game.Main();
         const level = RG.FACT.createLevel('arena', 20, 20);
@@ -224,6 +242,9 @@ describe('How poison item is used, and experience propagates', function() {
             game.simulateGame();
             ++count;
         }
+        expect(count, 'Victim dies in 100 turns').to.be.below(100);
+        expect(victim.get('Health', 'Victim is dead').isAlive()).to.be.false;
+
         const endExp = assassin.get('Experience').getExp();
         expect(endExp > startExp, 'Exp. points from poison').to.equal(true);
 
@@ -258,3 +279,15 @@ describe('How poison item is used, and experience propagates', function() {
     });
 });
 
+describe('Game.WinCondition', () => {
+    it('description', () => {
+        const winCond = new RG.Game.WinCondition('Kill boss');
+        expect(winCond.isTrue(), 'Win condition false').to.be.false;
+
+        const boss = new RG.Actor.Rogue('Huge evil boss');
+        winCond.addActorKilled(boss);
+        RG.POOL.emitEvent(RG.EVT_ACTOR_KILLED, {actor: boss});
+        expect(winCond.isTrue(), 'Win condition true now').to.be.true;
+
+    });
+});

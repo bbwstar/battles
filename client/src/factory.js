@@ -1,34 +1,32 @@
 
 const RG = require('./rg.js');
-const ROT = require('../../lib/rot.js');
-
 const debug = require('debug')('bitn:factory');
 
+RG.Actor = require('./actor');
 RG.Component = require('./component.js');
 RG.Brain = require('./brain.js');
 RG.Map = require('./map.js');
+RG.Map.Generator = require('./map.generator');
+RG.Verify = require('./verify');
+RG.World = require('./world');
 
 const RGObjects = require('../data/battles_objects.js');
 RG.Effects = require('../data/effects.js');
 
-const MSG = {
-    EYE_OF_STORM:
-        'You see an eye of the storm approaching. Brace yourself now..',
-    BEASTS_SLAIN:
-        'All beasts have been slain. The blizzard seems to calm down',
-    ENEMIES_DEAD:
-        'All enemies are dead! You emerge victorious. Congratulations!'
-};
-
 const Stairs = RG.Element.Stairs;
 
+RG.Factory = {};
+
 /* Returns a basic configuration for a city level. */
-const cityConfBase = function(_parser, conf) {
+RG.Factory.cityConfBase = conf => {
     const userConf = conf || {};
     const obj = {
         nHouses: 10, minHouseX: 5, maxHouseX: 10, minHouseY: 5,
-        maxHouseY: 10, parser: _parser, nShops: 1,
-        shopFunc: [item => item.type === 'armour']
+        maxHouseY: 10, nShops: 1,
+        shopFunc: [
+            item => item.type === RG.RAND.arrayGetRand(RG.SHOP_TYPES)
+        ],
+        shopType: '', levelType: 'arena'
     };
     const result = Object.assign(obj, userConf);
     return result;
@@ -62,40 +60,10 @@ const levelSizes = {
     }
 };
 
-/* Player stats based on user selection.*/
-const confPlayerStats = {
-    Weak: {att: 1, def: 1, prot: 1, hp: 15, Weapon: 'Dagger'},
-    Medium: {att: 2, def: 4, prot: 2, hp: 25, Weapon: 'Short sword'},
-    Strong: {att: 5, def: 6, prot: 3, hp: 40, Weapon: 'Tomahawk'},
-    Inhuman: {att: 10, def: 10, prot: 4, hp: 80, Weapon: 'Magic sword'}
-};
-
-RG.VerifyConf = function(objName) {
-    const _name = objName;
-
-    /* Verifies that configuration contains all required keys.*/
-    this.verifyConf = function(funcName, conf, required) {
-        let ok = true;
-        let errorMsg = '';
-        required.forEach(req => {
-            if (!conf.hasOwnProperty(req)) {
-                ok = false;
-                errorMsg += `${funcName}(): Missing: ${req}`;
-            }
-        });
-        if (!ok) {
-            RG.err(_name, 'verifyConf', errorMsg);
-        }
-        return ok;
-    };
-
-};
 
 //---------------------------------------------------------------------------
 // FACTORY OBJECTS
 //---------------------------------------------------------------------------
-
-RG.Factory = {};
 
 /* This object is used to randomize item properties during procedural
  * generation.*/
@@ -103,7 +71,7 @@ RG.Factory.ItemRandomizer = function() {
 
     /* Only public function. All logic is deferred to private functions.
      * Adjusts the properties of given item, based also on maxValue.*/
-    this.adjustItem = function(item, val) {
+    this.adjustItem = (item, val) => {
         const itemType = item.getType();
         if (_adjustFunctions.hasOwnProperty(itemType)) {
             _adjustFunctions[itemType](item, val);
@@ -113,15 +81,15 @@ RG.Factory.ItemRandomizer = function() {
     /* Distr. of food weights.*/
     const _foodWeights = RG.getFoodWeightDistr();
 
-    const _adjustFoodItem = function(food) {
-        const weight = ROT.RNG.getWeightedValue(_foodWeights);
+    const _adjustFoodItem = food => {
+        const weight = RG.RAND.getWeighted(_foodWeights);
         food.setWeight(weight);
     };
 
-    const _adjustGoldCoin = function(gold, nLevel) {
+    const _adjustGoldCoin = (gold, nLevel) => {
         if (!RG.isNullOrUndef([nLevel])) {
             const goldWeights = RG.getGoldCoinCountDistr(nLevel);
-            const count = ROT.RNG.getWeightedValue(goldWeights);
+            const count = RG.RAND.getWeighted(goldWeights);
             gold.setCount(parseInt(count, 10));
         }
         else {
@@ -130,7 +98,7 @@ RG.Factory.ItemRandomizer = function() {
         }
     };
 
-    const _adjustMissile = function(missile, nLevel) {
+    const _adjustMissile = (missile, nLevel) => {
         if (!RG.isNullOrUndef([nLevel])) {
             // TODO use distribution to generate the count
             missile.setCount(10);
@@ -150,12 +118,10 @@ RG.Factory.ItemRandomizer = function() {
 
 };
 
-/* Factory object for creating some commonly used objects.*/
-RG.Factory.Base = function() { // {{{2
-    const _verif = new RG.VerifyConf('Factory.Base');
-    const _itemRandomizer = new RG.Factory.ItemRandomizer();
+/* Factory object for creating actors. */
+RG.Factory.Actor = function() {
 
-    const _initCombatant = function(comb, obj) {
+    const _initCombatant = (comb, obj) => {
         const hp = obj.hp;
         const att = obj.att;
         const def = obj.def;
@@ -173,8 +139,69 @@ RG.Factory.Base = function() { // {{{2
         comb.add('Combat', combatComp);
     };
 
+    /* Creates a player actor. */
+    this.createPlayer = (name, obj) => {
+        const player = new RG.Actor.Rogue(name);
+        player.setIsPlayer(true);
+        _initCombatant(player, obj);
+        return player;
+    };
+
+    /* Factory method for non-player actors. */
+    this.createActor = function(name, obj = {}) {
+        const actor = new RG.Actor.Rogue(name);
+        actor.setType(name);
+
+        const brain = obj.brain;
+        _initCombatant(actor, obj);
+        if (!RG.isNullOrUndef([brain])) {
+            if (typeof brain === 'object') {
+                actor.setBrain(brain);
+            }
+            else { // If brain is string, use factory to create a new one
+                const newBrain = this.createBrain(actor, brain);
+                actor.setBrain(newBrain);
+            }
+        }
+        return actor;
+    };
+
+    /* Factory method for AI brain creation.*/
+    this.createBrain = (actor, brainName) => {
+        switch (brainName) {
+            case 'Animal': return new RG.Brain.Animal(actor);
+            case 'Archer': return new RG.Brain.Archer(actor);
+            case 'Demon': return new RG.Brain.Demon(actor);
+            // case 'Goblin': return new RG.Brain.Goblin(actor);
+            case 'Human': return new RG.Brain.Human(actor);
+            case 'SpellCaster': return new RG.Brain.SpellCaster(actor);
+            case 'Summoner': return new RG.Brain.Summoner(actor);
+            case 'Undead': return new RG.Brain.Undead(actor);
+            case 'Zombie': return new RG.Brain.Zombie(actor);
+            default: return new RG.Brain.Rogue(actor);
+        }
+    };
+
+    this.createSpell = spellName => {
+        if (RG.Spell.hasOwnProperty(spellName)) {
+            return new RG.Spell[spellName]();
+        }
+        return null;
+    };
+
+};
+
+/* Factory object for creating some commonly used objects. Because this is a
+* global object RG.FACT, no state should be used. */
+RG.Factory.Base = function() { // {{{2
+    const _verif = new RG.Verify.Conf('Factory.Base');
+    const _itemRandomizer = new RG.Factory.ItemRandomizer();
+
+    const _actorFact = new RG.Factory.Actor();
+
+
     /* Creates a new die object from array or die expression '2d4 + 3' etc.*/
-    this.createDie = function(strOrArray) {
+    this.createDie = strOrArray => {
         const numDiceMod = RG.parseDieSpec(strOrArray);
         if (numDiceMod.length === 3) {
             return new RG.Die(numDiceMod[0], numDiceMod[1], numDiceMod[2]);
@@ -183,56 +210,33 @@ RG.Factory.Base = function() { // {{{2
     };
 
     /* Factory method for players.*/
-    this.createPlayer = function(name, obj) {
-        const player = new RG.Actor.Rogue(name);
-        player.setIsPlayer(true);
-        _initCombatant(player, obj);
-        return player;
-    };
+    this.createPlayer = (name, obj) => _actorFact.createPlayer(name, obj);
 
     /* Factory method for monsters.*/
-    this.createActor = function(name, obj) {
-        const monster = new RG.Actor.Rogue(name);
-        monster.setType(name);
-        if (RG.isNullOrUndef([obj])) {obj = {};}
-
-        const brain = obj.brain;
-        _initCombatant(monster, obj);
-        if (!RG.isNullOrUndef([brain])) {
-            if (typeof brain === 'object') {
-                monster.setBrain(brain);
-            }
-            else { // If brain is string, use factory to create a new one
-                const newBrain = this.createBrain(monster, brain);
-                monster.setBrain(newBrain);
-            }
-        }
-        return monster;
-    };
+    this.createActor = (name, obj = {}) => _actorFact.createActor(name, obj);
 
     /* Factory method for AI brain creation.*/
-    this.createBrain = function(actor, brainName) {
-        switch (brainName) {
-            case 'Animal': return new RG.Brain.Animal(actor);
-            case 'Demon': return new RG.Brain.Demon(actor);
-            case 'Human': return new RG.Brain.Human(actor);
-            case 'Summoner': return new RG.Brain.Summoner(actor);
-            case 'Zombie': return new RG.Brain.Zombie(actor);
-            default: return new RG.Brain.Rogue(actor);
+    this.createBrain = (actor, brainName) => _actorFact.createBrain(actor, brainName);
+
+    /* Factory method for AI brain creation.*/
+    this.createSpell = name => _actorFact.createSpell(name);
+
+    this.createElement = elemType => {
+        if (RG.elemTypeToObj[elemType]) {
+            return RG.elemTypeToObj[elemType];
+        }
+        switch (elemType) {
+            case 'door' : return new RG.Element.Door(true);
+            case 'opendoor' : return new RG.Element.Door(false);
+            default: return null;
         }
     };
 
-    this.createFloorCell = function(x, y) {
-        return new RG.Map.Cell(x, y, new RG.Element.Base('floor'));
-    };
+    this.createFloorCell = (x, y) => new RG.Map.Cell(x, y, new RG.Element.Base('floor'));
 
-    this.createWallCell = function(x, y) {
-        return new RG.Map.Cell(x, y, new RG.Element.Base('wall'));
-    };
+    this.createWallCell = (x, y) => new RG.Map.Cell(x, y, new RG.Element.Base('wall'));
 
-    this.createSnowCell = function(x, y) {
-        return new RG.Map.Cell(x, y, new RG.Element.Base('snow'));
-    };
+    this.createSnowCell = (x, y) => new RG.Map.Cell(x, y, new RG.Element.Base('snow'));
 
     /* Factory method for creating levels.*/
     this.createLevel = function(levelType, cols, rows, conf) {
@@ -240,40 +244,57 @@ RG.Factory.Base = function() { // {{{2
         let mapObj = null;
         const level = new RG.Map.Level(cols, rows);
 
+        mapgen.setGen(levelType, cols, rows);
         if (levelType === 'town') {
             mapObj = mapgen.createTown(cols, rows, conf);
             level.setMap(mapObj.map);
             this.createHouseElements(level, mapObj, conf);
             this.createShops(level, mapObj, conf);
         }
+        else if (levelType === 'townwithwall') {
+            mapObj = mapgen.createTownWithWall(cols, rows, conf);
+            level.setMap(mapObj.map);
+            this.createHouseElements(level, mapObj, conf);
+            this.createShops(level, mapObj, conf);
+        }
         else if (levelType === 'forest') {
-            if (!RG.isNullOrUndef([conf.forest])) {
-                const forestShape = conf.forest.shape;
-                mapgen.setGen(forestShape, cols, rows);
-                mapObj = mapgen.createForest(conf.forest.ratio);
-                level.setMap(mapObj.map);
-            }
-            else {
-                RG.err('RG.Factory.Base', 'createLevel',
-                    'conf.forest must be specified!');
-            }
+            mapObj = mapgen.createForest(conf);
+        }
+        else if (levelType === 'lakes') {
+            mapObj = mapgen.createLakes(conf);
         }
         else if (levelType === 'mountain') {
-            // mapgen.setGen('ruins', cols, rows);
-            mapgen.setGen('ruins', 50, 200);
-            mapObj = mapgen.createMountain();
+            mapObj = mapgen.createMountain(conf);
+        }
+        else if (levelType === 'crypt') {
+            mapObj = mapgen.createCryptNew(cols, rows, conf);
+        }
+        else if (levelType === 'cave') {
+            mapObj = mapgen.createCave(cols, rows, conf);
+        }
+        else if (levelType === 'castle') {
+            mapObj = mapgen.createCastle(cols, rows, conf);
+        }
+        else if (levelType === 'wall') {
+            mapObj = mapgen.createWall(cols, rows, conf);
+        }
+        else {
+            mapObj = mapgen.getMap();
+        }
+
+        if (mapObj) {
             level.setMap(mapObj.map);
         }
         else {
-            mapgen.setGen(levelType, cols, rows);
-            mapObj = mapgen.getMap();
-            level.setMap(mapObj.map);
+            const msg = JSON.stringify(conf);
+            RG.err('Factory.Base', 'createLevel',
+                `mapObj is null. type: ${levelType}. ${msg}`);
         }
 
         return level;
     };
 
-    this.createHouseElements = function(level, mapObj) {
+    this.createHouseElements = (level, mapObj) => {
         if (!mapObj.hasOwnProperty('houses')) {return;}
         const houses = mapObj.houses;
         for (let i = 0; i < houses.length; i++) {
@@ -293,7 +314,9 @@ RG.Factory.Base = function() { // {{{2
 
             const usedHouses = [];
             let watchDog = 0;
+            level.shops = [];
             for (let n = 0; n < conf.nShops; n++) {
+                const shopObj = new RG.World.Shop();
 
                 // Find the next (unused) index for a house
                 let index = RG.RAND.randIndex(houses);
@@ -316,6 +339,8 @@ RG.Factory.Base = function() { // {{{2
                 const gold = new RG.Item.GoldCoin('Gold coin');
                 gold.count = 100;
                 keeper.getInvEq().addItem(gold);
+
+                const shopCoord = [];
                 for (let i = 0; i < floor.length; i++) {
                     const xy = floor[i];
                     if (i === 0) {level.addActor(keeper, xy[0], xy[1]);}
@@ -324,25 +349,64 @@ RG.Factory.Base = function() { // {{{2
                     level.addElement(shopElem, xy[0], xy[1]);
 
                     if (conf.hasOwnProperty('parser')) {
-                        if (typeof conf.shopFunc[n] === 'function') {
-                            const item = conf.parser.createRandomItem({
-                                func: conf.shopFunc[n]
-                            });
-                            item.add('Unpaid', new RG.Component.Unpaid());
-                            level.addItem(item, xy[0], xy[1]);
+                        const item = this.getShopItem(n, conf);
+
+                        if (!item) {
+                            const msg = 'item null. ' +
+                                `conf: ${JSON.stringify(conf)}`;
+                            RG.err('Factory.Base', 'createShop',
+                                `${msg} shopFunc/type${n} not well defined.`);
                         }
                         else {
-                            RG.err('Factory.Base', 'createShop',
-                                `shopFunc${n} not properly defined.`);
-
+                            item.add('Unpaid', new RG.Component.Unpaid());
+                            level.addItem(item, xy[0], xy[1]);
+                            shopCoord.push(xy);
                         }
                     }
                 }
+
+                shopObj.setShopkeeper(keeper);
+                shopObj.setLevel(level);
+                shopObj.setCoord(shopCoord);
+                level.shops.push(shopObj);
             }
         }
         else {
             RG.err('Factory.Base', 'createShops', 'No houses in mapObj.');
         }
+
+    };
+
+    /* Returns a shop item based on the configuration. */
+    this.getShopItem = (n, conf) => {
+        let item = null;
+        if (conf.shopFunc) {
+            if (typeof conf.shopFunc[n] === 'function') {
+                item = conf.parser.createRandomItem({
+                    func: conf.shopFunc[n]
+                });
+            }
+            else {
+                RG.err('Factory.Base', 'createShop -> getShopItem',
+                    'shopFunc must be a function.');
+            }
+        }
+        else if (Array.isArray(conf.shopType)) {
+            item = conf.parser.createRandomItem({
+                func: item => item.type === conf.shopType[n]
+            });
+        }
+        else if (typeof conf.shopType === 'string') {
+            item = conf.parser.createRandomItem({
+                func: item => item.type === conf.shopType
+            });
+        }
+        else { // Fallback, if no config
+            item = conf.parser.createRandomItem({
+                func: item => item.value <= 50 + n * 100
+            });
+        }
+        return item;
     };
 
     /* Creates a randomized level for the game. Danger level controls how the
@@ -354,78 +418,113 @@ RG.Factory.Base = function() { // {{{2
     };
 
     /* Adds N random items to the level based on maximum value.*/
-    this.addNRandItems = function(level, parser, conf) {
+    this.addNRandItems = (level, parser, conf) => {
         _verif.verifyConf('addNRandItems', conf, ['func', 'maxValue']);
         // Generate the items randomly for this level
+
+        const items = [];
         for (let j = 0; j < conf.itemsPerLevel; j++) {
             const item = parser.createRandomItem({func: conf.func});
-            _doItemSpecificAdjustments(item, conf.maxValue);
-            const itemCell = level.getFreeRandCell();
-            level.addItem(item, itemCell.getX(), itemCell.getY());
+            if (item) {
+                _doItemSpecificAdjustments(item, conf.maxValue);
+                items.push(item);
+            }
         }
-        const food = parser.createRandomItem({func: function(item) {
-            return item.type === 'food';
-        }});
-        const foodCell = level.getFreeRandCell();
-        _doItemSpecificAdjustments(food, conf.maxValue);
-        level.addItem(food, foodCell.getX(), foodCell.getY());
+
+        if (typeof conf.food === 'function' && conf.food()) {
+            const food = parser.createRandomItem({
+                func: item => item.type === 'food'
+            });
+
+            if (food) {
+                _doItemSpecificAdjustments(food, conf.maxValue);
+                items.push(food);
+            }
+            else {
+                RG.warn('Factory.Base', 'addNRandItems',
+                    'Item.Food was not created properly.');
+            }
+        }
+        this.addToFreeCells(level, items, RG.TYPE_ITEM);
     };
 
     /* Adds N random monsters to the level based on given danger level.*/
-    this.addNRandMonsters = (level, parser, conf) => {
-        _verif.verifyConf('addNRandMonsters', conf,
-            ['maxDanger', 'monstersPerLevel']);
+    this.addNRandActors = (level, parser, conf) => {
+        _verif.verifyConf('addNRandActors', conf,
+            ['maxDanger', 'actorsPerLevel']);
         // Generate the monsters randomly for this level
         const maxDanger = conf.maxDanger;
-        for (let i = 0; i < conf.monstersPerLevel; i++) {
-            const cell = level.getFreeRandCell();
+
+        const actors = [];
+        for (let i = 0; i < conf.actorsPerLevel; i++) {
 
             // Generic randomization with danger level
-            let monster = null;
+            let actor = null;
             if (!conf.func) {
-                monster = parser.createRandomActorWeighted(1, maxDanger,
+                actor = parser.createRandomActorWeighted(1, maxDanger,
                     {func: function(actor) {return actor.danger <= maxDanger;}}
                 );
             }
             else {
-                monster = parser.createRandomActor({
+                actor = parser.createRandomActor({
                     func: (actor) => (conf.func(actor) &&
                         actor.danger <= maxDanger)
                 });
             }
 
-            // This levels up the actor to match current danger level
-            const objShell = parser.dbGet('actors', monster.getName());
-            const expLevel = maxDanger - objShell.danger;
-            if (expLevel > 1) {
-                RG.levelUpActor(monster, expLevel);
-            }
-
-            if (monster) {
-                level.addActor(monster, cell.getX(), cell.getY());
+            if (actor) {
+                // This levels up the actor to match current danger level
+                const objShell = parser.dbGet('actors', actor.getName());
+                const expLevel = maxDanger - objShell.danger;
+                if (expLevel > 1) {
+                    RG.levelUpActor(actor, expLevel);
+                }
+                actors.push(actor);
             }
             else {
-                RG.err('Factory.Feature', 'addNRandMonsters',
-                    `Generated monster null. Conf: ${JSON.stringify(conf)}`);
+                RG.err('Factory.Zone', 'addNRandActors',
+                    `Generated actor null. Conf: ${JSON.stringify(conf)}`);
+            }
+
+        }
+        this.addToFreeCells(level, actors, RG.TYPE_ACTOR);
+    };
+
+    this.addToFreeCells = function(level, props, type) {
+        const freeCells = level.getMap().getFree();
+        for (let i = 0; i < props.length; i++) {
+            if (freeCells.length > 0) {
+                const index = RG.RAND.randIndex(freeCells);
+                const cell = freeCells[index];
+                if (type === RG.TYPE_ACTOR) {
+                    level.addActor(props[i], cell.getX(), cell.getY());
+                }
+                else if (type === RG.TYPE_ITEM) {
+                    level.addItem(props[i], cell.getX(), cell.getY());
+                }
+                freeCells.splice(index, 1); // remove used cell
             }
         }
     };
 
-    this.addRandomGold = function(level, parser, conf) {
+    /* Adds a random number of gold coins to the level. */
+    this.addRandomGold = (level, parser, conf) => {
+        const goldItems = [];
         for (let i = 0; i < conf.goldPerLevel; i++) {
             const gold = parser.createActualObj(RG.TYPE_ITEM, 'Gold coin');
             _doItemSpecificAdjustments(gold, conf.nLevel);
-            level.addToRandomCell(gold);
+            goldItems.push(gold);
         }
+        this.addToFreeCells(level, goldItems, RG.TYPE_ITEM);
     };
 
     /* Called for random items. Adjusts some of their attributes randomly.*/
-    const _doItemSpecificAdjustments = function(item, val) {
+    const _doItemSpecificAdjustments = (item, val) => {
         _itemRandomizer.adjustItem(item, val);
     };
 
 
-    this.createHumanArmy = function(level, parser) {
+    this.createHumanArmy = (level, parser) => {
         for (let y = 0; y < 2; y++) {
             for (let x = 0; x < 20; x++) {
                 const human = parser.createActualObj('actors', 'fighter');
@@ -438,7 +537,7 @@ RG.Factory.Base = function() { // {{{2
 
     };
 
-    this.createDemonArmy = function(level, parser) {
+    this.createDemonArmy = (level, parser) => {
         for (let y = 0; y < 2; y++) {
             for (let i = 0; i < 10; i++) {
                 const demon = parser.createActualObj('actors', 'Winter demon');
@@ -449,16 +548,24 @@ RG.Factory.Base = function() { // {{{2
         }
     };
 
-    this.createDemonArmy = function(level, parser) {
+    this.createBeastArmy = function(level, parser) {
         const x0 = level.getMap().cols / 2;
         const y0 = level.getMap().rows / 2;
         for (let y = y0; y < y0 + 2; y++) {
             for (let x = x0; x < x0 + 10; x++) {
                 const beast = parser.createActualObj('actors',
                     'Blizzard beast');
-                level.addActor(beast, x + 10, 14 + y);
-                RG.POOL.emitEvent(RG.EVT_ACTOR_CREATED, {actor: beast,
-                    level, msg: 'DemonSpawn'});
+                const xAct = x + 10;
+                const yAct = y + 14;
+                if (level.getMap().hasXY(xAct, yAct)) {
+                    level.addActor(beast, xAct, yAct);
+                    RG.POOL.emitEvent(RG.EVT_ACTOR_CREATED, {actor: beast,
+                        level, msg: 'DemonSpawn'});
+                }
+                else {
+                    RG.warn('Factory.Base', 'createBeastArmy',
+                        `Cannot put beast to ${xAct}, ${yAct}.`);
+                }
             }
         }
         RG.debug(this, 'Blizzard beasts should now appear.');
@@ -469,47 +576,57 @@ RG.Factory.Base = function() { // {{{2
 RG.FACT = new RG.Factory.Base();
 // }}}
 
-RG.Factory.Feature = function() {
+RG.Factory.Zone = function() {
     RG.Factory.Base.call(this);
 
-    const _verif = new RG.VerifyConf('Factory.Feature');
+    const _verif = new RG.Verify.Conf('Factory.Zone');
 
-    const _parser = new RG.ObjectShellParser();
+    const _parser = new RG.ObjectShell.Parser();
     _parser.parseShellData(RG.Effects);
     _parser.parseShellData(RGObjects);
 
-    this.getRandLevelType = function() {
-        const type = ['rooms', 'rogue', 'digger', 'cellular'];
+    this.getRandLevelType = () => {
+        const type = ['rooms', 'rogue', 'digger'];
         const nLevelType = RG.RAND.randIndex(type);
         return type[nLevelType];
     };
 
-    this.addItemsAndMonsters = function(level, conf) {
-        _verif.verifyConf('addItemsAndMonsters', conf,
-            ['nLevel', 'sqrPerItem', 'sqrPerMonster', 'maxValue']);
+    this.addItemsAndActors = function(level, conf) {
+        _verif.verifyConf('addItemsAndActors', conf,
+            ['nLevel', 'sqrPerItem', 'sqrPerActor', 'maxValue']);
 
         const numFree = level.getMap().getFree().length;
-        const monstersPerLevel = Math.round(numFree / conf.sqrPerMonster);
+        const actorsPerLevel = Math.round(numFree / conf.sqrPerActor);
         const itemsPerLevel = Math.round(numFree / conf.sqrPerItem);
         const goldPerLevel = itemsPerLevel;
 
-        debug(`Adding ${monstersPerLevel} monsters and
-            ${itemsPerLevel} to the level`);
+        debug(`Adding ${actorsPerLevel} monsters and items ` +
+            `${itemsPerLevel} to the level`);
 
-        const itemConstraint = function(maxValue) {
-            return function(item) {return item.value <= maxValue;};
-        };
+        const itemConstraint = maxValue => item => item.value <= maxValue;
 
         const itemConf = {
-            nLevel: conf.nLevel, // verified to exist
+            nLevel: conf.nLevel,
             itemsPerLevel,
             func: itemConstraint(conf.maxValue),
-            maxValue: conf.maxValue
+            maxValue: conf.maxValue,
+            food: () => true,
+            gold: () => true
         };
+        if (conf.food) {
+            itemConf.food = conf.food;
+        }
+        if (conf.gold) {
+            itemConf.gold = conf.gold;
+        }
+        if (conf.item) {
+            itemConf.func = conf.item;
+            debug(`Set itemConf.func to ${conf.item.toString()}`);
+        }
         this.addNRandItems(level, _parser, itemConf);
 
         const actorConf = {
-            monstersPerLevel: conf.monstersPerLevel || monstersPerLevel,
+            actorsPerLevel: conf.actorsPerLevel || actorsPerLevel,
             maxDanger: conf.maxDanger || conf.nLevel + 1
         };
         if (conf.actor) {
@@ -517,67 +634,223 @@ RG.Factory.Feature = function() {
                 actorConf.func = conf.actor;
             }
             else {
-                RG.err('Factory.Feature', 'addItemsAndMonsters',
+                RG.err('Factory.Zone', 'addItemsAndActors',
                     'conf.actor must be a function');
             }
         }
-        this.addNRandMonsters(level, _parser, actorConf);
+        this.addNRandActors(level, _parser, actorConf);
 
-        const goldConf = {
-            goldPerLevel,
-            nLevel: conf.nLevel + 1
-        };
-        this.addRandomGold(level, _parser, goldConf);
+        if (itemConf.gold()) {
+            const goldConf = {
+                goldPerLevel,
+                nLevel: conf.nLevel + 1
+            };
+            this.addRandomGold(level, _parser, goldConf);
+        }
     };
 
-    /* Creates random dungeon level. */
+    /* Creates dungeon level. Unless levelType is given, chooses the type
+     * randomly. */
     this.createDungeonLevel = function(conf) {
-        const levelType = this.getRandLevelType();
-        const level = this.createLevel(levelType, conf.x, conf.y);
-        this.addItemsAndMonsters(level, conf);
+        let level = null;
+        let levelType = this.getRandLevelType();
+        if (conf.dungeonType) {
+            levelType = conf.dungeonType;
+        }
+        debug(`dungeonLevel: ${levelType}, ${JSON.stringify(conf)}`);
+        level = this.createLevel(levelType, conf.x, conf.y, conf);
+        this.addItemsAndActors(level, conf);
         return level;
     };
 
-    this.createCityLevel = function(conf) {
-        const levelConf = cityConfBase(_parser, conf);
-        const cityLevel = this.createLevel('town', conf.x, conf.y, levelConf);
-        return cityLevel;
-    };
 
     this.createMountainLevel = function(conf) {
         const mountConf = {
             maxValue: 100,
-            sqrPerMonster: 50,
+            sqrPerActor: 50,
             sqrPerItem: 200,
             nLevel: 4
         };
         debug(`Creating mountain level with ${conf}`);
         const mountainLevel = this.createLevel('mountain',
             conf.x, conf.y, mountConf);
-        this.addItemsAndMonsters(mountainLevel, mountConf);
+        this.addItemsAndActors(mountainLevel, mountConf);
         return mountainLevel;
     };
-};
-RG.extend2(RG.Factory.Feature, RG.Factory.Base);
 
-/* Factory object for creating worlds and features. Uses conf object which is
+    //---------------------------
+    // CITY LEVELS
+    //---------------------------
+
+    /* Called for each nLevels of city quarter. Delegates the task to other
+    * functions based on the type of city and quarter. */
+    this.createCityLevel = function(nLevel, conf) {
+        const levelConf = RG.Factory.cityConfBase(conf);
+        levelConf.parser = _parser;
+        let cityLevel = null;
+
+        const {x, y} = conf;
+        if (levelConf.groupType) {
+            switch (levelConf.groupType) {
+                case 'village': {
+                    console.log('Creating village level now');
+                    cityLevel = this.createVillageLevel(x, y, levelConf);
+                    break;
+                }
+                case 'capital': {
+                    console.log('Creating capital level now');
+                    cityLevel = this.createCapitalLevel(
+                        nLevel, x, y, levelConf);
+                    break;
+                }
+                case 'stronghold': {
+                    console.log('Creating stronghold level now');
+                    cityLevel = this.createStrongholdLevel(x, y, levelConf);
+                    break;
+                }
+                case 'fort': {
+                    console.log('Creating fort level now');
+                    cityLevel = this.createFortLevel(x, y, levelConf);
+                    break;
+                }
+                default: {
+                    break;
+                }
+            }
+        }
+
+        // Fall back to the default method
+        if (cityLevel === null) {
+            cityLevel = this.createLevel('town', x, y, levelConf);
+        }
+        return cityLevel;
+    };
+
+    this.createVillageLevel = function(cols, rows, levelConf) {
+        levelConf.levelType = 'empty';
+        levelConf.wallType = 'wooden';
+        const level = this.createLevel('town', cols, rows, levelConf);
+        levelConf.actorsPerLevel = 30;
+        levelConf.maxDanger = 3;
+        this.populateCityLevel(level, levelConf);
+        return level;
+    };
+
+    this.createFortLevel = function(cols, rows, levelConf) {
+        levelConf.levelType = 'miner';
+        const level = this.createLevel('town', 100, 84, levelConf);
+        this.populateCityLevel(level, levelConf);
+        return level;
+    };
+
+    this.createCapitalLevel = function(nLevel, cols, rows, levelConf) {
+        levelConf.levelType = 'miner';
+        let level = null;
+        if (nLevel === 0) {
+            levelConf.levelType = 'townwithwall';
+            level = this.createLevel('townwithwall', 200, 84, levelConf);
+        }
+        else {
+            level = this.createLevel('town', 100, 84, levelConf);
+        }
+        this.populateCityLevel(level, levelConf);
+        return level;
+    };
+
+    this.createStrongholdLevel = function(cols, rows, levelConf) {
+        levelConf.levelType = 'miner';
+        const level = this.createLevel('town', 100, 84, levelConf);
+        this.populateCityLevel(level, levelConf);
+        return level;
+    };
+
+    this.populateCityLevel = function(level, levelConf) {
+        let alignment = levelConf.alignment;
+        if (!alignment) {
+            alignment = RG.RAND.arrayGetRand(RG.ALIGNMENTS);
+        }
+        if (alignment === RG.ALIGN_GOOD) {
+            this.populateWithHumans(level, levelConf);
+        }
+        else if (alignment === RG.ALIGN_EVIL) {
+            this.populateWithNonHumans(level, levelConf);
+        }
+        else {
+            this.populateWithNeutral(level, levelConf);
+        }
+    };
+
+    this.populateWithHumans = function(level, levelConf) {
+        const actorConf = {
+            actorsPerLevel: levelConf.actorsPerLevel || 100,
+            maxDanger: levelConf.maxDanger || 10,
+            func: actor => (
+                actor.type === 'human' &&
+                actor.name !== 'shopkeeper'
+            )
+        };
+        if (levelConf.func) {actorConf.func = levelConf.func;}
+        this.addNRandActors(level, _parser, actorConf);
+    };
+
+    this.populateWithNonHumans = function(level, levelConf) {
+        const actorConf = {
+            actorsPerLevel: levelConf.actorsPerLevel || 100,
+            maxDanger: levelConf.maxDanger || 10,
+            func: actor => (
+                actor.type !== 'human'
+            )
+        };
+        if (levelConf.func) {actorConf.func = levelConf.func;}
+        this.addNRandActors(level, _parser, actorConf);
+    };
+
+    this.populateWithNeutral = function(level, levelConf) {
+        const actorConf = {
+            actorsPerLevel: levelConf.actorsPerLevel || 100,
+            maxDanger: levelConf.maxDanger || 10,
+            func: actor => (
+                actor.type === 'dwarf' ||
+                actor.type === 'spirit' ||
+                actor.type === 'bearfolk'
+            )
+        };
+        if (levelConf.func) {actorConf.func = levelConf.func;}
+        this.addNRandActors(level, _parser, actorConf);
+    };
+
+    this.addActorToLevel = (actorName, level) => {
+        const actor = _parser.createActor(actorName);
+        const cell = level.getFreeRandCell();
+        level.addActor(actor, cell.getX(), cell.getY());
+    };
+
+};
+RG.extend2(RG.Factory.Zone, RG.Factory.Base);
+
+/* Factory object for creating worlds and zones. Uses conf object which is
  * somewhat involved. For an example, see ../data/conf.world.js. This Factory
  * does not have any procedural generation. The configuration object can be
  * generated procedurally, and the factory will then use the configuration for
  * building the world. Separation of concerns, you know.
  */
 RG.Factory.World = function() {
-    const _verif = new RG.VerifyConf('Factory.World');
-    this.featureFactory = new RG.Factory.Feature();
+    const _verif = new RG.Verify.Conf('Factory.World');
+    this.factZone = new RG.Factory.Zone();
 
     // Used for generating levels, if more specific settings not given
     this.globalConf = {
         dungeonX: RG.LEVEL_MEDIUM_X,
         dungeonY: RG.LEVEL_MEDIUM_Y
-
     };
 
-    // Can be used to pass already created levels to different features. For
+    this.presetLevels = {};
+
+    this.setPresetLevels = function(levels) {
+        this.presetLevels = levels;
+    };
+
+    // Can be used to pass already created levels to different zones. For
     // example, after restore game, no new levels should be created
     this.id2level = {};
     this.id2levelSet = false;
@@ -595,85 +868,67 @@ RG.Factory.World = function() {
     this.pushScope = function(conf) {
         this.scope.push(conf.name);
         this.confStack.push(conf);
-        if (conf.hasOwnProperty('constraint')) {
-            this.pushConstraint(conf.constraint);
-        }
     };
 
-    this.popScope = function(name) {
+    this.popScope = function(conf) {
+        const name = conf.name;
         const poppedName = this.scope.pop();
         if (poppedName !== name) {
             RG.err('Factory.World', 'popScope',
                 `Popped: ${poppedName}, Expected: ${name}`);
         }
         else {
-            const conf = this.confStack.pop();
-            if (conf.hasOwnProperty('constraint')) {
-                this.popConstraint();
-            }
+            const currConf = this.confStack.pop();
+            debug('Popped scope: ' + currConf.name);
         }
     };
 
     /* Initializes the global configuration such as level size. */
     this.setGlobalConf = function(conf) {
         const levelSize = conf.levelSize || 'Medium';
-        const sqrPerMonster = conf.sqrPerMonster || RG.ACTOR_MEDIUM_SQR;
+        const sqrPerActor = conf.sqrPerActor || RG.ACTOR_MEDIUM_SQR;
         this.globalConf.levelSize = levelSize;
         this.globalConf.dungeonX = levelSizes.dungeon[levelSize].x;
         this.globalConf.dungeonY = levelSizes.dungeon[levelSize].y;
-        this.globalConf.sqrPerMonster = sqrPerMonster;
+        this.globalConf.sqrPerActor = sqrPerActor;
         this.globalConf.sqrPerItem = conf.sqrPerItem || RG.LOOT_MEDIUM_SQR;
+        this.globalConf.set = true;
+        debug('globalConf set to ' + JSON.stringify(this.globalConf));
     };
 
-    /* Returns global config value. */
+    /* Returns config value. */
     this.getConf = function(keys) {
-        if (typeof keys === 'string') {
-            return this.globalConf[keys];
+        // First travel the config stack from the top
+        for (let i = this.confStack.length - 1; i >= 0; i--) {
+            if (this.confStack[i].hasOwnProperty(keys)) {
+                return this.confStack[i][keys];
+            }
         }
-        let currRef = this.globalConf;
-        keys.forEach(key => {
-            if (currRef.hasOwnProperty(key)) {
-                currRef = currRef[key];
-            }
-            else {
-                RG.err('Factory.World', 'getConf',
-                    `Cannot find conf for keys ${JSON.stringify(keys)}`);
-            }
-        });
-        return currRef;
-    };
 
-    // Random constraint management
-    this.constraintStack = [];
-    this.pushConstraint = function(constr) {
-        this.constraintStack.push(constr);
-    };
-    this.popConstraint = function() {
-        this.constraintStack.pop();
-    };
-    /* Returns the current constraint in effect. */
-    this.getConstraint = function() {
-        const len = this.constraintStack.length;
-        if (len) {
-            return this.constraintStack[len - 1];
+        // If nothing found, try the global configuration
+        if (this.globalConf.hasOwnProperty(keys)) {
+            return this.globalConf[keys];
         }
         return null;
     };
 
-    /* Returns the full hierarchical name of feature. */
+    /* Returns the full hierarchical name of the zone. */
     this.getHierName = () => this.scope.join('.');
 
     /* Creates a world using given configuration. */
     this.createWorld = function(conf) {
         _verif.verifyConf('createWorld', conf, ['name', 'nAreas']);
+        if (!this.globalConf.set) {
+            this.setGlobalConf({});
+        }
         this.pushScope(conf);
-        const world = new RG.World.World(conf.name);
+        const world = new RG.World.Top(conf.name);
         for (let i = 0; i < conf.nAreas; i++) {
             const areaConf = conf.area[i];
             const area = this.createArea(areaConf);
             world.addArea(area);
         }
-        this.popScope(conf.name);
+        this.popScope(conf);
         return world;
     };
 
@@ -683,13 +938,28 @@ RG.Factory.World = function() {
             ['name', 'maxX', 'maxY']);
         this.pushScope(conf);
 
-        // TODO deal with levels when restoring
+        const hierName = this.getHierName();
+
         let areaLevels = null;
+        let needsConnect = false;
         if (this.id2levelSet) {
             areaLevels = this.getAreaLevels(conf);
         }
+        else {
+            areaLevels = this.getPresetLevels(hierName);
+            if (areaLevels.length === 0) {
+                areaLevels = null;
+            }
+            else {
+                needsConnect = true;
+            }
+        }
+
         const area = new RG.World.Area(conf.name, conf.maxX, conf.maxY,
             conf.cols, conf.rows, areaLevels);
+        if (needsConnect) {
+            area.connectTiles();
+        }
         area.setHierName(this.getHierName());
         const nDungeons = conf.nDungeons || 0;
         const nMountains = conf.nMountains || 0;
@@ -721,7 +991,7 @@ RG.Factory.World = function() {
                 this.createConnection(area, city, cityConf);
             }
         }
-        this.popScope(conf.name);
+        this.popScope(conf);
         return area;
     };
 
@@ -781,7 +1051,7 @@ RG.Factory.World = function() {
         if (!this.id2levelSet) {
             if (conf.nBranches > 1) {
                 if (conf.connect) {
-                    conf.connect.forEach( conn => {
+                    conf.connect.forEach(conn => {
                         if (conn.length === 4) {
                             // conn has len 4, spread it out
                             dungeon.connectBranches(...conn);
@@ -799,7 +1069,7 @@ RG.Factory.World = function() {
             }
         }
 
-        this.popScope(conf.name);
+        this.popScope(conf);
         return dungeon;
     };
 
@@ -808,50 +1078,158 @@ RG.Factory.World = function() {
         _verif.verifyConf('createBranch', conf,
             ['name', 'nLevels']);
         this.pushScope(conf);
-        const branch = new RG.World.Branch(conf.name);
-        branch.setHierName(this.getHierName());
 
-        const constraint = this.getConstraint();
+        const branch = new RG.World.Branch(conf.name);
+        const hierName = this.getHierName();
+        branch.setHierName(hierName);
+
+        const presetLevels = this.getPresetLevels(hierName);
 
         for (let i = 0; i < conf.nLevels; i++) {
-            // TODO: Level configuration can be quite complex. Support random
-            // and customly created levels somehow
+            const maxDanger = this.getConf('maxDanger');
+            const maxValue = this.getConf('maxValue');
+
             const levelConf = {
-                x: this.getConf(['dungeonX']),
-                y: this.getConf(['dungeonY']),
-                sqrPerMonster: this.getConf('sqrPerMonster'),
+                x: this.getConf('dungeonX'),
+                y: this.getConf('dungeonY'),
+                sqrPerActor: this.getConf('sqrPerActor'),
                 sqrPerItem: this.getConf('sqrPerItem'),
-                maxValue: 20 * (i + 1),
+                maxValue: maxValue || 20 * (i + 1),
+                maxDanger: maxDanger || 2,
                 nLevel: i
             };
-            if (constraint) {
-                levelConf.actor = constraint.actor;
+
+            const dungeonType = this.getConf('dungeonType');
+            if (dungeonType) {
+                levelConf.dungeonType = dungeonType;
             }
 
+            this.setLevelConstraints(levelConf);
+
+            // First try to find a preset level
             let level = null;
-            if (conf.levels) {
-                level = this.id2level[conf.levels[i]];
+            if (presetLevels.length > 0) {
+                const levelObj = presetLevels.find(lv => lv.nLevel === i);
+                if (levelObj) {
+                    level = levelObj.level;
+                }
             }
-            else {
-                level = this.featureFactory.createDungeonLevel(levelConf);
+
+            // If preset not found, either restore or create a new one
+            if (!level) {
+                if (conf.levels) { // Restore level
+                    level = this.id2level[conf.levels[i]];
+                }
+                else {
+                    level = this.factZone.createDungeonLevel(levelConf);
+                    // For creating 'fixed' items and actors
+                    this.addFixedFeatures(i, level, branch);
+                }
             }
+
             branch.addLevel(level);
         }
 
-        // Do only if not restoring the branch
+        // Do connecting only if not restoring the branch
         if (!this.id2levelSet) {
             branch.connectLevels();
             if (conf.hasOwnProperty('entranceLevel')) {
-                const entrStairs = new Stairs(false);
-                branch.setEntrance(entrStairs, conf.entranceLevel);
+                branch.addEntrance(conf.entranceLevel);
             }
         }
         else if (conf.hasOwnProperty('entrance')) {
             branch.setEntranceLocation(conf.entrance);
         }
 
-        this.popScope(conf.name);
+        this.popScope(conf);
         return branch;
+    };
+
+    /* Sets the randomization constraints for the level based on current
+     * configuration. */
+    this.setLevelConstraints = function(levelConf) {
+        const constraint = this.getConf('constraint');
+        if (constraint) {
+            const hierName = this.getHierName();
+            if (constraint.actor) {
+                levelConf.actor = constraint.actor;
+                const str = constraint.actor.toString();
+                debug(`Found actor constraint for ${hierName}: ${str}`);
+            }
+            if (constraint.item) {
+                levelConf.item = constraint.item;
+                const str = constraint.item.toString();
+                debug(`Found item constraint for ${hierName}: ${str}`);
+            }
+            if (constraint.food) {
+                levelConf.food = constraint.food;
+                const str = constraint.food.toString();
+                debug(`Found food constraint for ${hierName}: ${str}`);
+            }
+            if (constraint.gold) {
+                levelConf.gold = constraint.gold;
+                const str = constraint.gold.toString();
+                debug(`Found gold constraint for ${hierName}: ${str}`);
+            }
+        }
+
+        const groupType = this.getConf('groupType');
+        const cityType = this.getConf('cityType');
+        const quarterType = this.getConf('quarterType');
+        const alignment = this.getConf('alignment');
+        const wallType = this.getConf('wallType');
+        const floorType = this.getConf('floorType');
+        if (groupType) {levelConf.groupType = groupType;}
+        if (cityType) {levelConf.cityType = cityType;}
+        if (quarterType) {levelConf.cityType = quarterType;}
+        if (alignment) {levelConf.alignment = alignment;}
+        if (wallType) {levelConf.wallType = wallType;}
+        if (floorType) {levelConf.floorType = floorType;}
+    };
+
+    /* Adds fixed features such as stairs, actors and items into the level. */
+    this.addFixedFeatures = function(nLevel, level, feat) {
+        const create = this.getConf('create');
+
+        // Actor creation
+        if (create && create.actor) {
+            const createActors = create.actor;
+            createActors.forEach(createActor => {
+                if (createActor.nLevel === nLevel) {
+                    const actorName = createActor.name;
+                    if (createActor.hasOwnProperty('target') &&
+                        feat.getName() === createActor.target) {
+                        this.factZone.addActorToLevel(actorName, level);
+                    }
+                    else {
+                        console.log('Creating ' + createActor.name);
+                        this.factZone.addActorToLevel(actorName, level);
+                    }
+                }
+            });
+        }
+
+        // Stairs creation
+        if (create && create.stairs) {
+            const createStairs = create.stairs;
+            createStairs.forEach(sConf => {
+                if (sConf.nLevel === nLevel) {
+                    const {x, y, isDown} = sConf;
+                    const stairs = new Stairs(isDown, level);
+                    level.addStairs(stairs, x, y);
+                }
+            });
+        }
+    };
+
+    /* Returns preset levels (if any) for the current zone. */
+    this.getPresetLevels = function(hierName) {
+        const keys = Object.keys(this.presetLevels);
+        const foundKey = keys.find(item => new RegExp(item).test(hierName));
+        if (foundKey) {
+            return this.presetLevels[foundKey];
+        }
+        return [];
     };
 
     this.createMountain = function(conf) {
@@ -866,7 +1244,30 @@ RG.Factory.World = function() {
             mountain.addFace(mountainFace);
         }
 
-        this.popScope(conf.name);
+        if (!this.id2levelSet) {
+            if (conf.nFaces > 1) {
+                if (conf.connect) {
+                    conf.connect.forEach(conn => {
+                        if (conn.length === 4) {
+                            // conn has len 4, spread it out
+                            mountain.connectFaces(...conn);
+                        }
+                        else {
+                            RG.err('Factory.World', 'createMountain',
+                                'Each connection.length must be 4.');
+                        }
+                    });
+
+                    // TODO verify that levels are passable
+                }
+                else {
+                    RG.err('Factory.World', 'createMountain',
+                        'nBranches > 1, but no conf.connect.');
+                }
+            }
+        }
+
+        this.popScope(conf);
         return mountain;
     };
 
@@ -884,29 +1285,32 @@ RG.Factory.World = function() {
         const face = new RG.World.MountainFace(faceName);
         const mLevelConf = { x: conf.x, y: conf.y};
 
+        this.setLevelConstraints(mLevelConf);
+
         for (let i = 0; i < conf.nLevels; i++) {
             let level = null;
             if (!this.id2levelSet) {
-                level = this.featureFactory.createMountainLevel(mLevelConf);
+                level = this.factZone.createMountainLevel(mLevelConf);
             }
             else {
                 const id = conf.levels[i];
                 level = this.id2level[id];
             }
             face.addLevel(level);
-            if (!this.id2levelSet) {
-                face.addEntrance(i);
-            }
-            else {
-                face.setEntranceLocation(conf.entrance);
-            }
         }
 
-        this.popScope(faceName);
+        if (conf.hasOwnProperty('entranceLevel')) {
+            face.addEntrance(conf.entranceLevel);
+        }
+        else if (conf.hasOwnProperty('entrance')) {
+            face.setEntranceLocation(conf.entrance);
+        }
+
+        this.popScope(conf);
         return face;
     };
 
-    /* Creates a City and all its sub-features. */
+    /* Creates a City and all its sub-zones. */
     this.createCity = function(conf) {
         if (this.id2levelSet) {
             _verif.verifyConf('createCity',
@@ -925,11 +1329,11 @@ RG.Factory.World = function() {
             city.addQuarter(quarter);
         }
 
-        // Connect branches according to configuration
+        // Connect city quarters according to configuration
         if (!this.id2levelSet) {
             if (conf.nQuarters > 1) {
                 if (conf.connect) {
-                    conf.connect.forEach( conn => {
+                    conf.connect.forEach(conn => {
                         if (conn.length === 4) {
                             // conn has len 4, spread it out
                             city.connectQuarters(...conn);
@@ -947,7 +1351,7 @@ RG.Factory.World = function() {
             }
         }
 
-        this.popScope(conf.name);
+        this.popScope(conf);
         return city;
     };
 
@@ -956,18 +1360,31 @@ RG.Factory.World = function() {
         _verif.verifyConf('createCityQuarter',
             conf, ['name', 'nLevels']);
         this.pushScope(conf);
+
         const quarter = new RG.World.CityQuarter(conf.name);
-        quarter.setHierName(this.getHierName());
+        const hierName = this.getHierName();
+        quarter.setHierName(hierName);
 
         const cityLevelConf = {
             x: conf.x || 80, y: conf.y || 40,
             nShops: conf.nShops || 1,
             shopFunc: conf.shop || [(item) => (item.type === 'food')]
         };
+
+        // This bunch of data must be passed in conf because featFact does not
+        // have access to it via getConf
+        this.setLevelConstraints(cityLevelConf);
+
         for (let i = 0; i < conf.nLevels; i++) {
             let level = null;
             if (!this.id2levelSet) {
-                level = this.featureFactory.createCityLevel(cityLevelConf);
+                level = this.factZone.createCityLevel(i, cityLevelConf);
+                this.addFixedFeatures(i, level, quarter);
+                if (level.shops) {
+                    level.shops.forEach(shop => {
+                        quarter.addShop(shop);
+                    });
+                }
             }
             else {
                 const id = conf.levels[i];
@@ -975,20 +1392,25 @@ RG.Factory.World = function() {
             }
             quarter.addLevel(level);
         }
+
+        if (!this.id2levelSet) {
+            quarter.connectLevels();
+        }
+
         if (conf.hasOwnProperty('entranceLevel')) {
             quarter.addEntrance(conf.entranceLevel);
         }
         else if (conf.hasOwnProperty('entrance')) {
             quarter.setEntranceLocation(conf.entrance);
         }
-        this.popScope(conf.name);
+        this.popScope(conf);
         return quarter;
     };
 
-    /* Creates a connection between an area and a feature such as city, mountain
-     * or dungeon. Unless configured, connects the feature entrance to a random
+    /* Creates a connection between an area and a zone such as city, mountain
+     * or dungeon. Unless configured, connects the zone entrance to a random
      * location in the area. */
-    this.createConnection = function(area, feature, conf) {
+    this.createConnection = (area, zone, conf) => {
         _verif.verifyConf('createConnection', conf, ['x', 'y']);
 
         const x = conf.x;
@@ -996,453 +1418,76 @@ RG.Factory.World = function() {
         const tile = area.getTileXY(x, y);
         const tileLevel = tile.getLevel();
 
-        const freeAreaCell = tileLevel.getEmptyRandCell();
-        const freeX = freeAreaCell.getX();
-        const freeY = freeAreaCell.getY();
+        let tileStairsX = -1;
+        let tileStairsY = -1;
 
-        if (feature.hasOwnProperty('getEntrances')) {
-            const entrances = feature.getEntrances();
+        if (RG.isNullOrUndef([conf.levelX, conf.levelY])) {
+            const freeAreaCell = tileLevel.getEmptyRandCell();
+            tileStairsX = freeAreaCell.getX();
+            tileStairsY = freeAreaCell.getY();
+        }
+        else {
+            tileStairsX = conf.levelX;
+            tileStairsY = conf.levelY;
+        }
+
+        if (typeof zone.getEntrances === 'function') {
+            const entrances = zone.getEntrances();
             if (entrances.length > 0) {
                 const entranceStairs = entrances[0];
                 const entranceLevel = entranceStairs.getSrcLevel();
                 const isDown = !entranceStairs.isDown();
                 const tileStairs = new Stairs(isDown, tileLevel, entranceLevel);
-                tileLevel.addStairs(tileStairs, freeX, freeY);
+                tileLevel.addStairs(tileStairs, tileStairsX, tileStairsY);
                 tileStairs.connect(entranceStairs);
             }
             else {
-                const msg = `No entrances in ${feature.getHierName()}.`;
+                const msg = `No entrances in ${zone.getHierName()}.`;
                 RG.err('Factory.World', 'createConnection',
                     `${msg}. Cannot connect to tile.`);
             }
         }
-        else { // No entrance for feature, what to do?
+        else { // No entrance for zone, what to do?
             RG.err('Factory.World', 'createConnection',
-                'No getEntrances method for feature.');
+                'No getEntrances method for zone.');
         }
-    };
-};
 
-RG.Factory.Game = function() {
-    RG.Factory.Base.call(this);
+        // Make extra connections between the area and zone. This is useful
+        // if city/dungeon needs to have 2 or more entrances
+        if (conf.hasOwnProperty('connectToXY')) {
+            const connectionsXY = conf.connectToXY;
+            connectionsXY.forEach(conn => {
+                const nLevel = conn.nLevel;
+                const x = conn.levelX;
+                const y = conn.levelY;
+                const name = conn.name;
 
-    const _parser = new RG.ObjectShellParser();
+                const zoneLevel = zone.findLevel(name, nLevel);
+                if (zoneLevel) {
+                    // Create 2 new stairs, add 1st to the area level, and 2nd
+                    // to the zone level
+                    const freeCell = zoneLevel.getFreeRandCell();
+                    const zoneX = freeCell.getX();
+                    const zoneY = freeCell.getY();
 
-    /* Creates a player actor and starting inventory unless a game has been
-     * restored. */
-    this.createPlayerUnlessLoaded = function(game, obj) {
-        let player = obj.loadedPlayer;
-        if (RG.isNullOrUndef([player])) {
-            const expLevel = obj.playerLevel;
-            const pConf = confPlayerStats[expLevel];
+                    const tileStairs = new Stairs(true, tileLevel, zoneLevel);
+                    const featStairs = new Stairs(false, zoneLevel, tileLevel);
+                    tileLevel.addStairs(tileStairs, x, y);
+                    zoneLevel.addStairs(featStairs, zoneX, zoneY);
+                    tileStairs.connect(featStairs);
+                }
+                else {
+                    let msg = `connectToXY: ${JSON.stringify(conn)}`;
+                    msg += `zoneConf: ${JSON.stringify(conf)}`;
+                    RG.err('Factory.World', 'createConnection',
+                        `No level found. ${msg}`);
 
-            player = this.createPlayer(obj.playerName, {
-                att: pConf.att, def: pConf.def, prot: pConf.prot
+                }
             });
-
-            player.setType('player');
-            player.add('Health', new RG.Component.Health(pConf.hp));
-            const startingWeapon = _parser.createActualObj(
-                'items', pConf.Weapon);
-            player.getInvEq().addItem(startingWeapon);
-            player.getInvEq().equipItem(startingWeapon);
         }
 
-        if (!player.has('Hunger')) {
-            const hunger = new RG.Component.Hunger(20000);
-            player.add('Hunger', hunger);
-        }
-        else {
-            // Notify Hunger system only
-            const hunger = player.get('Hunger');
-            player.remove('Hunger');
-            player.add('Hunger', hunger);
-        }
-        const regenPlayer = new RG.Time.RogueRegenEvent(player,
-            20 * RG.ACTION_DUR);
-        game.addEvent(regenPlayer);
-        return player;
-    };
 
-
-    const that = this; // For private objects/functions
-
-    // Private object for checking when battle is done
-    const DemonKillListener = function(game, level) {
-
-        // Needed for adding monsters and events
-        const _game = game;
-        const _level = level;
-
-        let _maxBeasts = 0;
-        let _maxDemons = 0;
-        let _beastsKilled = 0;
-        let _demonsKilled = 0;
-
-        this.hasNotify = true;
-        this.notify = function(evtName, obj) {
-            if (evtName === RG.EVT_ACTOR_CREATED) {
-                if (obj.hasOwnProperty('msg') && obj.msg === 'DemonSpawn') {
-                    const actorCreated = obj.actor;
-                    if (actorCreated.getName() === 'Winter demon') {
-                        ++_maxDemons;
-                    }
-                    if (actorCreated.getName() === 'Blizzard beast') {
-                        ++_maxBeasts;
-                    }
-                }
-            }
-            else if (evtName === RG.EVT_ACTOR_KILLED) {
-                const actor = obj.actor;
-                if (actor.getName() === 'Winter demon') {
-                    ++_demonsKilled;
-                    if (_demonsKilled === _maxDemons) {
-                        this.allDemonsKilled();
-                    }
-                    RG.debug(this,
-                        'A winter demon was slain! Count:' + _demonsKilled);
-                    RG.debug(this, 'Max demons: ' + _maxDemons);
-                }
-                else if (actor.getName() === 'Blizzard beast') {
-                    ++_beastsKilled;
-                    if (_beastsKilled === _maxBeasts) {
-                        this.allBeastsKilled();
-                    }
-                }
-            }
-        };
-        RG.POOL.listenEvent(RG.EVT_ACTOR_CREATED, this);
-        RG.POOL.listenEvent(RG.EVT_ACTOR_KILLED, this);
-
-        this.addSnow = function(level, ratio) {
-            const map = level.getMap();
-            RG.Map.Generator.prototype.addRandomSnow(map, ratio);
-        };
-
-        /* Called after all winter demons have been slain.*/
-        this.allDemonsKilled = function() {
-            RG.gameMsg(
-                "Humans have vanquished all demons! But it's not over..");
-            const windsEvent = new RG.Time.RogueOneShotEvent(
-                this.addSnow.bind(this, _level, 0.2), 20 * 100,
-                "Winds are blowing stronger. You feel it's getting colder"
-            );
-            _game.addEvent(windsEvent);
-            const stormEvent = new RG.Time.RogueOneShotEvent(
-                () => {}, 35 * 100, MSG.EYE_OF_STORM);
-            _game.addEvent(stormEvent);
-            const beastEvent = new RG.Time.RogueOneShotEvent(
-                that.createDemonArmy.bind(that, _level, _parser), 50 * 100,
-                'Winter spread by Blizzard Beasts! Hell seems to freeze.');
-            _game.addEvent(beastEvent);
-        };
-
-
-        this.allBeastsKilled = function() {
-            RG.gameMsg(MSG.BEASTS_SLAIN);
-            // DO a final message of game over
-            // Add random people to celebrate
-            const msgEvent = new RG.Time.RogueOneShotEvent(() => {}, 10 * 100,
-                MSG.ENEMIES_DEAD);
-            _game.addEvent(msgEvent);
-            const msgEvent2 = new RG.Time.RogueOneShotEvent(() => {}, 20 * 100,
-                'But Battles in North will continue soon in larger scale...');
-            _game.addEvent(msgEvent2);
-        };
-    }; // const DemonKillListener
-
-    /* Creates the game based on the selection. */
-    this.createNewGame = function(obj) {
-        _parser.parseShellData(RG.Effects);
-        _parser.parseShellData(RGObjects);
-
-        const game = new RG.Game.Main();
-        const player = this.createPlayerUnlessLoaded(game, obj);
-
-        if (obj.debugMode === 'Arena') {
-            return this.createArenaDebugGame(obj, game, player);
-        }
-        else if (obj.debugMode === 'Battle') {
-            return this.createDebugBattle(obj, game, player);
-        }
-        else if (obj.debugMode === 'Tiles') {
-            return this.createTiledWorld(obj, game, player);
-        }
-        else if (obj.debugMode === 'World') {
-            return this.createFullWorld(obj, game, player);
-        }
-        else {
-            return this.createOneDungeonAndBoss(obj, game, player);
-        }
-    };
-
-    let _playerFOV = RG.FOV_RANGE;
-
-    this.createTiledWorld = function(obj, game, player) {
-        const area = new RG.World.Area('Kingdom', 4, 4);
-        const levels = area.getLevels();
-        levels.forEach(level => {
-            game.addLevel(level);
-        });
-        game.addPlayer(player);
-        return game;
-    };
-
-    this.createFullWorld = function(obj, game, player) {
-        const worldConf = obj.world;
-        if (!worldConf) {
-            RG.err('Factory', 'createFullWorld',
-                'obj.world must exist!');
-            return null;
-        }
-        worldConf.levelSize = obj.levelSize;
-        const fact = new RG.Factory.World();
-        fact.setGlobalConf(obj);
-
-        const world = fact.createWorld(worldConf);
-        const levels = world.getLevels();
-
-        if (levels.length > 0) {
-            game.addPlace(world);
-            game.addPlayer(player);
-            return game;
-        }
-        else {
-            RG.err('Factory', 'createFullWorld',
-                'There are no levels in the world!');
-            return null;
-        }
-    };
-
-    /* Can be used to create a short debugging game for testing.*/
-    this.createArenaDebugGame = function(obj, game, player) {
-        const sqrPerItem = obj.sqrPerItem;
-        const level = this.createLastBattle(game, obj);
-
-        const spirit = new RG.Actor.Spirit('Wolf spirit');
-        spirit.get('Stats').setStrength(500);
-        level.addActor(spirit, 2, 1);
-
-        const gem = new RG.Item.SpiritGem('Lesser gem');
-        level.addItem(gem);
-
-        const pickaxe = _parser.createActualObj('items', 'Pick-axe');
-        level.addItem(pickaxe, 2, 2);
-
-        const poison = _parser.createActualObj('items',
-            'Potion of frost poison');
-        poison.count = 5;
-        level.addItem(poison, 2, 2);
-        const curePoison = _parser.createActualObj('items',
-            'Potion of cure poison');
-        level.addItem(curePoison, 3, 2);
-
-        const rifle = _parser.createActualObj('items', 'Rifle');
-        const ammo = _parser.createActualObj('items', 'Rifle bullet');
-        ammo.setCount(100);
-        level.addItem(rifle, 1, 1);
-        level.addItem(ammo, 1, 1);
-
-        // Test for shops
-        const keeper = _parser.createActualObj('actors', 'shopkeeper');
-        const gold = new RG.Item.GoldCoin();
-        gold.count = 50;
-        keeper.getInvEq().addItem(gold);
-        level.addActor(keeper, 2, 2);
-        const shopElem = new RG.Element.Shop();
-        const shopCell = level.getMap().getCell(3, 3);
-        shopCell.setProp('elements', shopElem);
-        const soldItem = _parser.createActualObj('items', 'Ruby glass sword');
-        soldItem.add('Unpaid', new RG.Component.Unpaid());
-        shopCell.setProp('items', soldItem);
-        shopElem.setShopkeeper(keeper);
-
-        const numFree = level.getMap().getFree().length;
-        // const monstersPerLevel = Math.round(numFree / sqrPerMonster);
-        const itemsPerLevel = Math.round(numFree / sqrPerItem);
-
-        const itemConf = {
-            itemsPerLevel,
-            func: (item) => (item.value <= 2500),
-            maxValue: 2500
-        };
-        this.addNRandItems(level, _parser, itemConf);
-        game.addPlayer(player);
-
-        const pepper = _parser.createActualObj('items', 'Ghost pepper');
-        player.getInvEq().addItem(pepper);
-        const spiritPot = _parser.createActualObj(
-            'items', 'Potion of spirit form');
-        player.getInvEq().addItem(spiritPot);
-
-        // player.setFOVRange(50);
-        return game;
-    };
-
-    this.createDebugBattle = function(obj, game, player) {
-        const battle = new RG.Game.Battle('Battle of ice kingdoms');
-        const army1 = new RG.Game.Army('Blue army');
-        const army2 = new RG.Game.Army('Red army');
-        this.addActorsToArmy(army1, 10, 'warlord');
-        this.addActorsToArmy(army2, 10, 'Winter demon');
-
-        const battleLevel = RG.FACT.createLevel('arena', 60, 30);
-        battle.setLevel(battleLevel);
-        battle.addArmy(army1, 1, 1);
-        battle.addArmy(army2, 1, 2);
-        game.addBattle(battle);
-
-        game.addPlayer(player);
-        return game;
-    };
-
-    this.createOneDungeonAndBoss = function(obj, game, player) {
-        const cols = obj.cols;
-        const rows = obj.rows;
-        const nLevels = obj.levels;
-        const sqrPerMonster = obj.sqrPerMonster;
-        const sqrPerItem = obj.sqrPerItem;
-
-        let levelCount = 1;
-        const levels = ['rooms', 'rogue', 'digger'];
-
-        // For storing stairs and levels
-        const allStairsDown = [];
-        const allLevels = [];
-
-        const branch = new RG.World.Branch('StartBranch');
-
-        const itemConstraint = function(maxValue) {
-            return function(item) {return item.value <= maxValue;};
-        };
-        // Generate all game levels
-        for (let nl = 0; nl < nLevels; nl++) {
-
-            const nLevelType = RG.RAND.randIndex(levels);
-            let levelType = levels[nLevelType];
-            if (nl === 0) {levelType = 'ruins';}
-            const level = this.createLevel(levelType, cols, rows);
-            branch.addLevel(level);
-
-            const numFree = level.getMap().getFree().length;
-            const monstersPerLevel = Math.round(numFree / sqrPerMonster);
-            const itemsPerLevel = Math.round(numFree / sqrPerItem);
-
-            const potion = new RG.Item.Potion('Healing potion');
-            level.addItem(potion);
-            const missile = _parser.createActualObj('items', 'Shuriken');
-            missile.count = 20;
-            level.addItem(missile);
-
-            const maxValue = 20 * (nl + 1);
-            const itemConf = {
-                itemsPerLevel, func: itemConstraint(maxValue),
-                maxValue
-            };
-            this.addNRandItems(level, _parser, itemConf);
-
-            const actorConf = {
-                monstersPerLevel,
-                maxDanger: nl + 1
-            };
-            this.addNRandMonsters(level, _parser, actorConf);
-
-            allLevels.push(level);
-        }
-
-        // Create the final boss
-        const lastLevel = allLevels.slice(-1)[0];
-        const bossCell = lastLevel.getFreeRandCell();
-        const summoner = this.createActor('Summoner',
-            {hp: 100, att: 10, def: 10});
-        summoner.setType('summoner');
-        summoner.get('Experience').setExpLevel(10);
-        summoner.setBrain(new RG.Brain.Summoner(summoner));
-        lastLevel.addActor(summoner, bossCell.getX(), bossCell.getY());
-
-        const townLevel = this.createLastBattle(game, {cols: 80, rows: 60});
-        townLevel.setLevelNumber(levelCount++);
-
-        branch.connectLevels();
-        game.addPlace(branch);
-
-        const finalStairs = new Stairs(true, allLevels[nLevels - 1], townLevel);
-        const stairsLoot = new RG.Component.Loot(finalStairs);
-        summoner.add('Loot', stairsLoot);
-        allStairsDown.push(finalStairs);
-
-        const lastStairsDown = allStairsDown.slice(-1)[0];
-        const townStairsUp = new Stairs(false, townLevel, lastLevel);
-        const rStairCell = townLevel.getFreeRandCell();
-        townLevel.addStairs(townStairsUp, rStairCell.getX(), rStairCell.getY());
-        townStairsUp.setTargetStairs(lastStairsDown);
-        lastStairsDown.setTargetStairs(townStairsUp);
-
-        // Create townsfolk for the extra level
-        for (let i = 0; i < 10; i++) {
-            const name = 'Townsman';
-            const human = this.createActor(name, {brain: 'Human'});
-            human.setType('human');
-            const cell = townLevel.getFreeRandCell();
-            townLevel.addActor(human, cell.getX(), cell.getY());
-        }
-
-        // Restore player position or start from beginning
-        if (obj.loadedLevel !== null) {
-            const loadLevel = obj.loadedLevel;
-            if (loadLevel <= nLevels) {
-                allLevels[loadLevel - 1].addActorToFreeCell(player);
-            }
-            else {
-                allLevels[0].addActorToFreeCell(player);
-            }
-        }
-        game.addPlayer(player, {place: 'StartBranch'});
-
-        return game;
-
-
-    };
-
-    this.addActorsToArmy = function(army, num, name) {
-        for (let i = 0; i < num; i++) {
-            const actor = _parser.createActualObj('actors', name);
-            actor.setFOVRange(10);
-            army.addActor(actor);
-        }
-    };
-
-    /* eslint-disable */
-    let _listener = null;
-    /* eslint-enable */
-
-    this.createLastBattle = function(game, obj) {
-        const levelConf = cityConfBase(_parser);
-        const level = this.createLevel('town', obj.cols, obj.rows, levelConf);
-        _listener = new DemonKillListener(game, level);
-
-        this.createHumanArmy(level, _parser);
-
-        level.setOnFirstEnter(function() {
-            const demonEvent = new RG.Time.RogueOneShotEvent(
-                that.createDemonArmy.bind(that, level, _parser), 100 * 20,
-                'Demon hordes are unleashed from the unsilent abyss!');
-            game.addEvent(demonEvent);
-        });
-
-        level.setOnEnter( function() {
-            _playerFOV = game.getPlayer().getFOVRange();
-            game.getPlayer().setFOVRange(20);
-        });
-        level.setOnExit( function() {
-            game.getPlayer().setFOVRange(_playerFOV);
-        });
-
-        game.addLevel(level);
-        return level;
     };
 };
-RG.extend2(RG.Factory.Game, RG.Factory.Base);
-
 
 module.exports = RG.Factory;

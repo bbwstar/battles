@@ -1,38 +1,71 @@
 
 'use strict';
 
-const React = require('react');
-const GameRow = require('./game-row');
+import React, {Component} from 'react';
+import PropTypes from 'prop-types';
+// import ReactDOM from 'react-dom';
+import GameRow from './game-row';
+
+const eventToPosition = (e, elem, props) => {
+    // Where the mouse was clicked
+    const x = e.clientX;
+    const y = e.clientY;
+
+    const numCells = props.sizeX;
+    const startX = props.startX;
+    const startY = props.startY;
+
+    const rect = elem.getBoundingClientRect();
+
+    const rowElem = document.getElementsByClassName('game-board-row')[0];
+    if (rowElem) {
+        console.log(`h: ${rowElem.clientHeight} w: ${rowElem.clientWidth}`);
+        const sizeX = rowElem.clientWidth / numCells;
+        const sizeY = rowElem.clientHeight;
+
+        console.log('eventToPosition sizeX ' + sizeX);
+
+        const relX = x - rect.left;
+        const relY = y - rect.top;
+        const posX = Math.floor(relX / sizeX) + startX;
+        const posY = Math.floor(relY / sizeY) + startY;
+        return [posX, posY];
+    }
+    return [0, 0];
+};
 
 /** Component which renders the game rows. {{{2 */
-const GameBoard = React.createClass({
+export default class GameBoard extends Component {
 
-    propTypes: {
-        boardClassName: React.PropTypes.string,
-        onCellClick: React.PropTypes.func,
-        rowClass: React.PropTypes.string,
-        startX: React.PropTypes.number,
-        startY: React.PropTypes.number,
-        endY: React.PropTypes.number,
-        charRows: React.PropTypes.arrayOf(String),
-        classRows: React.PropTypes.arrayOf(String)
-    },
+    constructor(props) {
+        super(props);
+        this.onCellClick = this.onCellClick.bind(this);
+    }
 
-    render: function() {
+    onCellClick(evt) {
+        // this.board specified using react ref=
+        const xy = eventToPosition(evt, this.board, this.props);
+        console.log(`eventToPosition returned ${xy}`);
+        if (xy) {
+            this.props.onCellClick(xy[0], xy[1]);
+        }
+    }
 
+    render() {
         const rowsHTML = [];
         // Build the separate cell rows
         for (let y = this.props.startY; y <= this.props.endY; ++y) {
             const yIndex = y - this.props.startY;
+            const key = this.props.startX + ',' + y;
 
             rowsHTML.push(
                 <GameRow
-                    key={y}
-                    onCellClick={this.props.onCellClick}
+                    key={key}
                     rowChars={this.props.charRows[yIndex]}
                     rowClass={this.props.rowClass}
                     rowClasses={this.props.classRows[yIndex]}
                     startX={this.props.startX}
+                    useRLE={this.props.useRLE}
                     y={y}
                 />);
         }
@@ -41,11 +74,26 @@ const GameBoard = React.createClass({
         return (
             <div
                 className={`game-board ${this.props.boardClassName}`}
-                >
+                onClick={this.onCellClick}
+                ref={node => {this.board = node;}}
+            >
                 {rowsHTML}
             </div>
         );
     }
-}); // }}} Gameboard
 
-module.exports = GameBoard;
+}
+
+GameBoard.propTypes = {
+    boardClassName: PropTypes.string,
+    charRows: PropTypes.arrayOf(String),
+    classRows: PropTypes.arrayOf(String),
+    endY: PropTypes.number,
+    onCellClick: PropTypes.func,
+    rowClass: PropTypes.string,
+    useRLE: PropTypes.bool,
+    sizeX: PropTypes.number,
+    startX: PropTypes.number,
+    startY: PropTypes.number
+};
+

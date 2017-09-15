@@ -2,12 +2,15 @@
 const expect = require('chai').expect;
 const RG = require('../../../client/src/battles');
 const World = require('../../../client/src/world');
+const RGTest = require('../../roguetest');
 
-describe('World.Branch', function() {
-    it('Contains a number of connected levels', function() {
+const expectConnected = RGTest.expectConnected;
+
+describe('World.Branch', () => {
+    it('Contains a number of connected levels', () => {
         const nlevels = 4;
         const levels = [];
-        const branch = new World.Branch();
+        const branch = new World.Branch('br1');
         for (let i = 0; i < nlevels; i++) {
             levels.push(RG.FACT.createLevel('arena', 20, 20));
             branch.addLevel(levels[i]);
@@ -24,7 +27,7 @@ describe('World.Branch', function() {
     });
 });
 
-const addLevelsToBranch = function(br, nLevels) {
+const addLevelsToBranch = (br, nLevels) => {
     for (let i = 0; i < nLevels; i++) {
         const level = RG.FACT.createLevel('arena', 20, 20);
         br.addLevel(level);
@@ -32,8 +35,8 @@ const addLevelsToBranch = function(br, nLevels) {
     br.connectLevels();
 };
 
-describe('World.Dungeon', function() {
-    it('Contains a number of connected branches', function() {
+describe('World.Dungeon', () => {
+    it('Contains a number of connected branches', () => {
         const dungeon = new World.Dungeon('DarkDungeon');
         const branches = [];
         const numBranches = 4;
@@ -64,8 +67,8 @@ describe('World.Dungeon', function() {
     });
 });
 
-describe('World.AreaTile', function() {
-    it('Contains a level and connects from sides to other tiles', function() {
+describe('World.AreaTile', () => {
+    it('Contains a level and connects from sides to other tiles', () => {
         const cols = 20;
         const rows = 20;
 
@@ -115,8 +118,8 @@ describe('World.AreaTile', function() {
 });
 
 
-describe('World.Area', function() {
-    it('Contains a number of connected tiles', function() {
+describe('World.Area', () => {
+    it('Contains a number of connected tiles', () => {
         const area = new World.Area('SwampArea', 4, 5);
         const tiles = area.getTiles();
         const levels = area.getLevels();
@@ -138,7 +141,7 @@ describe('World.Area', function() {
     });
 });
 
-describe('World.Mountain', function() {
+describe('World.Mountain', () => {
 
     it('has at least one entrance', () => {
         const mountain = new RG.World.Mountain('mount1');
@@ -153,6 +156,33 @@ describe('World.Mountain', function() {
         mountain.addFace(face);
         expect(mountain.getEntrances()).to.have.length(1);
         expect(mountain.getLevels()).to.have.length(1);
+    });
+
+    it('can have multiple connected mountain faces + summits', () => {
+        const mountain = new RG.World.Mountain('Mount Doom');
+        const faceNames = ['north', 'south', 'east', 'west'];
+        faceNames.forEach(face => {
+            const faceObj = new RG.World.MountainFace(face);
+            const level = RG.FACT.createLevel('empty', 10, 10);
+            faceObj.addLevel(level);
+            mountain.addFace(faceObj);
+        });
+
+        const faces = mountain.getFaces();
+        expect(faces).to.have.length(4);
+        for (let i = 0; i < 5; i++) {
+            mountain.connectFaces('north', 'south', 0, 0);
+        }
+        expectConnected(faces[0], faces[1], 5);
+        mountain.connectFaces('east', 'west', 0, 0);
+        expectConnected(faces[2], faces[3], 1);
+
+        const summit = new RG.World.MountainFace('North summit');
+        const summitLevel = RG.FACT.createLevel('empty', 10, 10);
+        summit.addLevel(summitLevel);
+        mountain.addSummit(summit);
+        mountain.connectFaceAndSummit('north', 'North summit', 0, 0);
+        expectConnected(faces[0], mountain.getSummits()[0], 1);
     });
 
 });

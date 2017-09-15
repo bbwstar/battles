@@ -1,6 +1,5 @@
 /**
  * Unit Tests for maps and map cells.
- *
  */
 
 const expect = require('chai').expect;
@@ -22,8 +21,8 @@ RG.cellRenderArray = RG.cellRenderVisible;
 // MAP CELL
 //---------------------------------------------------------------------------
 
-describe('Basic properties of map cell', function() {
-    it('Holds elements and actors', function() {
+describe('Map.Cell', () => {
+    it('Holds elements and actors', () => {
         const actor = Factory.createPlayer('Player', 50);
         const cell = new Cell(0, 0, new Element('wall'));
         expect(cell.isFree()).to.equal(false);
@@ -46,19 +45,19 @@ describe('Basic properties of map cell', function() {
         const propNull = cell.getProp('xxx');
         expect(propNull).to.equal(null);
 
-        // Actors in cell, cell with actor is not free
-        const fCell = Factory.createFloorCell(1, 1);
-        expect(fCell.isFree()).to.equal(true);
-        fCell.setProp('actors', actor);
-        expect(fCell.isFree()).to.equal(false);
-        expect(fCell.lightPasses()).to.equal(true);
-        expect(fCell.hasProp('actors')).to.equal(true);
-        expect(fCell.hasProp('items')).to.equal(false);
+        // A cell with actor(s) is not free
+        const cellWithFloor = Factory.createFloorCell(1, 1);
+        expect(cellWithFloor.isFree()).to.equal(true);
+        cellWithFloor.setProp('actors', actor);
+        expect(cellWithFloor.isFree()).to.equal(false);
+        expect(cellWithFloor.lightPasses()).to.equal(true);
+        expect(cellWithFloor.hasProp('actors')).to.equal(true);
+        expect(cellWithFloor.hasProp('items')).to.equal(false);
     });
 });
 
-describe('Retrieving styling classes for cells', function() {
-    it('Returns correct CSS class and char', function() {
+describe('RG.getStyleClassForCell()', () => {
+    it('Returns correct CSS class and char', () => {
         const cell = new Cell(0, 0, new Element('wall'));
         cell.setExplored();
         expect(RG.getStyleClassForCell(cell)).to.equal('cell-element-wall');
@@ -84,12 +83,12 @@ describe('Retrieving styling classes for cells', function() {
 // ITEMS AND MAP CELLS
 //--------------------------------------------------------------------------
 
-describe('Items in map cells', function() {
-    it('Is placed in a cell and needs an owner', function() {
+describe('Items in map cells', () => {
+    it('Is placed in a cell and needs an owner', () => {
         const cell = new Cell(0, 1, new Element('floor'));
         cell.setExplored();
-        const item = new Item('food');
-        item.setType('food');
+        const item = new Item('MyFood');
+        item.setType('fooditem');
         cell.setProp('items', item);
         expect(cell.hasProp('items')).to.equal(true);
 
@@ -105,7 +104,7 @@ describe('Items in map cells', function() {
 
     });
 
-    it('Container can also be placed into the cell', function() {
+    it('Container can also be placed into the cell', () => {
         const cell = new Cell(1, 2, new Element('floor'));
         cell.setExplored();
         const container = new Container(cell);
@@ -146,7 +145,7 @@ describe('Items in map cells', function() {
 
     });
 
-    it('Picking up items from floor by actor', function() {
+    it('Picking up items from floor by actor', () => {
         const level = Factory.createLevel('arena', 20, 20);
         const actor = Factory.createPlayer('Player', {});
         const inv = actor.getInvEq().getInventory();
@@ -168,7 +167,7 @@ describe('Items in map cells', function() {
         expect(inv.isEmpty()).to.equal(true);
     });
 
-    it('Can contain open/closed doors', function() {
+    it('Can contain open/closed doors', () => {
         const openDoor = new RG.Element.Door(true);
         openDoor.openDoor();
         const doorCell = new RG.Map.Cell(0, 1, new RG.Element.Base('floor'));
@@ -191,16 +190,14 @@ describe('Items in map cells', function() {
 // MAP UNIT TESTS
 //---------------------------------------------------------------------------
 
-describe('Tests to check that basic operations for map work', function() {
+describe('Map.CellList', () => {
     const actor = new Actor('Player');
     actor.setIsPlayer(true);
     const level1 = Factory.createLevel('arena', 10, 10);
     // const level2 = Factory.createLevel('arena', 20, 20);
 
-    it('Is initialized as empty and having floors', function() {
+    it('Is initialized as empty and having floors', () => {
         const map = level1.getMap();
-        // const map2 = level2.getMap();
-
         expect(map.hasXY(0, 0)).to.equal(true);
         expect(map.hasXY(9, 9)).to.equal(true);
         expect(map.hasXY(10, 10)).to.equal(false);
@@ -213,10 +210,10 @@ describe('Tests to check that basic operations for map work', function() {
         }
 
         const actorNotInLevel = new Actor('monster');
-        actor.getFOVRange = function() {return 1;}; // Override default
+        actor.getFOVRange = () => 1; // Override default
         level1.addActor(actor, 4, 4);
         const cells = map.getVisibleCells(actor);
-        expect(cells.length).to.equal(9);
+        expect(cells.length).to.equal(17);
 
         let zeroCells = map.getVisibleCells(actorNotInLevel);
         expect(zeroCells.length).to.equal(0);
@@ -231,15 +228,28 @@ describe('Tests to check that basic operations for map work', function() {
         level1.exploreCells(actor);
         expect(level1.getMap().getCell(4, 4).isExplored()).to.equal(true);
     });
+
+    it('contains map cells with different properties', () => {
+        const mapgen = new RG.Map.Generator();
+        mapgen.setGen('empty', 20, 20);
+        const obj = mapgen.getMap();
+        const map = obj.map;
+
+        map.setBaseElemXY(0, 0, RG.ELEM.CHASM);
+
+        expect(map.isPassable(0, 0)).to.equal(false);
+        expect(map.getCell(0, 0).isFree()).to.equal(false);
+        expect(map.isPassableByAir(0, 0)).to.equal(true);
+    });
 });
 
 //---------------------------------------------------------------------------
 // LEVEL UNIT TESTS
 //---------------------------------------------------------------------------
 
-describe('Moving actors around in the game', function() {
-    it('Moves but is blocked by walls.', function() {
-        const movSystem = new RG.System.Movement('Movement', ['Movement']);
+describe('Moving actors around in the game', () => {
+    it('Moves but is blocked by walls.', () => {
+        const movSystem = new RG.System.Movement(['Movement']);
         const actor = new Actor('TestActor');
         const level = new Level(10, 10);
         const mapgen = new RG.Map.Generator();
@@ -260,16 +270,14 @@ describe('Moving actors around in the game', function() {
         // Create a wall to block the passage
         const wall = new Element('wall');
         level.getMap().setBaseElemXY(4, 4, wall);
-        // expect(level.moveActorTo(actor, 4, 4)).to.equal(false);
-        // const movComp = new RG.Component.Movement(4, 4, level);
         movSystem.update();
         expect(actor.getX(), "X didn't change due to wall").to.equal(2);
         expect(actor.getY()).to.equal(3);
 
     });
 
-    it('Moves actors between levels using stairs', function() {
-        const movSystem = new RG.System.Movement('Movement', ['Movement']);
+    it('Moves actors between levels using stairs', () => {
+        const movSystem = new RG.System.Movement(['Movement']);
         const level1 = Factory.createLevel('arena', 20, 20);
         const level2 = Factory.createLevel('arena', 20, 20);
         const player = Factory.createPlayer('Player', {});
@@ -336,8 +344,8 @@ describe('Moving actors around in the game', function() {
 // SHOPS
 //--------------------------------------------------------------------------
 
-describe('How shops in the game work', function() {
-    it('Has special Shop elements', function() {
+describe('Element.Shop', () => {
+    it('Has special Shop elements', () => {
         const level = RG.FACT.createLevel('arena', 30, 30);
         const map = level.getMap();
         const shopkeeper = new RG.Actor.Rogue('Shopkeeper');
@@ -366,6 +374,9 @@ describe('How shops in the game work', function() {
         soldItem.setValue(300);
         soldItem.add('Unpaid', new RG.Component.Unpaid());
         level.addItem(soldItem, 1, 1);
+
+        console.log('Owner' + soldItem.getOwner());
+
         expect(shopCell.hasProp('items')).to.equal(true);
         expect(soldItem.has('Unpaid')).to.equal(true);
         expect(shopElem.getItemPriceForBuying(soldItem)).to.equal(40);
@@ -389,10 +400,12 @@ describe('How shops in the game work', function() {
 
         expect(shopCell.hasProp('items')).to.equal(true);
         expect(ncoinsAfterSale > ncoinsAfterBuy).to.equal(true);
-
-
     });
 });
+
+//---------------------------------------------------------------------------
+// MAP GENERATOR
+//---------------------------------------------------------------------------
 
 describe('Map.Generator', () => {
     it('can generate forest levels with trees', () => {
@@ -402,4 +415,23 @@ describe('Map.Generator', () => {
         const map = obj.map;
         expect(map).to.not.be.empty;
     });
+
+    it('can generate mountain levels with zig-zag paths', () => {
+        const mapgen = new RG.Map.Generator();
+        mapgen.setGen('mountain', 50, 200);
+        const conf = {
+            chasmThr: -0.3,
+            stoneThr: 0.4,
+            highRockThr: 0.6,
+            nRoadTurns: 6
+        };
+
+        for (let i = 0; i < 1; i++) {
+            const obj = mapgen.createMountain(conf);
+            const map = obj.map;
+            expect(map).to.exist;
+        }
+
+    });
 });
+

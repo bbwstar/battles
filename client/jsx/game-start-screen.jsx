@@ -1,14 +1,17 @@
 
-const React = require('react');
-const RG = require('../src/battles.js');
+import React, {Component} from 'react';
+import PropTypes from 'prop-types';
 
-const ModalHeader = require('./modal-header');
-const RadioButtons = require('./radio-buttons');
+const RG = require('../src/rg.js');
+
+import ModalHeader from './modal-header';
+import RadioButtons from './radio-buttons';
+import DropdownSelect from './dropdown-select';
 
 /** Component for the game startup screen Prints game title and gives some
  * customisation options for the game.
  */
-class GameStartScreen extends React.Component {
+export default class GameStartScreen extends React.Component {
 
   constructor(props) {
     super(props);
@@ -17,12 +20,19 @@ class GameStartScreen extends React.Component {
     this.deleteGame = this.deleteGame.bind(this);
     this.selectGame = this.selectGame.bind(this);
     this.loadGame = this.loadGame.bind(this);
+    this.onSeedChange = this.onSeedChange.bind(this);
   }
 
   onNameChange(evt) {
     var name = evt.target.value;
     evt.stopPropagation();
     this.props.setPlayerName(name);
+  }
+
+  onSeedChange(evt) {
+    var name = evt.target.value;
+    evt.stopPropagation();
+    this.props.setSeedName(name);
   }
 
   /* Loads a saved game.*/
@@ -39,23 +49,25 @@ class GameStartScreen extends React.Component {
   }
 
   render() {
-    var setLoot = this.props.setLoot;
-    var setMonsters = this.props.setMonsters;
-    var setLevelSize = this.props.setLevelSize;
-    var setPlayerLevel = this.props.setPlayerLevel;
-    var setGameLength = this.props.setGameLength;
-    var setDebugMode = this.props.setDebugMode;
+    const setLoot = this.props.setLoot;
+    const setMonsters = this.props.setMonsters;
+    const setLevelSize = this.props.setLevelSize;
+    const setPlayerLevel = this.props.setPlayerLevel;
+    const setGameLength = this.props.setGameLength;
+    const setPlayMode = this.props.setPlayMode;
 
-    var savedPlayerList = this.props.savedPlayerList;
+    const savedPlayerList = this.props.savedPlayerList;
     var playerListHTML = savedPlayerList.map( (val, index) => {
       return (
         <div
           className='player-list-item' key={index}
           onClick={this.selectGame.bind(this, val.name)}
-          >
+        >
           Name: {val.name}, L: {val.expLevel} DL: {val.dungeonLevel}
         </div>);
     });
+
+    const playerClassOptions = this.getPlayerClassOptElems();
 
     var newGame = this.props.newGame;
     var titleTextLoad = RG.gameTitle + ' Load a game';
@@ -69,7 +81,7 @@ class GameStartScreen extends React.Component {
           id='gameLoadModal'
           role='dialog'
           tabIndex='-1'
-          >
+        >
           <div className='modal-dialog modal-lg'>
             <div className='modal-content'>
 
@@ -89,14 +101,14 @@ class GameStartScreen extends React.Component {
                   data-dismiss='modal'
                   onClick={this.loadGame}
                   type='button'
-                  >
+                >
                   Load
                 </button>
                 <button
                   className='btn btn-secondary btn-danger'
                   onClick={this.deleteGame}
                   type='button'
-                  >
+                >
                   Delete
                 </button>
               </div>
@@ -113,7 +125,7 @@ class GameStartScreen extends React.Component {
         role='dialog'
         role='dialog'
         tabIndex='-1'
-        >
+      >
         <div className='modal-dialog modal-lg'>
           <div className='modal-content'>
             <ModalHeader
@@ -159,47 +171,77 @@ class GameStartScreen extends React.Component {
                     value={this.props.playerName}
                   />
                 </label>
+                <label>Enter a word:
+                    <input
+                        onChange={this.onSeedChange}
+                        type='text'
+                        value={this.props.seedName}
+                    />
+                </label>
 
               </div>
 
               <div className='col-md-6' id='game-options-box' >
-                <p>Customisation</p>
-                <RadioButtons
-                  buttons={['Short', 'Medium', 'Long', 'Epic']}
-                  callback={setGameLength}
-                  currValue={this.props.settings.gameLength}
-                  titleName='Game length'
-                />
-                <RadioButtons
-                  buttons={['Sparse', 'Medium', 'Abundant']}
-                  callback={setLoot}
-                  currValue={this.props.settings.lootType}
-                  titleName='Loot'
-                />
-                <RadioButtons
-                  buttons={['Sparse', 'Medium', 'Abundant']}
-                  callback={setMonsters}
-                  currValue={this.props.settings.monstType}
-                  titleName='Monsters'
-                />
-                <RadioButtons
-                  buttons={['Small', 'Medium', 'Large', 'Huge']}
-                  callback={setLevelSize}
-                  currValue={this.props.settings.levelSize}
-                  titleName='Levels'
-                />
-                <RadioButtons
-                  buttons={['Weak', 'Medium', 'Strong', 'Inhuman']}
-                  callback={setPlayerLevel}
-                  currValue={this.props.settings.playerLevel}
-                  titleName='Player'
-                />
-                <RadioButtons
-                  buttons={['Off', 'Arena', 'Battle', 'Tiles', 'World']}
-                  callback={setDebugMode}
-                  currValue={this.props.settings.debugMode}
-                  titleName='Debug'
-                />
+                <p>Game settings</p>
+
+                <div className='dropdown-select-div'>
+                  <DropdownSelect
+                    callback={setGameLength}
+                    currValue={this.props.settings.gameLength}
+                    options={['Short', 'Medium', 'Long', 'Epic']}
+                    titleName='Game length'
+                  />
+                </div>
+
+                <div className='dropdown-select-div'>
+                  <DropdownSelect
+                    callback={setLoot}
+                    currValue={this.props.settings.lootType}
+                    options={['Sparse', 'Medium', 'Abundant']}
+                    titleName='Loot'
+                  />
+                  <DropdownSelect
+                    callback={setMonsters}
+                    currValue={this.props.settings.monstType}
+                    options={['Sparse', 'Medium', 'Abundant']}
+                    titleName='Monsters'
+                  />
+                </div>
+
+                <div className='dropdown-select-div'>
+                  <DropdownSelect
+                    callback={setLevelSize}
+                    currValue={this.props.settings.levelSize}
+                    options={['Small', 'Medium', 'Large', 'Huge']}
+                    titleName='Levels'
+                  />
+                </div>
+
+                <div className='dropdown-select-div'>
+                  <DropdownSelect
+                    callback={setPlayerLevel}
+                    currValue={this.props.settings.playerLevel}
+                    options={['Weak', 'Medium', 'Strong', 'Inhuman']}
+                    titleName='Player'
+                  />
+                  <DropdownSelect
+                    callback={this.props.setPlayerClass}
+                    currValue={this.props.settings.playerClass}
+                    options={RG.ACTOR_CLASSES}
+                    titleName='Player class'
+                  />
+                </div>
+
+                <div className='dropdown-select-div'>
+                  <DropdownSelect
+                    callback={setPlayMode}
+                    currValue={this.props.settings.playMode}
+                    options={['Arena', 'Dungeon', 'Battle',
+                      'Creator', 'World', 'OverWorld']}
+                    titleName='Play mode'
+                  />
+                </div>
+
               </div>
             </div>
 
@@ -210,20 +252,20 @@ class GameStartScreen extends React.Component {
                   data-dismiss='modal'
                   onClick={this.props.toggleEditor}
                   type='button'
-                  >Editor</button>
+                >Editor</button>
                 <button
                   className='btn btn-success'
                   data-dismiss='modal'
                   onClick={newGame}
                   type='button'
-                  >Embark!</button>
+                >Embark!</button>
                 <button
                   className='btn btn-secondary btn-warning'
                   data-dismiss='modal'
                   data-target='#gameLoadModal'
                   data-toggle='modal'
                   type='button'
-                  >
+                >
                   Load
                 </button>
 
@@ -236,29 +278,36 @@ class GameStartScreen extends React.Component {
     );
   }
 
+  getPlayerClassOptElems() {
+    return RG.ACTOR_CLASSES.map(ac => {
+      const key = 'key-actor-class-' + ac;
+      return <option key={key} value={ac}>{ac}</option>;
+    });
+  }
+
 }
 
 GameStartScreen.propTypes = {
-  settings: React.PropTypes.object,
-  deleteGame: React.PropTypes.func,
-  loadGame: React.PropTypes.func,
-  savedPlayerList: React.PropTypes.array,
-  setPlayerName: React.PropTypes.func,
-  playerName: React.PropTypes.string,
+  settings: PropTypes.object,
+  deleteGame: PropTypes.func.isRequired,
+  loadGame: PropTypes.func.isRequired,
+  savedPlayerList: PropTypes.array,
+  setPlayerName: PropTypes.func.isRequired,
+  playerName: PropTypes.string,
+  seedName: PropTypes.string,
+  setSeedName: PropTypes.func.isRequired,
+  setLoot: PropTypes.func.isRequired,
+  setMonsters: PropTypes.func.isRequired,
+  setLevelSize: PropTypes.func.isRequired,
+  setPlayerLevel: PropTypes.func.isRequired,
+  setGameLength: PropTypes.func.isRequired,
+  setPlayMode: PropTypes.func.isRequired,
+  setPlayerClass: PropTypes.func.isRequired,
 
-  setLoot: React.PropTypes.func,
-  setMonsters: React.PropTypes.func,
-  setLevelSize: React.PropTypes.func,
-  setPlayerLevel: React.PropTypes.func,
-  setGameLength: React.PropTypes.func,
-  setDebugMode: React.PropTypes.func,
+  newGame: PropTypes.func.isRequired,
+  selectedGame: PropTypes.string,
+  selectGame: PropTypes.func.isRequired,
 
-  newGame: React.PropTypes.func,
-  selectedGame: React.PropTypes.string,
-  selectGame: React.PropTypes.func,
-
-  toggleEditor: React.PropTypes.func
+  toggleEditor: PropTypes.func.isRequired
 };
-
-module.exports = GameStartScreen;
 

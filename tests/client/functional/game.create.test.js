@@ -1,5 +1,8 @@
 const expect = require('chai').expect;
 const RG = require('../../../client/src/battles');
+const RGTest = require('../../roguetest');
+
+import Entity from '../../../client/src/entity';
 
 const worldConf = require('../../../client/data/conf.world');
 
@@ -19,6 +22,7 @@ describe('Function: Creating game world from a file', function() {
             nAreas: 2,
             area: [
                 { name: 'a1', maxX: 2, maxY: 3, nDungeons: 1,
+                    cols: 80, rows: 28,
                     dungeon: [
                         {x: 0, y: 0, name: 'd1.1', nBranches: 1,
                             branch: [ { name: 'b1', nLevels: 2,
@@ -27,8 +31,10 @@ describe('Function: Creating game world from a file', function() {
                     ]
                 },
                 { name: 'a2', maxX: 1, maxY: 3, nMountains: 1,
+                    cols: 80, rows: 28,
                     mountain: [{x: 0, y: 1, name: 'm2.1', nFaces: 1,
-                        face: [{name: 'Steep', nLevels: 1, x: 10, y: 10}]
+                        face: [{name: 'Steep', nLevels: 1, x: 50, y: 100,
+                        entranceLevel: 0}]
                     }]
                 }
             ]
@@ -49,7 +55,7 @@ describe('Function: Creating game world from a file', function() {
         const fromJSON = new RG.Game.FromJSON();
         const fact = new RG.Factory.World();
         const conf = {name: 'Ice Kingdom', nAreas: 1,
-            area: [{ name: 'Area51', maxX: 1, maxY: 1,
+            area: [{ name: 'Area51', maxX: 2, maxY: 2,
                 nDungeons: 1,
                 dungeon: [
                     { x: 0, y: 0, name: 'Dungeon1', nBranches: 1,
@@ -61,7 +67,8 @@ describe('Function: Creating game world from a file', function() {
                 nMountains: 1,
                 mountain: [
                     {x: 0, y: 0, name: 'Cliff', nFaces: 1,
-                        face: [{name: 'north', nLevels: 1, x: 20, y: 20}]
+                        face: [{name: 'north', nLevels: 1, x: 20, y: 20,
+                        entranceLevel: 0}]
                     }
                 ],
                 nCities: 1,
@@ -72,7 +79,7 @@ describe('Function: Creating game world from a file', function() {
                 ]
             }]
         };
-        const numLevels = 5;
+        const numLevels = 2 * 2 + 2 + 1 + 1;
 
         // Create game, world and player first
         const game = new RG.Game.Main();
@@ -90,7 +97,7 @@ describe('Function: Creating game world from a file', function() {
         // Serialise and check ID counters
         const json = game.toJSON();
         expect(json.lastLevelID).to.equal(RG.Map.Level.prototype.idCount);
-        expect(json.lastEntityID).to.equal(RG.Entity.prototype.idCount);
+        expect(json.lastEntityID).to.equal(Entity.getIDCount());
 
         console.log('Creating new game now');
 
@@ -103,10 +110,16 @@ describe('Function: Creating game world from a file', function() {
         console.log('Level IDs: ' +
             JSON.stringify(gameLevels.map(l => l.getID())));
 
-        // Verify that world features have been restored
+        // Verify that world zones have been restored
         const newWorld = newGame.getPlaces()['Ice Kingdom'];
         const dungeons = newWorld.getDungeons();
         expect(dungeons, 'World has 1 dungeon').to.have.length(1);
+
+        expect(newWorld.getZones()).to.have.length(3);
+
+        // Verify stairs connectivity
+        const allStairsInWorld = newWorld.getStairs();
+        RGTest.verifyStairsConnectivity(allStairsInWorld);
 
         // Detailed checks that dungeon and branches restored OK
         const d1 = dungeons[0];

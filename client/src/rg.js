@@ -23,6 +23,26 @@ const RG = { // {{{2
         return className;
     },
 
+    /* Same as getClassName, but optimized for viewing the full map. */
+    getClassNameFullMap: function(cell) {
+        this.cellRenderArray = this.cellRenderVisible;
+
+        if (!cell.hasProps()) {
+            const baseType = cell.getBaseElem().getType();
+            return this.cellStyles.elements[baseType];
+        }
+
+        for (let i = 0; i < 4; i++) {
+            const propType = this.cellRenderVisible[i];
+            if (cell.hasProp(propType)) {
+                const props = cell.getProp(propType);
+                const styles = this.cellStyles[propType];
+                return this.getPropClassOrCharFullMap(styles, props[0]);
+            }
+        }
+        return null;
+    },
+
     /* Given Map.Cell, returns a char that is rendered for the cell. */
     getChar: function(cell, isVisible) {
         if (isVisible) {this.cellRenderArray = this.cellRenderVisible;}
@@ -30,6 +50,25 @@ const RG = { // {{{2
         const cellChar = this.getCellChar(cell);
         this.cellRenderArray = this.cellRenderVisible;
         return cellChar;
+    },
+
+    /* Same as getChar, but optimized for full map viewing. */
+    getCharFullMap: function(cell) {
+        this.cellRenderArray = this.cellRenderVisible;
+
+        if (!cell.hasProps()) {
+            const baseType = cell.getBaseElem().getType();
+            return this.charStyles.elements[baseType];
+        }
+
+        for (let i = 0; i < 4; i++) {
+            if (cell.hasProp(this.cellRenderVisible[i])) {
+                const props = cell.getProp(this.cellRenderVisible[i]);
+                const styles = this.charStyles[this.cellRenderVisible[i]];
+                return this.getPropClassOrCharFullMap(styles, props[0]);
+            }
+        }
+        return null;
     },
 
     /* Maps a cell to specific object in stylesheet. For rendering purposes
@@ -55,7 +94,7 @@ const RG = { // {{{2
         const objType = propObj.getType();
 
         // Return by name, this is for object shells generally
-        if (propObj.hasOwnProperty('getName')) {
+        if (propObj.getName) {
             const name = propObj.getName();
             if (styles.hasOwnProperty(name)) {
                 return styles[name];
@@ -84,15 +123,47 @@ const RG = { // {{{2
         }
     },
 
+    getPropClassOrCharFullMap: function(styles, propObj) {
+        // Return by name, this is for object shells generally
+        if (propObj.getName) {
+            const name = propObj.getName();
+            if (styles.hasOwnProperty(name)) {
+                return styles[name];
+            }
+        }
+
+        const objType = propObj.getType();
+        // By type is usually for basic elements
+        if (styles.hasOwnProperty(objType)) {
+            if (typeof styles[objType] === 'object') {
+                // Invoke a state querying function
+                for (const p in styles[objType]) {
+                    if (p !== 'default') {
+                        const funcToCall = p;
+                        if (propObj[funcToCall]()) {
+                            return styles[objType][p];
+                        }
+                    }
+                }
+                return styles[objType]['default'];
+
+            }
+            return styles[objType];
+        }
+        else {
+            return styles['default'];
+        }
+    },
+
     /* Returns char which is rendered on the map cell based on cell contents.*/
     getCellChar: function(cell) {
         if (!cell.isExplored()) {return 'X';}
 
         for (let i = 0; i < this.cellRenderArray.length; i++) {
-            const propType = this.cellRenderArray[i];
-            if (cell.hasProp(propType)) {
-                const props = cell.getProp(propType);
-                const styles = this.charStyles[propType];
+            // const propType = this.cellRenderArray[i];
+            if (cell.hasProp(this.cellRenderArray[i])) {
+                const props = cell.getProp(this.cellRenderArray[i]);
+                const styles = this.charStyles[this.cellRenderArray[i]];
                 const propObj = props[0];
                 return this.getPropClassOrChar(styles, propObj);
             }
@@ -102,13 +173,24 @@ const RG = { // {{{2
         return this.charStyles.elements[baseType];
     },
 
-    /* Returns shortest path (array of x,y pairs) between two points.*/
+    getShortestPassablePath: function(map, x0, y0, x1, y1) {
+        const coords = [];
+        const passableCallback = (x, y) => map.isPassable(x, y);
+        const finder = new ROT.Path.AStar(x1, y1, passableCallback);
+        finder.compute(x0, y0, (x, y) => {
+            coords.push({x, y});
+        });
+        return coords;
+    },
+
+    /* Returns shortest path (array of x,y pairs) between two points. Does not
+    * check if any of the cells are passable. */
     getShortestPath: function(x0, y0, x1, y1) {
         const coords = [];
-        const passableCallback = function() {return true;};
+        const passableCallback = () => true;
         // const finder = new ROT.Path.Dijkstra(x1, y1, passableCallback);
         const finder = new ROT.Path.AStar(x1, y1, passableCallback);
-        finder.compute(x0, y0, function(x, y) {
+        finder.compute(x0, y0, (x, y) => {
             coords.push({x, y});
         });
         return coords;
@@ -146,21 +228,34 @@ const RG = { // {{{2
     // These are used to select rendered characters for map cells.
     charStyles: {
         elements: {
+            bridge: '=',
+            chasm: '~',
             default: '.',
-            wall: '#',
-            'ice wall': '#',
             floor: '.',
+            floorcave: '.',
+            floorcrypt: '.',
+            fort: '#',
+            grass: '"',
+            highrock: '^',
+            passage: '.',
+            road: '.',
             shop: ':',
             snow: '.',
-            stairsUp: '<',
             stairsDown: '>',
-            water: '~',
-            door: {isClosed: '+',
-                     default: '/'
-            },
+            stairsUp: '<',
+            stone: '^',
             tree: 'T',
-            grass: '"',
-            stone: '^'
+            wall: '#',
+            wallcave: '#',
+            wallcrypt: '#',
+            wallice: '#',
+            wallwooden: '#',
+            water: '~',
+            // Elements with different states
+            door: {
+                isClosed: '+', // if isClosed() returns true
+                default: '/'
+            }
         },
         actors: {
             default: 'X',
@@ -171,7 +266,7 @@ const RG = { // {{{2
             wolf: 'w'
         },
         items: {
-            default: '(',
+            default: '?',
             corpse: '§',
             potion: '!',
             spiritgem: '*'
@@ -182,16 +277,28 @@ const RG = { // {{{2
     // These are used to select the CSS class for map cells.
     cellStyles: {
         elements: {
+            bridge: 'cell-element-bridge',
+            chasm: 'cell-element-chasm',
             default: 'cell-element-default',
             door: 'cell-element-door',
             floor: 'cell-element-floor',
-            'ice wall': 'cell-element-ice-wall',
+            floorcave: 'cell-element-floor-cave',
+            floorcrypt: 'cell-element-floor-crypt',
+            fort: 'cell-element-fort',
+            grass: 'cell-element-grass',
+            highrock: 'cell-element-highrock',
+            passage: 'cell-element-passage',
+            road: 'cell-element-road',
             shop: 'cell-element-shop',
             snow: 'cell-element-snow',
-            wall: 'cell-element-wall',
+            stone: 'cell-element-stone',
             tree: 'cell-element-tree',
-            grass: 'cell-element-grass',
-            stone: 'cell-element-stone'
+            wall: 'cell-element-wall',
+            wallcave: 'cell-element-wall-cave',
+            wallcrypt: 'cell-element-wall-crypt',
+            wallice: 'cell-element-wall-ice',
+            wallwooden: 'cell-element-wall-wooden',
+            water: 'cell-element-water'
         },
         actors: {
             default: 'cell-actor-default',
@@ -226,6 +333,14 @@ const RG = { // {{{2
             throw new Error(formattedMsg);
         }
     },
+
+    warn: function(obj, fun, msg) {
+        if (!this.suppressWarningMessages) {
+            const formattedMsg = `[WARN]: ${obj} ${fun} -> |${msg}|`;
+            console.error(formattedMsg);
+        }
+    },
+
 
     /* Used to inherit from a prototype. Supports multiple inheritance but
      * sacrifices instanceof.*/
@@ -268,12 +383,24 @@ const RG = { // {{{2
         return false;
     },
 
-    gameDanger: function(msg) {
-        this.emitMsgEvent('danger', msg);
-    },
+    // -------------------------------------------------
+    // Functions for emitting in-game messages to player
+    // -------------------------------------------------
 
+    // Accepts 2 different arguments:
+    // 1. A simple string messages
+    // 2. {msg: "Your message", cell: Origin cell of messaage}
+    // Using 2. messages can be easily filtered by position.
     gameMsg: function(msg) {
         this.emitMsgEvent('prim', msg);
+    },
+
+    gameInfo: function(msg) {
+        this.emitMsgEvent('info', msg);
+    },
+
+    gameDescr: function(msg) {
+        this.emitMsgEvent('descr', msg);
     },
 
     gameSuccess: function(msg) {
@@ -282,6 +409,10 @@ const RG = { // {{{2
 
     gameWarn: function(msg) {
         this.emitMsgEvent('warn', msg);
+    },
+
+    gameDanger: function(msg) {
+        this.emitMsgEvent('danger', msg);
     },
 
     /* Emits message event with cell origin, style and message. */
@@ -306,12 +437,12 @@ const RG = { // {{{2
     addStackedItems: function(item1, item2) {
         if (item1.equals(item2)) {
             let countToAdd = 1;
-            if (item2.hasOwnProperty('count')) {
+            if (item2.count) {
                 countToAdd = item2.count;
             }
 
             // Check if item1 already stacked
-            if (item1.hasOwnProperty('count')) {
+            if (item1.count) {
                 item1.count += countToAdd;
             }
             else {
@@ -327,7 +458,7 @@ const RG = { // {{{2
     removeStackedItems: function(itemStack, n) {
         if (n > 0) {
             let rmvItem = null;
-            if (itemStack.hasOwnProperty('count')) {
+            if (itemStack.count) {
                 if (n <= itemStack.count) {
                     itemStack.count -= n;
                     rmvItem = itemStack.clone();
@@ -355,21 +486,34 @@ const RG = { // {{{2
     // COMBAT-RELATED FUNCTIONS
     //--------------------------------------------------------------
 
+    getMeleeAttack: function(att) {
+        let attack = att.getAttack();
+        const missile = att.getInvEq().getEquipment().getItem('missile');
+        const missWeapon = att.getInvEq().getMissileWeapon();
+        if (missile) {attack -= missile.getAttack();}
+        if (missWeapon) {attack -= missWeapon.getAttack();}
+        return attack;
+    },
+
+
     getMissileDamage: function(att, miss) {
-        let dmg = miss.getDamage();
+        let dmg = miss.rollDamage();
         dmg += Math.round(att.get('Stats').getAgility() / 3);
         if (miss.has('Ammo')) {
-            dmg += att.getMissileWeapon().getDamage();
+            dmg += att.getMissileWeapon().rollDamage();
         }
         return dmg;
     },
 
-    getMissileAttack: function(att, miss) {
+    getMissileAttack: function(att) {
         let attack = att.get('Combat').getAttack();
         attack += att.getInvEq().getEquipment().getAttack();
         attack += att.get('Stats').getAccuracy() / 2;
         attack += att.getInvEq().getEquipment().getAccuracy() / 2;
-        attack += miss.getAttack();
+
+        // Subtract melee weapon
+        const weapon = att.getWeapon();
+        if (weapon) {attack -= weapon.getAttack();}
 
         return attack;
     },
@@ -439,51 +583,69 @@ const RG = { // {{{2
 
     // Default FOV range for actors
     FOV_RANGE: 4,
-    ROWS: 30,
-    COLS: 50,
     ACTION_DUR: 100,
     BASE_SPEED: 100,
     DEFAULT_HP: 50,
 
-    // How many levels are simulated at once
+    // How many levels are simulated at once, having more adds realism
+    // but slows down the game
     MAX_ACTIVE_LEVELS: 3,
 
+    //----------------------
     // Different game events
-    EVT_ACTOR_CREATED: 'EVT_ACTOR_CREATED',
-    EVT_ACTOR_KILLED: 'EVT_ACTOR_KILLED',
-    EVT_DESTROY_ITEM: 'EVT_DESTROY_ITEM',
-    EVT_MSG: 'EVT_MSG',
+    //----------------------
+    EVT_ACTOR_CREATED: Symbol(),
+    EVT_ACTOR_KILLED: Symbol(),
+    EVT_DESTROY_ITEM: Symbol(),
+    EVT_MSG: Symbol(),
 
-    EVT_LEVEL_CHANGED: 'EVT_LEVEL_CHANGED',
-    EVT_LEVEL_ENTERED: 'EVT_LEVEL_ENTERED',
+    EVT_LEVEL_CHANGED: Symbol(),
+    EVT_LEVEL_ENTERED: Symbol(),
 
-    EVT_LEVEL_PROP_ADDED: 'EVT_LEVEL_PROP_ADDED',
-    EVT_LEVEL_PROP_REMOVED: 'EVT_LEVEL_PROP_REMOVED',
+    EVT_LEVEL_PROP_ADDED: Symbol(),
+    EVT_LEVEL_PROP_REMOVED: Symbol(),
 
-    EVT_ACT_COMP_ADDED: 'EVT_ACT_COMP_ADDED',
-    EVT_ACT_COMP_REMOVED: 'EVT_ACT_COMP_REMOVED',
-    EVT_ACT_COMP_ENABLED: 'EVT_ACT_COMP_ENABLED',
-    EVT_ACT_COMP_DISABLED: 'EVT_ACT_COMP_DISABLED',
+    EVT_ACT_COMP_ADDED: Symbol(),
+    EVT_ACT_COMP_REMOVED: Symbol(),
+    EVT_ACT_COMP_ENABLED: Symbol(),
+    EVT_ACT_COMP_DISABLED: Symbol(),
 
-    // Different types
+    EVT_WIN_COND_TRUE: Symbol(),
+
+    EVT_ANIMATION: Symbol(),
+
+    //----------------------------
+    // Different entity/prop types
+    //----------------------------
     TYPE_ACTOR: 'actors',
     TYPE_ELEM: 'elements',
     TYPE_ITEM: 'items',
     TYPE_TRAP: 'traps',
 
-    ITEM_TYPES: ['armour', 'food', 'gold', 'goldcoin',
-        'missile', 'potion', 'spiritgem', 'weapon'],
+    ITEM_TYPES: ['ammo', 'armour', 'food', 'gold', 'goldcoin',
+        'missile', 'missileweapon', 'potion', 'spiritgem', 'weapon'],
+
+    LEVEL_ID_ADD: 1000000000,
+    ENTITY_ID_ADD: 1000000000,
+
+    //----------------------------
+    // Different level types
+    //----------------------------
+
+    LEVEL_EMPTY: 'empty',
+    LEVEL_FOREST: 'forest',
+    LEVEL_MOUNTAIN: 'mountain',
 
     // Energy per action
     energy: {
-        DEFAULT: 10,
-        REST: 10,
-        USE: 10,
-        PICKUP: 10,
-        MISSILE: 20,
-        MOVE: 20,
-        ATTACK: 30,
-        RUN: 40
+        DEFAULT: 5,
+        REST: 5,
+        USE: 5,
+        PICKUP: 5,
+        MISSILE: 10,
+        MOVE: 10,
+        ATTACK: 15,
+        RUN: 20
     },
 
     // Different fighting modes
@@ -495,7 +657,40 @@ const RG = { // {{{2
     DANGER_ADJ_FACTOR: 1.4,
 
     GOLD_COIN_WEIGHT: 0.03, // kg
-    GOLD_COIN_NAME: 'Gold coins'
+    GOLD_COIN_NAME: 'Gold coins',
+
+    HUNGER_PROB: 0.10, // Prob. of starvation to cause damage every turn
+    HUNGER_DMG: 1,     // Damage caused by starvation kicking in
+
+    // This is a subset of ITEM_TYPES, excluding gold items
+    SHOP_TYPES: ['ammo', 'armour', 'food',
+        'missile', 'missileweapon', 'potion', 'spiritgem', 'weapon'
+    ],
+
+    // Alignments (TODO make more diverse)
+    ALIGN_GOOD: 'ALIGN_GOOD',
+    ALIGN_EVIL: 'ALIGN_EVIL',
+    ALIGN_NEUTRAL: 'ALIGN_NEUTRAL',
+
+    // Constants for movement directions
+    DIR: {
+        N: [0, -1],
+        S: [0, 1],
+        E: [1, 0],
+        W: [-1, 0],
+        NE: [1, -1],
+        SE: [1, 1],
+        NW: [-1, -1],
+        SW: [1, -1]
+    },
+
+    DMG: {
+        MELEE: 'MELEE',
+        MISSILE: 'MISSILE',
+        POISON: 'POISON',
+        ICE: 'ICE',
+        HUNGER: 'HUNGER'
+    }
 
 }; // / }}} RG
 
@@ -503,12 +698,15 @@ const RG = { // {{{2
 RG.cellRenderArray = RG.cellRenderVisible;
 
 RG.PROP_TYPES = [RG.TYPE_ACTOR, RG.TYPE_ELEM, RG.TYPE_ITEM, RG.TYPE_TRAP];
+// Fighting modes
 RG.FMODES = [RG.FMODE_NORMAL, RG.FMODE_FAST, RG.FMODE_SLOW];
+
+RG.ALIGNMENTS = [RG.ALIGN_GOOD, RG.ALIGN_NEUTRAL, RG.ALIGN_EVIL];
 
 RG.cellRenderArray = RG.cellRenderVisible;
 
 /* Returns danger probabilites for given level.*/
-RG.getDangerProb = function(min, max) {
+RG.getDangerProb = (min, max) => {
     if (min > max) {
         console.error('RG.getDangerProb param order is min < max');
         return {};
@@ -525,7 +723,7 @@ RG.getDangerProb = function(min, max) {
     const highPoint = (maxArr % 2 === 0) ? maxArr / 2 : (maxArr + 1) / 2;
     const obj = {};
 
-    arr.forEach( function(val) {
+    arr.forEach( val => {
         const absDiff = Math.abs(val - highPoint);
         let prob = maxArr - Math.floor(RG.DANGER_ADJ_FACTOR * absDiff);
         prob = (prob === 0) ? prob + 1 : prob;
@@ -538,12 +736,16 @@ RG.getDangerProb = function(min, max) {
 
 /* Returns the weight distribution for foods. This is something like
  * {0.1: 10, 0.2: 7, 0.3: 5, 0.5: 1} etc.*/
-RG.getFoodWeightDistr = function() {
-    return {0.1: 20, 0.2: 10, 0.3: 5, 0.4: 3, 0.5: 1};
-};
+RG.getFoodWeightDistr = () => ({
+    0.1: 20,
+    0.2: 10,
+    0.3: 5,
+    0.4: 3,
+    0.5: 1
+});
 
 /* Returns the count distribution for gold coins. */
-RG.getGoldCoinCountDistr = function(nLevel) {
+RG.getGoldCoinCountDistr = nLevel => {
     const maxVal = nLevel + 1;
     const dist = {};
     for (let i = 1; i <= maxVal; i++) {
@@ -553,7 +755,7 @@ RG.getGoldCoinCountDistr = function(nLevel) {
 };
 
 /* Converts abstract value into gold weight. */
-RG.valueToGoldWeight = function(value) {
+RG.valueToGoldWeight = value => {
     let currVal = value;
     let slope = 1;
     while (currVal >= 100) {
@@ -565,7 +767,7 @@ RG.valueToGoldWeight = function(value) {
 };
 
 /* Given an actor, scales its attributes based on new experience level.*/
-RG.levelUpActor = function(actor, newLevel) {
+RG.levelUpActor = (actor, newLevel) => {
     if (actor.has('Experience')) {
         let currLevel = actor.get('Experience').getExpLevel();
         if (currLevel < newLevel) {
@@ -618,7 +820,7 @@ RG.DIE_RE = /\s*(\d+)d(\d+)\s*(\+|-)?\s*(\d+)?/;
 
 /* Parses die expression like '2d4' or '3d5 + 4' and returns it as an array [2,
  * 4, 0] or [3, 5, 4]. Returns empty array for invalid expressions.*/
-RG.parseDieSpec = function(strOrArray) {
+RG.parseDieSpec = strOrArray => {
     if (typeof strOrArray === 'object') {
         if (strOrArray.length >= 3) {
             return [strOrArray[0], strOrArray[1], strOrArray[2]];
@@ -649,14 +851,14 @@ RG.parseDieSpec = function(strOrArray) {
 RG.ONE_SHOT_ITEMS = ['potion'];
 
 /* Returns true if given item is one-shot use item by its type.*/
-RG.isOneShotItem = function(item) {
+RG.isOneShotItem = item => {
     const itemType = item.getType();
     const index = RG.ONE_SHOT_ITEMS.indexOf(itemType);
     return index >= 0;
 };
 
 /* Destroys item (typically after use). */
-RG.destroyItemIfNeeded = function(item) {
+RG.destroyItemIfNeeded = item => {
     if (RG.isOneShotItem(item)) {
         if (item.count === 1) {
             const msg = {item: item};
@@ -669,10 +871,41 @@ RG.destroyItemIfNeeded = function(item) {
 };
 
 /* Given gold weight, returns the equivalent in coins.*/
-RG.getGoldInCoins = function(weight) {
-    return Math.floor(weight / RG.GOLD_COIN_WEIGHT);
-};
+RG.getGoldInCoins = weight => Math.floor(weight / RG.GOLD_COIN_WEIGHT);
 
+/* eslint-disable */
+RG.VK_a = ROT.VK_A + 32;
+RG.VK_b = ROT.VK_B + 32;
+RG.VK_c = ROT.VK_C + 32;
+RG.VK_d = ROT.VK_D + 32;
+RG.VK_e = ROT.VK_E + 32;
+RG.VK_f = ROT.VK_F + 32;
+RG.VK_g = ROT.VK_G + 32;
+RG.VK_h = ROT.VK_H + 32;
+RG.VK_i = ROT.VK_I + 32;
+RG.VK_j = ROT.VK_J + 32;
+RG.VK_k = ROT.VK_K + 32;
+RG.VK_l = ROT.VK_L + 32;
+RG.VK_m = ROT.VK_M + 32;
+RG.VK_n = ROT.VK_N + 32;
+RG.VK_o = ROT.VK_O + 32;
+RG.VK_p = ROT.VK_P + 32;
+RG.VK_q = ROT.VK_Q + 32;
+RG.VK_r = ROT.VK_R + 32;
+RG.VK_s = ROT.VK_S + 32;
+RG.VK_t = ROT.VK_T + 32;
+RG.VK_u = ROT.VK_U + 32;
+RG.VK_v = ROT.VK_V + 32;
+RG.VK_w = ROT.VK_W + 32;
+RG.VK_x = ROT.VK_X + 32;
+RG.VK_y = ROT.VK_Y + 32;
+RG.VK_z = ROT.VK_Z + 32;
+/* eslint-enable */
+
+RG.VK_COMMA = 44;
+RG.VK_PERIOD = 46;
+RG.VK_LT = 60;
+RG.VK_GT = 62;
 
 /* Lookup table object for movement and actions keys.*/
 RG.KeyMap = {
@@ -681,28 +914,44 @@ RG.KeyMap = {
 
     // Start from W, go clock wise on keyboard
     initMap: function() {
-        this.moveKeyMap[ROT.VK_W] = 0;
-        this.moveKeyMap[ROT.VK_E] = 1;
-        this.moveKeyMap[ROT.VK_D] = 2;
-        this.moveKeyMap[ROT.VK_C] = 3;
-        this.moveKeyMap[ROT.VK_X] = 4;
-        this.moveKeyMap[ROT.VK_Z] = 5;
-        this.moveKeyMap[ROT.VK_A] = 6;
-        this.moveKeyMap[ROT.VK_Q] = 7;
+        this.moveKeyMap[RG.KEY.MOVE_N] = 0;
+        this.moveKeyMap[RG.KEY.MOVE_NE] = 1;
+        this.moveKeyMap[RG.KEY.MOVE_E] = 2;
+        this.moveKeyMap[RG.KEY.MOVE_SE] = 3;
+        this.moveKeyMap[RG.KEY.MOVE_S] = 4;
+        this.moveKeyMap[RG.KEY.MOVE_SW] = 5;
+        this.moveKeyMap[RG.KEY.MOVE_W] = 6;
+        this.moveKeyMap[RG.KEY.MOVE_NW] = 7;
+
+        this.moveKeyMap[ROT.VK_8] = 0;
+        this.moveKeyMap[ROT.VK_9] = 1;
+        this.moveKeyMap[ROT.VK_6] = 2;
+        this.moveKeyMap[ROT.VK_3] = 3;
+        this.moveKeyMap[ROT.VK_2] = 4;
+        this.moveKeyMap[ROT.VK_1] = 5;
+        this.moveKeyMap[ROT.VK_4] = 6;
+        this.moveKeyMap[ROT.VK_7] = 7;
     },
 
     inMoveCodeMap: function(code) {
         return this.moveKeyMap.hasOwnProperty(code);
     },
 
-    isRest: function(code) {return code === ROT.VK_S || ROT.VK_PERIOD;},
-    isPickup: function(code) {return code === ROT.VK_COMMA;},
-    isUseStairs: function(code) {return code === ROT.VK_B;},
-    isRunMode: function(code) {return code === ROT.VK_R;},
-    isFightMode: function(code) {return code === ROT.VK_F;},
-    isConfirmYes: function(code) {return code === ROT.VK_Y;},
-    isNextItem: function(code) {return code === ROT.VK_H;},
-    isToggleDoor: function(code) {return code === ROT.VK_O;},
+    isRest: function(code) {return code === RG.VK_s || code === RG.VK_PERIOD;},
+    isPickup: function(code) {return code === RG.KEY.PICKUP;},
+    isUseStairs: function(code) {
+        return code === RG.KEY.USE_STAIRS_DOWN ||
+            code === RG.KEY.USE_STAIRS_UP;
+    },
+    isRunMode: function(code) {return code === RG.KEY.RUN;},
+    isFightMode: function(code) {return code === RG.KEY.FIGHT;},
+    isConfirmYes: function(code) {return code === RG.KEY.YES;},
+    isNextItem: function(code) {return code === RG.KEY.NEXT_ITEM;},
+    isToggleDoor: function(code) {return code === RG.KEY.DOOR;},
+    isLook: function(code) {return code === RG.KEY.LOOK;},
+    isUsePower: function(code) {return code === RG.KEY.POWER;},
+    isTargetMode: function(code) {return code === RG.KEY.TARGET;},
+    isNextTarget: function(code) {return code === RG.KEY.NEXT;},
 
     /* Based on keycode, computes and returns a new x,y pair. If code is
      * invalid, returns null. */
@@ -713,35 +962,76 @@ RG.KeyMap = {
             const newY = y + diff[1];
             return [newX, newY];
         }
-        else if (code === ROT.VK_S) {
+        else if (code === RG.VK_s) {
             return [x, y];
         }
         else {
             return null;
         }
+    },
+
+    getDir: function(code) {
+        if (this.moveKeyMap.hasOwnProperty(code)) {
+            return ROT.DIRS[8][this.moveKeyMap[code]];
+        }
+        else if (this.isRest(code)) {
+            return [0, 0];
+        }
+        return null;
     }
 
 };
-RG.KeyMap.initMap();
+
+RG.menuIndices = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 'a', 'b', 'c', 'd', 'e', 'f',
+    'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't',
+    'u', 'v', 'w', 'x', 'y', 'z'
+];
+
+RG.codeToIndex = code => {
+    if (code >= ROT.VK_0 && code <= ROT.VK_9) {
+        return code - ROT.VK_0;
+    }
+    else if (code >= RG.VK_a && code <= RG.VK_z) {
+        return code - RG.VK_a + 10;
+    }
+    return -1;
+};
+
+RG.KEY = {};
 
 // Assign ROT keys to meaningful constants
-RG.K_MOVE_N = ROT.VK_W;
-RG.K_MOVE_NE = ROT.VK_E;
-RG.K_MOVE_E = ROT.VK_D;
-RG.K_MOVE_SE = ROT.VK_C;
-RG.K_MOVE_S = ROT.VK_X;
-RG.K_MOVE_SW = ROT.VK_Z;
-RG.K_MOVE_W = ROT.VK_A;
-RG.K_MOVE_NW = ROT.VK_Q;
+RG.KEY.MOVE_N = ROT.VK_W + 32;
+RG.KEY.MOVE_NE = ROT.VK_E + 32;
+RG.KEY.MOVE_E = ROT.VK_D + 32;
+RG.KEY.MOVE_SE = ROT.VK_C + 32;
+RG.KEY.MOVE_S = ROT.VK_X + 32;
+RG.KEY.MOVE_SW = ROT.VK_Z + 32;
+RG.KEY.MOVE_W = ROT.VK_A + 32;
+RG.KEY.MOVE_NW = ROT.VK_Q + 32;
 
-RG.K_PICKUP = ROT.VK_COMMA;
-RG.K_USE_STAIRS = ROT.VK_B;
-RG.K_RUN = ROT.VK_R;
-RG.K_FIGHT = ROT.VK_F;
-RG.K_YES = ROT.VK_Y;
-RG.K_NEXT_ITEM = ROT.VK_H;
-RG.K_DOOR = ROT.VK_O;
-RG.K_REST = ROT.VK_S;
+RG.KEY.PICKUP = RG.VK_COMMA;
+RG.KEY.USE_STAIRS_UP = RG.VK_LT;
+RG.KEY.USE_STAIRS_DOWN = RG.VK_GT;
+RG.KEY.RUN = ROT.VK_R + 32;
+RG.KEY.FIGHT = ROT.VK_F + 32;
+RG.KEY.YES = ROT.VK_Y + 32;
+RG.KEY.NEXT_ITEM = ROT.VK_H + 32;
+RG.KEY.DOOR = ROT.VK_O + 32;
+RG.KEY.REST = ROT.VK_S + 32;
+RG.KEY.LOOK = ROT.VK_L + 32;
+RG.KEY.POWER = ROT.VK_P + 32;
+RG.KEY.TARGET = RG.VK_t;
+RG.KEY.NEXT = RG.VK_n;
+RG.KeyMap.initMap();
+
+RG.isValidKey = keyCode => {
+    let found = false;
+    Object.keys(RG.KEY).forEach(key => {
+        found = found || RG.KEY[key] === keyCode;
+    });
+    found = found || RG.KeyMap.inMoveCodeMap(keyCode);
+    return found;
+};
 
 // These determine the size of one block in a level. These numbers are important
 // because they determine a sub-area used for procedural generation of shops,
@@ -770,24 +1060,102 @@ RG.ACTOR_SPARSE_SQR = 200;
 RG.ACTOR_MEDIUM_SQR = 120;
 RG.ACTOR_ABUNDANT_SQR = 50;
 
-/* Contains generic 2D geometric functions for square/rectangle/triangle
- * generation.*/
-RG.Geometry = {
+RG.getCardinalDirection = (level, cell) => {
+    const cols = level.getMap().cols;
+    const rows = level.getMap().rows;
+    const x = cell.getX();
+    const y = cell.getY();
+    if (y === 0) {return 'north';}
+    if (y === rows - 1) {return 'south';}
+    if (x === cols - 1) {return 'east';}
+    if (x === 0) {return 'west';}
+    return 'somewhere';
+};
 
-    /* Given start x,y and end x,y coordinates, returns all x,y coordinates in
-     * the border of the rectangle.*/
-    getHollowBox: function(x0, y0, maxX, maxY) {
-        const res = [];
-        for (let x = x0; x <= maxX; x++) {
-            for (let y = y0; y <= maxY; y++) {
-                if ((y === y0 || y === maxY || x === x0 || x === maxX) ) {
-                    res.push([x, y]);
-                }
-            }
+/* Debugging function for printing 2D map row-by-row. */
+RG.printMap = map => {
+    let rowByRow = null;
+    if (Array.isArray(map)) {
+        rowByRow = RG.colsToRows(map);
+    }
+    else if (map instanceof RG.Map.CellList) {
+        rowByRow = RG.colsToRows(map._map);
+    }
+    if (rowByRow) {
+        const sizeY = rowByRow.length;
+        for (let y = 0; y < sizeY; y++) {
+            console.log(rowByRow[y].join(''));
         }
-        return res;
     }
 
+};
+
+RG.colsToRows = arr => {
+    const res = [];
+    const sizeY = arr[0].length;
+    const sizeX = arr.length;
+    for (let y = 0; y < sizeY; y++) {
+        res[y] = [];
+        for (let x = 0; x < sizeX; x++) {
+            res[y][x] = arr[x][y];
+        }
+    }
+    return res;
+};
+
+/* Given 2D array of elements, flattens all arrays inside each [x][y]
+ * positions. */
+RG.flattenTo2D = arr => {
+    const sizeY = arr.length;
+    const res = [];
+    for (let y = 0; y < sizeY; y++) {
+        let row = arr[y];
+        row = flat(row);
+        res.push(row);
+    }
+	function flat(data) {
+		var r = [];
+        data.forEach(e => {
+            if (Array.isArray(e)) {
+                r = r.concat(flat(e));
+            }
+            else {
+                r.push(e);
+            }
+        });
+		return r;
+	}
+	return res;
+};
+
+RG.setAllExplored = (level, isExplored) => {
+    const map = level.getMap();
+    for (let x = 0; x < map.cols; x++) {
+        for (let y = 0; y < map.rows; y++) {
+            const cell = map._map[x][y];
+            cell.setExplored(isExplored);
+        }
+    }
+};
+
+RG.addCompToEntAfterHit = (comp, ent) => {
+    const compClone = comp.clone();
+
+    if (comp.hasOwnProperty('duration')) {
+        const compDur = compClone.rollDuration();
+        const expiration = new RG.Component.Expiration();
+        expiration.addEffect(compClone, compDur);
+        ent.add('Expiration', expiration);
+    }
+
+    ent.add(compClone.getType(), compClone);
+};
+
+/* Returns a game message for cell which cannot be travelled. */
+RG.getImpassableMsg = (actor, cell, str) => {
+    const type = cell.getBaseElem().getType();
+    const cellMsg = `cannot venture beyond ${type}`;
+    return `${str} ${cellMsg}`;
 };
 
 /* Each die has number of throws, type of dice (d6, d20, d200...) and modifier
@@ -797,14 +1165,14 @@ RG.Die = function(num, dice, mod) {
     let _dice = parseInt(dice, 10);
     let _mod = parseInt(mod, 10);
 
-    this.getNum = function() {return _num;};
-    this.setNum = function(num) {_num = num;};
-    this.getDice = function() {return _dice;};
-    this.setDice = function(dice) {_dice = dice;};
-    this.getMod = function() {return _mod;};
-    this.setMod = function(mod) {_mod = mod;};
+    this.getNum = () => _num;
+    this.setNum = num => {_num = num;};
+    this.getDice = () => _dice;
+    this.setDice = dice => {_dice = dice;};
+    this.getMod = () => _mod;
+    this.setMod = mod => {_mod = mod;};
 
-    this.roll = function() {
+    this.roll = () => {
         let res = 0;
         for (let i = 0; i < _num; i++) {
             res += RG.RAND.getUniformInt(1, _dice);
@@ -812,25 +1180,27 @@ RG.Die = function(num, dice, mod) {
         return res + _mod;
     };
 
-    this.toString = function() {
+    this.toString = () => {
         let sign = '+';
         if (mod < 0) {sign = '-';}
         return _num + 'd' + _dice + ' ' + sign + ' ' + _mod;
     };
 
-    this.copy = function(rhs) {
+    this.copy = rhs => {
         _num = rhs.getNum();
         _dice = rhs.getDice();
         _mod = rhs.getMod();
     };
 
     /* Returns true if dice are equal.*/
-    this.equals = function(rhs) {
+    this.equals = rhs => {
         let res = _num === rhs.getNum();
         res = res && (_dice === rhs.getDice());
         res = res && (_mod === rhs.getMod());
         return res;
     };
+
+    this.toJSON = () => [_num, _dice, _mod];
 };
 
 /* Event pool can be used to emit events and register callbacks for listeners.
@@ -839,13 +1209,11 @@ RG.EventPool = function() { // {{{2
     const _listeners = {};
     let _eventsNoListener = 0;
 
-    this.getNumListeners = function() {
-        return _eventsNoListener;
-    };
+    this.getNumListeners = () => _eventsNoListener;
 
     /* Emits an event with given name. args must be in object-notation ie.
      * {data: "abcd"} */
-    this.emitEvent = function(evtName, args) {
+    this.emitEvent = (evtName, args) => {
         if (!RG.isNullOrUndef([evtName])) {
             if (_listeners.hasOwnProperty(evtName)) {
                 const called = _listeners[evtName];
@@ -864,7 +1232,7 @@ RG.EventPool = function() { // {{{2
     };
 
     /* Register an event listener. */
-    this.listenEvent = function(evtName, obj) {
+    this.listenEvent = (evtName, obj) => {
         if (!RG.isNullOrUndef([evtName])) {
             if (obj.hasOwnProperty('notify') || obj.hasNotify) {
                 if (_listeners.hasOwnProperty(evtName)) {
@@ -892,7 +1260,11 @@ RG.EventPool = function() { // {{{2
 };
 RG.POOL = new RG.EventPool(); // Dangerous, global objects
 
-/* Handles the game message listening and storing of the messages.  */
+//---------------------------------------------------------------------------
+// MessageHandler
+//---------------------------------------------------------------------------
+
+/* Handles the game message listening and storing of the messages. */
 RG.MessageHandler = function() { // {{{2
 
     let _lastMsg = null;
@@ -902,7 +1274,7 @@ RG.MessageHandler = function() { // {{{2
     let _hasNew = false;
 
     this.hasNotify = true;
-    this.notify = function(evtName, msg) {
+    this.notify = (evtName, msg) => {
         if (evtName === RG.EVT_MSG) {
             if (msg.hasOwnProperty('msg')) {
                 const msgObj = {msg: msg.msg, style: 'prim', count: 1};
@@ -928,63 +1300,21 @@ RG.MessageHandler = function() { // {{{2
     };
     RG.POOL.listenEvent(RG.EVT_MSG, this);
 
-    this.hasNew = function() {return _hasNew;};
+    this.hasNew = () => _hasNew;
 
-    this.getMessages = function() {
+    this.getMessages = () => {
         _hasNew = false;
         if (_messages.length > 0) {return _messages;}
         else if (_prevMessages.length > 0) {return _prevMessages;}
         else {return [];}
     };
 
-    this.clear = function() {
+    this.clear = () => {
         if (_messages.length > 0) {_prevMessages = _messages.slice();}
         _messages = [];
     };
 
 }; // }}} Messages
-
-//---------------------------------------------------------------------------
-// ECS ENTITY
-//---------------------------------------------------------------------------
-
-RG.Entity = function() {
-
-    let _id = RG.Entity.prototype.idCount++;
-
-    const _comps = {};
-
-    this.getID = function() {return _id;};
-    this.setID = function(id) {_id = id;};
-
-    this.get = function(name) {
-        if (_comps.hasOwnProperty(name)) {return _comps[name];}
-        return null;
-    };
-
-    this.add = function(name, comp) {
-        _comps[name] = comp;
-        comp.entityAddCallback(this);
-        RG.POOL.emitEvent(name, {entity: this, add: true});
-    };
-
-    this.has = function(name) {
-        return _comps.hasOwnProperty(name);
-    };
-
-    this.remove = function(name) {
-        if (_comps.hasOwnProperty(name)) {
-            const comp = _comps[name];
-            comp.entityRemoveCallback(this);
-            delete _comps[name];
-            RG.POOL.emitEvent(name, {entity: this, remove: true});
-        }
-    };
-
-    this.getComponents = function() {return _comps;};
-
-};
-RG.Entity.prototype.idCount = 0;
 
 module.exports = RG;
 

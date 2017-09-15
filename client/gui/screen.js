@@ -1,5 +1,5 @@
 
-const GUI = require('./gui');
+const Viewport = require('./viewport');
 const RG = require('../src/battles');
 
 // TODO: Refactor out of this file
@@ -47,8 +47,180 @@ const getClassesAndChars = function(seen, cells, selCell) {
     return [cssClasses, asciiChars];
 };
 
+const getClassesAndCharsWithRLE = function(seen, cells, selCell, anim) {
+    let prevChar = null;
+    let prevClass = null;
+    let charRL = 0;
+    let classRL = 0;
+
+    const cssClasses = [];
+    const asciiChars = [];
+
+    let selX = -1;
+    let selY = -1;
+
+    if (selCell) {
+        selX = selCell.getX();
+        selY = selCell.getY();
+    }
+
+    // TODO: Prevents a bug, if player wants to see inventory right after
+    // Load. Should render the visible cells properly though.
+    if (!seen) {
+        cssClasses.fill('cell-not-seen', 0, cells.length - 1);
+        asciiChars.fill('X', 0, cells.length - 1);
+        return [cssClasses, asciiChars];
+    }
+
+    let cellClass = '';
+    let cellChar = '';
+
+    for (let i = 0; i < cells.length; i++) {
+        const cell = cells[i];
+        const cellX = cell.getX();
+        const cellY = cell.getY();
+
+        const cellIndex = seen.indexOf(cell);
+        const visibleToPlayer = cellIndex < 0 ? false : true;
+
+        cellClass = RG.getClassName(cell, visibleToPlayer);
+        cellChar = RG.getChar(cell, visibleToPlayer);
+
+        // Useless to animate non-visible cells
+        if (visibleToPlayer && anim) {
+            const key = cellX + ',' + cellY;
+            if (anim[key]) {
+                cellClass = anim[key].className;
+                cellChar = anim[key].char;
+            }
+        }
+
+        if (cell.isAtXY(selX, selY)) {
+            cellClass = 'cell-target-selected';
+        }
+
+        if (!visibleToPlayer) {
+            if (cell.isExplored()) {cellClass += ' cell-not-seen';}
+        }
+
+        const finishRLE = (cellClass !== prevClass) && prevClass
+            || (cellChar !== prevChar) && prevChar;
+
+        if (finishRLE) {
+            cssClasses.push([classRL, prevClass]);
+            classRL = 1;
+            asciiChars.push([charRL, prevChar]);
+            charRL = 1;
+        }
+        else {
+            ++classRL;
+            ++charRL;
+        }
+
+        prevChar = cellChar;
+        prevClass = cellClass;
+    }
+
+    // Need to add the remaining cells
+    if (classRL > 0) {cssClasses.push([classRL, cellClass]);}
+    if (charRL > 0) {asciiChars.push([charRL, cellChar]);}
+
+    return [cssClasses, asciiChars];
+};
+
+/* Same as above but optimized for showing the full map in the game editor.
+*  Does not take into account cells seen by player. */
+const getClassesAndCharsFullMap = function(cells, selCell) {
+    const cssClasses = [];
+    const asciiChars = [];
+
+    let selX = -1;
+    let selY = -1;
+
+    if (selCell !== null) {
+        selX = selCell.getX();
+        selY = selCell.getY();
+    }
+
+    for (let i = 0; i < cells.length; i++) {
+        const cell = cells[i];
+
+        let cellClass = RG.getClassNameFullMap(cell);
+        const cellChar = RG.getCharFullMap(cell);
+
+        if (selX === cell.getX() && selY === cell.getY()) {
+            cellClass = 'cell-target-selected';
+        }
+
+        cssClasses.push(cellClass);
+        asciiChars.push(cellChar);
+    }
+
+    return [cssClasses, asciiChars];
+};
+
+/* Returns the CSS classes + characters to be rendered using RLE. */
+const getClassesAndCharsFullMapWithRLE = function(cells, selCell) {
+    let prevChar = null;
+    let prevClass = null;
+    let charRL = 0;
+    let classRL = 0;
+
+    const cssClasses = [];
+    const asciiChars = [];
+
+    let selMap = null;
+    if (selCell) {
+        selMap = new Map();
+        selCell.forEach(cell => {
+            selMap.set(cell.getX() + ',' + cell.getY(), cell);
+        });
+    }
+
+    let cellClass = '';
+    let cellChar = '';
+
+    for (let i = 0; i < cells.length; i++) {
+        const cell = cells[i];
+
+        cellClass = RG.getClassNameFullMap(cell);
+        cellChar = RG.getCharFullMap(cell);
+
+        if (selMap) {
+            const [x, y] = [cell.getX(), cell.getY()];
+            if (selMap.has(x + ',' + y)) {
+                cellClass = 'cell-target-selected';
+            }
+        }
+
+        const finishRLE = (cellClass !== prevClass) && prevClass
+            || (cellChar !== prevChar) && prevChar;
+
+        if (finishRLE) {
+            cssClasses.push([classRL, prevClass]);
+            classRL = 1;
+            asciiChars.push([charRL, prevChar]);
+            charRL = 1;
+        }
+        else {
+            ++classRL;
+            ++charRL;
+        }
+
+        prevChar = cellChar;
+        prevClass = cellClass;
+    }
+
+    // Need to add the remaining cells
+    if (classRL > 0) {cssClasses.push([classRL, cellClass]);}
+    if (charRL > 0) {asciiChars.push([charRL, cellChar]);}
+
+    return [cssClasses, asciiChars];
+
+};
+
 /* Creates a screen with viewport set to given parameters. */
-GUI.Screen = function(viewX, viewY) {
+const Screen = function(viewX, viewY) {
     this.viewportX = viewX;
     this.viewportY = viewY;
     this.selectedCell = null;
@@ -57,7 +229,7 @@ GUI.Screen = function(viewX, viewY) {
     let _classRows = [];
     let _mapShown = false;
 
-    this.viewport = new GUI.Viewport(viewX, viewY);
+    this.viewport = new Viewport(viewX, viewY);
 
     /* Returns the leftmost X-coordinate of the viewport. */
     this.getStartX = function() {
@@ -93,9 +265,7 @@ GUI.Screen = function(viewX, viewY) {
         return _classRows;
     };
 
-    /* 'Renders' the ASCII screen and style classes based on player's
-     * coordinate, map and visible cells. */
-    this.render = function(playX, playY, map, visibleCells) {
+    this._initRender = function(playX, playY, map) {
         if (!_mapShown) {
             this.setViewportXY(this.viewportX,
                 this.viewportY);
@@ -109,7 +279,12 @@ GUI.Screen = function(viewX, viewY) {
         this.endX = this.viewport.endX;
         this.startY = this.viewport.startY;
         this.endY = this.viewport.endY;
+    };
 
+    /* 'Renders' the ASCII screen and style classes based on player's
+     * coordinate, map and visible cells. */
+    this.render = function(playX, playY, map, visibleCells) {
+        this._initRender(playX, playY, map);
         let yCount = 0;
         for (let y = this.viewport.startY; y <= this.viewport.endY; ++y) {
             const rowCellData = this.viewport.getCellRow(y);
@@ -123,6 +298,20 @@ GUI.Screen = function(viewX, viewY) {
 
     };
 
+    this.renderWithRLE = function(playX, playY, map, visibleCells, anim) {
+        this._initRender(playX, playY, map);
+        let yCount = 0;
+        for (let y = this.viewport.startY; y <= this.viewport.endY; ++y) {
+            const rowCellData = this.viewport.getCellRow(y);
+            const classesChars = getClassesAndCharsWithRLE(visibleCells,
+                rowCellData, this.selectedCell, anim);
+
+            _classRows[yCount] = classesChars[0];
+            _charRows[yCount] = classesChars[1];
+            ++yCount;
+        }
+    };
+
     /* Renders the full map as visible. */
     this.renderFullMap = function(map) {
         this.startX = 0;
@@ -131,15 +320,39 @@ GUI.Screen = function(viewX, viewY) {
         this.endY = map.rows - 1;
 
         for (let y = 0; y < map.rows; ++y) {
-            const rowCellData = map.getCellRow(y);
-            const classesChars = getClassesAndChars(rowCellData,
-                rowCellData, null);
+            const classesChars = getClassesAndCharsFullMap(
+                map.getCellRowFast(y), this.selectedCell);
 
             _classRows[y] = classesChars[0];
             _charRows[y] = classesChars[1];
         }
     };
 
+    this.renderFullMapWithRLE = function(map) {
+        this.startX = 0;
+        this.endX = map.cols - 1;
+        this.startY = 0;
+        this.endY = map.rows - 1;
+
+        for (let y = 0; y < map.rows; ++y) {
+            const classesChars = getClassesAndCharsFullMapWithRLE(
+                map.getCellRowFast(y), this.selectedCell);
+
+            _classRows[y] = classesChars[0];
+            _charRows[y] = classesChars[1];
+        }
+    };
+
+    this.clear = function() {
+        _classRows = [];
+        _charRows = [];
+        this.selectedCell = null;
+        this.startX = 0;
+        this.endX = -1;
+        this.startY = 0;
+        this.endY = -1;
+    };
+
 };
 
-module.exports = GUI.Screen;
+module.exports = Screen;

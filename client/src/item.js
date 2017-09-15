@@ -1,8 +1,11 @@
 
 
 const RG = require('./rg.js');
-RG.Object = require('./object.js');
 RG.Component = require('./component.js');
+
+const Mixin = require('./mixin');
+
+import Entity from './entity';
 
 // Constants for different item types
 RG.ITEM_ITEM = 'item';
@@ -16,6 +19,7 @@ RG.ITEM_MISSILE = 'missile';
 RG.ITEM_MISSILE_WEAPON = 'missileweapon';
 RG.ITEM_AMMUNITION = 'ammo';
 RG.ITEM_POTION = 'potion';
+RG.ITEM_RUNE = 'rune';
 RG.ITEM_GOLD_COIN = 'goldcoin';
 
 //---------------------------------------------------------------------------
@@ -26,252 +30,258 @@ RG.Item = {};
 
 /* Models an item. Each item is ownable by someone. During game, there are no
  * items with null owners. Ownership shouldn't be ever set to null. */
-RG.Item.Base = function(name) {
-    RG.Object.Typed.call(this, RG.TYPE_ITEM, RG.TYPE_ITEM);
-    RG.Object.Ownable.call(this, null);
-    RG.Entity.call(this);
+class ItemBase extends Mixin.Typed(Mixin.Ownable(Entity)) {
 
-    let _name = name;
-    let _value = 1;
-
-    this.add('Physical', new RG.Component.Physical());
-
-    this.count = 1; // Number of items
-
-    this.setName = function(name) {_name = name;};
-    this.getName = function() {return _name;};
-
-    this.setWeight = function(weight) {this.get('Physical').setWeight(weight);};
-    this.getWeight = function() {return this.get('Physical').getWeight();};
-
-    this.setValue = function(value) {_value = value;};
-    this.getValue = function() {return _value;};
-
-    this.setCount = function(count) {this.count = count;};
-
-};
-RG.extend2(RG.Item.Base, RG.Object.Typed);
-RG.extend2(RG.Item.Base, RG.Object.Ownable);
-
-/* Used when showing the item in inventory lists etc. */
-RG.Item.Base.prototype.toString = function() {
-    let txt = this.getName() + ', ' + this.getType() + ', ';
-    const totalWeight = this.getWeight() * this.count;
-    txt += totalWeight.toFixed(2) + 'kg';
-    if (this.hasOwnProperty('count')) {
-        txt = this.count + ' x ' + txt;
+    constructor(name) {
+        super({owner: null, type: RG.TYPE_ITEM, propType: RG.TYPE_ITEM});
+        this._name = name;
+        this._value = 1;
+        this.count = 1; // Number of items
+        this.add('Physical', new RG.Component.Physical());
     }
-    return txt;
-};
-
-RG.Item.Base.prototype.equals = function(item) {
-    let res = this.getName() === item.getName();
-    res = res && (this.getType() === item.getType());
-    return res;
-};
-
-RG.Item.Base.prototype.copy = function(rhs) {
-    this.setName(rhs.getName());
-    this.setType(rhs.getType());
-    this.setWeight(rhs.getWeight());
-    this.setValue(rhs.getValue());
-};
-
-RG.Item.Base.prototype.clone = function() {
-    const newItem = new RG.Item.Base(this.getName());
-    newItem.copy(this);
-    return newItem;
-};
-
-RG.Item.Base.prototype.toJSON = function() {
-    const json = {
-        setID: this.getID(),
-        setName: this.getName(),
-        setValue: this.getValue(),
-        setWeight: this.getWeight(),
-        setPropType: RG.TYPE_ITEM,
-        setType: this.getType(),
-        setCount: this.count
-    };
-    const components = {};
-    const thisComps = this.getComponents();
-    Object.keys(thisComps).forEach(name => {
-        components[thisComps[name].getType()] = thisComps[name].toJSON();
-    });
-    json.components = components;
-    return json;
-};
 
 
-/* Object representing food items in the game.*/
-RG.Item.Food = function(name) {
-    RG.Item.Base.call(this, name);
-    this.setType(RG.ITEM_FOOD);
+    setName(name) {this._name = name;};
+    getName() {return this._name;}
 
-    let _energy = 0; // per 0.1 kg
-
-    this.setEnergy = function(energy) {_energy = energy;};
-    this.getEnergy = function() {return _energy;};
-
-    this.getConsumedEnergy = function() {
-        return Math.round( (this.getWeight() * _energy) / 0.1);
+    setWeight(weight) {
+        this.get('Physical').setWeight(weight);
     };
 
-    /* Uses (eats) the food item.*/
-    this.useItem = function(obj) {
-        if (obj.hasOwnProperty('target')) {
-            const cell = obj.target;
-            if (cell.hasActors()) {
-                const target = cell.getProp('actors')[0];
-                if (target.has('Hunger')) {
-                    const totalEnergy = this.getConsumedEnergy();
-                    target.get('Hunger').addEnergy(totalEnergy);
-                    if (this.count === 1) {
-                        const msg = {item: this};
-                        RG.POOL.emitEvent(RG.EVT_DESTROY_ITEM, msg);
-                        RG.gameMsg(target.getName() + ' consumes ' +
-                            this.getName());
+    getWeight() {return this.get('Physical').getWeight();};
+
+    setValue(value) {this._value = value;};
+    getValue() {return this._value;}
+
+    setCount(count) {this.count = count;};
+
+    /* Used when showing the item in inventory lists etc. */
+    toString() {
+        let txt = this.getName() + ', ' + this.getType() + ', ';
+        const totalWeight = this.getWeight() * this.count;
+        txt += totalWeight.toFixed(2) + 'kg';
+        if (this.hasOwnProperty('count')) {
+            txt = this.count + ' x ' + txt;
+        }
+        return txt;
+    };
+
+    equals(item) {
+        let res = this.getName() === item.getName();
+        res = res && (this.getType() === item.getType());
+        return res;
+    };
+
+    copy(rhs) {
+        this.setName(rhs.getName());
+        this.setType(rhs.getType());
+        this.setWeight(rhs.getWeight());
+        this.setValue(rhs.getValue());
+    };
+
+    clone() {
+        const newItem = new RG.Item.Base(this.getName());
+        newItem.copy(this);
+        return newItem;
+    };
+
+    toJSON() {
+        const json = {
+            setID: this.getID(),
+            setName: this.getName(),
+            setValue: this.getValue(),
+            setWeight: this.getWeight(),
+            setPropType: RG.TYPE_ITEM,
+            setType: this.getType(),
+            setCount: this.count
+        };
+        const components = {};
+        const thisComps = this.getComponents();
+        Object.keys(thisComps).forEach(name => {
+            components[thisComps[name].getType()] = thisComps[name].toJSON();
+        });
+        json.components = components;
+        return json;
+    };
+
+}
+RG.Item.Base = ItemBase;
+
+//----------------
+/* RGItemFood */
+//----------------
+class RGItemFood extends ItemBase {
+    constructor(name) {
+        super(name);
+        this.setType(RG.ITEM_FOOD);
+
+        this._energy = 0; // per 0.1 kg
+
+        this.setEnergy = energy => {this._energy = energy;};
+        this.getEnergy = () => this._energy;
+
+        this.getConsumedEnergy = function() {
+            return Math.round( (this.getWeight() * this._energy) / 0.1);
+        };
+
+        /* Uses (eats) the food item.*/
+        this.useItem = function(obj) {
+            if (obj.hasOwnProperty('target')) {
+                const cell = obj.target;
+                if (cell.hasActors()) {
+                    const target = cell.getProp('actors')[0];
+                    if (target.has('Hunger')) {
+                        const totalEnergy = this.getConsumedEnergy();
+                        target.get('Hunger').addEnergy(totalEnergy);
+                        if (this.count === 1) {
+                            const msg = {item: this};
+                            RG.POOL.emitEvent(RG.EVT_DESTROY_ITEM, msg);
+                            RG.gameMsg(target.getName() + ' consumes ' +
+                                this.getName());
+                        }
+                        else {
+                            this.count -= 1;
+                        }
                     }
                     else {
-                        this.count -= 1;
+                        RG.gameWarn(target.getName() +
+                            ' is not interested in eating.');
                     }
                 }
                 else {
-                    RG.gameWarn(target.getName() +
-                        ' is not interested in eating.');
+                    RG.gameWarn("There's no one to give food to.");
                 }
             }
             else {
-                RG.gameWarn("There's no one to give food to.");
+                RG.err('ItemFood', 'useItem', 'No target given in obj.');
             }
-        }
-        else {
-            RG.err('ItemFood', 'useItem', 'No target given in obj.');
-        }
-    };
+        };
 
-};
-RG.extend2(RG.Item.Food, RG.Item.Base);
+    }
 
-RG.Item.Food.prototype.toJSON = function() {
-    const json = RG.Item.Base.prototype.toJSON.call(this);
-    json.setEnergy = this.getEnergy();
-    return json;
-};
+    toJSON() {
+        const json = super.toJSON();
+        json.setEnergy = this.getEnergy();
+        return json;
+    }
+}
+
+RG.Item.Food = RGItemFood;
 
 
-/* Corpse object dropped by killed actors.*/
-RG.Item.Corpse = function(name) {
-    RG.Item.Base.call(this, name);
-    this.setType(RG.ITEM_CORPSE);
-};
-RG.extend2(RG.Item.Corpse, RG.Item.Base);
+//------------------
+/* RGItemCorpse */
+//------------------
+class RGItemCorpse extends ItemBase {
+    constructor(name) {
+        super(name);
+        this.setType(RG.ITEM_CORPSE);
+    }
+}
 
-/* Base object for all weapons.*/
-RG.Item.Weapon = function(name) {
-    RG.Item.Base.call(this, name);
-    RG.Object.Damage.call(this);
-    this.setType(RG.ITEM_WEAPON);
-};
-RG.extend2(RG.Item.Weapon, RG.Item.Base);
-RG.extend2(RG.Item.Weapon, RG.Object.Damage);
+RG.Item.Corpse = RGItemCorpse;
 
-RG.Item.Weapon.prototype.toString = function() {
-    let msg = RG.Item.Base.prototype.toString.call(this);
-    msg += RG.Object.Damage.prototype.toString.call(this);
-    return msg;
-};
+//------------------
+/* RGItemWeapon */
+//------------------
+class RGItemWeapon extends Mixin.Damage(ItemBase) {
 
-RG.Item.Weapon.prototype.clone = function() {
-    const weapon = new RG.Item.Weapon(this.getName());
-    weapon.copy(this);
-    return weapon;
-};
+    constructor(name) {
+        super(name);
+        this.setType(RG.ITEM_WEAPON);
+    }
 
-RG.Item.Weapon.prototype.copy = function(rhs) {
-    RG.Item.Base.prototype.copy.call(this, rhs);
-    RG.Object.Damage.prototype.copy.call(this, rhs);
-};
+    clone() {
+        const weapon = new RGItemWeapon(this.getName());
+        weapon.copy(this);
+        return weapon;
+    }
 
-RG.Item.Weapon.prototype.equals = function(rhs) {
-    let res = RG.Item.Base.prototype.equals.call(this, rhs);
-    res = res && RG.Object.Damage.prototype.equals.call(this, rhs);
-    return res;
-};
+}
 
+RG.Item.Weapon = RGItemWeapon;
 
-RG.Item.Weapon.prototype.toJSON = function() {
-    const json = RG.Item.Base.prototype.toJSON.call(this);
-    const json2 = RG.Object.Damage.prototype.toJSON.call(this);
-    Object.keys(json2).forEach(p => {
-        json[p] = json2[p];
-    });
-    return json;
-};
+//-------------------------
+/* RGItemMissileWeapon */
+//-------------------------
+class RGItemMissileWeapon extends RGItemWeapon {
+    constructor(name) {
+        super(name);
+        this.setType(RG.ITEM_MISSILE_WEAPON);
+    }
+}
+RG.Item.MissileWeapon = RGItemMissileWeapon;
 
-/* Base object for missile weapons. */
-RG.Item.MissileWeapon = function(name) {
-    RG.Item.Weapon.call(this, name);
-    this.setType(RG.ITEM_MISSILE_WEAPON);
+//---------------------------------------
+/* RGItemAmmo Object for ammunition. */
+//---------------------------------------
+class RGItemAmmo extends RGItemWeapon {
+    constructor(name) {
+        super(name);
+        this.setType(RG.ITEM_MISSILE);
+        this.add('Ammo', new RG.Component.Ammo());
+    }
 
-};
-RG.extend2(RG.Item.MissileWeapon, RG.Item.Weapon);
+    clone() {
+        const ammo = new RGItemAmmo(this.getName());
+        ammo.copy(this);
+        return ammo;
+    }
 
-RG.Item.Ammo = function(name) {
-    RG.Item.Weapon.call(this, name);
-    this.setType(RG.ITEM_MISSILE);
-    this.add('Ammo', new RG.Component.Ammo());
-};
-RG.extend2(RG.Item.Ammo, RG.Item.Weapon);
+}
 
-/* Base object for armour.*/
-RG.Item.Armour = function(name) {
-    RG.Item.Base.call(this, name);
-    RG.Object.Defense.call(this);
-    this.setType(RG.ITEM_ARMOUR);
+RG.Item.Ammo = RGItemAmmo;
 
-    let _armourType = null;
+//-------------------------------------------
+/* RGItemArmour Object for armour items. */
+//-------------------------------------------
+class RGItemArmour extends Mixin.Defense(ItemBase) {
 
-    this.setArmourType = function(type) {_armourType = type;};
-    this.getArmourType = function() {return _armourType;};
-};
-RG.extend2(RG.Item.Armour, RG.Item.Base);
-RG.extend2(RG.Item.Armour, RG.Object.Defense);
+    constructor(name) {
+        super(name);
+        this.setType(RG.ITEM_ARMOUR);
+        this._armourType = null;
 
-RG.Item.Armour.prototype.clone = function() {
-    const armour = new RG.Item.Armour(this.getName());
-    armour.copy(this);
-    return armour;
-};
+        this.setArmourType = type => {this._armourType = type;};
+        this.getArmourType = () => this._armourType;
+    }
 
-RG.Item.Armour.prototype.copy = function(rhs) {
-    RG.Item.Base.prototype.copy.call(this, rhs);
-    RG.Object.Defense.prototype.copy.call(this, rhs);
-    this.setArmourType(rhs.getArmourType());
-};
+    clone() {
+        const armour = new RGItemArmour(this.getName());
+        armour.copy(this);
+        return armour;
+    }
 
-RG.Item.Armour.prototype.equals = function(rhs) {
-    let res = RG.Item.Base.prototype.equals.call(this, rhs);
-    res = res && RG.Object.Defense.prototype.equals.call(this, rhs);
-    return res;
-};
+    copy(rhs) {
+        super.copy(rhs);
+        this.setArmourType(rhs.getArmourType());
+    }
 
-RG.Item.Armour.prototype.toJSON = function() {
-    const json = RG.Item.Base.prototype.toJSON.call(this);
-    const json2 = RG.Object.Defense.prototype.toJSON.call(this);
-    Object.keys(json2).forEach(p => {
-        json[p] = json2[p];
-    });
-    json.setArmourType = this.getArmourType();
-    return json;
-};
+    equals(rhs) {
+        let res = super.equals(rhs);
+        res = res && this._armourType === rhs.getArmourType();
+        return res;
+    }
 
-/* Potion object which restores hit points .*/
-RG.Item.Potion = function(name) {
-    RG.Item.Base.call(this, name);
-    this.setType(RG.ITEM_POTION);
+    toJSON() {
+        const json = super.toJSON();
+        json.setArmourType = this.getArmourType();
+        return json;
+    }
+}
 
-    this.useItem = function(obj) {
+RG.Item.Armour = RGItemArmour;
+
+//--------------------------------------
+/* RGItemPotion Object for potions. */
+//--------------------------------------
+class RGItemPotion extends ItemBase {
+    constructor(name) {
+        super(name);
+        this.setType(RG.ITEM_POTION);
+    }
+
+    useItem(obj) {
         if (obj.hasOwnProperty('target')) {
             const cell = obj.target;
             if (cell.hasActors()) {
@@ -289,6 +299,7 @@ RG.Item.Potion = function(name) {
                     else {
                         this.count -= 1;
                     }
+                    return false;
                 }
             }
             else {
@@ -298,75 +309,107 @@ RG.Item.Potion = function(name) {
         else {
             RG.err('ItemPotion', 'useItem', 'No target given in obj.');
         }
-    };
+        return false;
+    }
+}
 
-};
-RG.extend2(RG.Item.Potion, RG.Item.Base);
+RG.Item.Potion = RGItemPotion;
 
-/* Models an object which is used as a missile.*/
-RG.Item.Missile = function(name) {
-    RG.Item.Base.call(this, name);
-    RG.Object.Damage.call(this);
-    this.setType(RG.ITEM_MISSILE);
-};
-RG.extend2(RG.Item.Missile, RG.Item.Base);
-RG.extend2(RG.Item.Missile, RG.Object.Damage);
+//----------------------------------------
+/* RGItemRune Object for rune stones. */
+//----------------------------------------
+class RGItemRune extends ItemBase {
+    constructor(name) {
+        super(name);
+        this.setType(RG.ITEM_RUNE);
 
-RG.Item.Missile.prototype.clone = function() {
-    const weapon = new RG.Item.Missile(this.getName());
-    weapon.copy(this);
-    return weapon;
-};
+        this._charges = 1;
 
-RG.Item.Missile.prototype.copy = function(rhs) {
-    RG.Item.Base.prototype.copy.call(this, rhs);
-    RG.Object.Damage.prototype.copy.call(this, rhs);
+        this.getCharges = () => this._charges;
+        this.setCharges = (charges) => {this._charges = charges;};
 
-};
+        this.useItem = () => {
+            // Various complex effects
+        };
 
-RG.Item.Missile.prototype.equals = function(rhs) {
-    let res = RG.Item.Base.prototype.equals.call(this, rhs);
-    res = res && RG.Object.Damage.prototype.equals.call(this, rhs);
-    return res;
+    }
 
-};
+    clone() {
+        const rune = new RGItemRune(this.getName());
+        rune.copy(this);
+        return rune;
+    }
 
-RG.Item.Missile.prototype.toJSON = function() {
-    const json = RG.Item.Base.prototype.toJSON.call(this);
-    const json2 = RG.Object.Damage.prototype.toJSON.call(this);
-    Object.keys(json2).forEach(p => {
-        json[p] = json2[p];
-    });
-    return json;
-};
+    copy(rhs) {
+        super.copy(rhs);
+        this.setCharges(rhs.getCharges());
+    }
 
+    equals(rhs) {
+        let res = super.equals(rhs);
+        res = res && this.getCharges() === rhs.getCharges();
+        return res;
+    }
 
-/* Models an item container. Can hold a number of items.*/
-RG.Item.Container = function(owner) {
-    RG.Item.Base.call(this, 'container');
-    this.setOwner(owner);
+    toJSON() {
+        const json = super.toJSON();
+        json.setCharges = this.getCharges();
+        return json;
+    }
+}
 
-    const _items = [];
-    let _iter = 0;
-    let _removedItem = null; // Last removed item
+RG.Item.Rune = RGItemRune;
 
-    this._addItem = function(item) {
+//----------------------------------------------
+/* RGItemMissile Object for thrown missile. */
+//----------------------------------------------
+class RGItemMissile extends Mixin.Damage(ItemBase) {
+    constructor(name) {
+        super(name);
+        this.setType(RG.ITEM_MISSILE);
+    }
+
+    clone() {
+        const weapon = new RGItemMissile(this.getName());
+        weapon.copy(this);
+        return weapon;
+    }
+
+}
+
+RG.Item.Missile = RGItemMissile;
+
+//------------------------------------------------------
+/* RGItemContainer An item which holds other items. */
+//------------------------------------------------------
+class RGItemContainer extends ItemBase {
+
+    constructor(owner) {
+        super('container');
+        this.setOwner(owner);
+
+        this._items = [];
+        this._iter = 0;
+        this._removedItem = null; // Last removed item
+    }
+
+    _addItem(item) {
         let matchFound = false;
-        for (let i = 0; i < _items.length; i++) {
-            if (_items[i].equals(item)) {
-                if (_items[i].hasOwnProperty('count')) {
+        for (let i = 0; i < this._items.length; i++) {
+            if (this._items[i].equals(item)) {
+                if (this._items[i].hasOwnProperty('count')) {
                     if (item.hasOwnProperty('count')) {
-                        _items[i].count += item.count;
+                        this._items[i].count += item.count;
                     }
                     else {
-                        _items[i].count += 1;
+                        this._items[i].count += 1;
                     }
                 }
                 else if (item.hasOwnProperty('count')) {
-                        _items[i].count = 1 + item.count;
+                        this._items[i].count = 1 + item.count;
                     }
                     else {
-                        _items[i].count = 2;
+                        this._items[i].count = 2;
                     }
                 matchFound = true;
                 break;
@@ -375,21 +418,21 @@ RG.Item.Container = function(owner) {
 
         if (!matchFound) {
             item.setOwner(this);
-            _items.push(item);
+            this._items.push(item);
         }
-    };
+    }
 
     /* Returns the total weight of the container.*/
-    this.getWeight = function() {
+    getWeight() {
         let sum = 0;
-        for (let i = 0; i < _items.length; i++) {
-            sum += _items[i].getWeight() * _items[i].count;
+        for (let i = 0; i < this._items.length; i++) {
+            sum += this._items[i].getWeight() * this._items[i].count;
         }
         return sum;
-    };
+    }
 
-    /* Adds an item. Container becomes item's owner.*/
-    this.addItem = function(item) {
+        /* Adds an item. Container becomes item's owner.*/
+    addItem(item) {
         if (item.getType() === 'container') {
             if (this.getOwner() !== item) {
                 this._addItem(item);
@@ -402,42 +445,42 @@ RG.Item.Container = function(owner) {
         else {
             this._addItem(item);
         }
-    };
+    }
 
-    this.getItems = function() {return _items;};
+    getItems() {return this._items;}
 
     /* Check by pure obj ref. Returns true if contains item ref.*/
-    this.hasItemRef = function(item) {
-        const index = _items.indexOf(item);
+    hasItemRef(item) {
+        const index = this._items.indexOf(item);
         if (index !== -1) {return true;}
         return false;
-    };
+    }
 
     /* Used for stacking/equip purposes only.*/
-    this.hasItem = function(item) {
+    hasItem(item) {
         if (this.hasItemRef(item)) {return true;}
-        const index = _getMatchingItemIndex(item);
+        const index = this._getMatchingItemIndex(item);
         return index >= 0;
-    };
+    }
 
-    /* Tries to remove an item. Returns true on success, false otherwise.*/
-    this.removeItem = function(item) {
+        /* Tries to remove an item. Returns true on success, false otherwise.*/
+    removeItem(item) {
         if (this.hasItem(item)) {
-            return _removeItem(item);
+            return this._removeItem(item);
         }
-        _removedItem = null;
+        this._removedItem = null;
         return false;
-    };
+    }
 
-    const _getMatchingItemIndex = function(item) {
-        for (let i = 0; i < _items.length; i++) {
-            if (item.equals(_items[i])) {return i;}
+    _getMatchingItemIndex(item) {
+        for (let i = 0; i < this._items.length; i++) {
+            if (item.equals(this._items[i])) {return i;}
         }
         return -1;
-    };
+    }
 
-    const _removeItem = function(item) {
-        const i = _getMatchingItemIndex(item);
+    _removeItem(item) {
+        const i = this._getMatchingItemIndex(item);
 
         if (i === -1) {
             RG.err('ItemContainer', '_removeItem',
@@ -445,161 +488,187 @@ RG.Item.Container = function(owner) {
             return false;
         }
 
-        if (_items[i].hasOwnProperty('count')) {
-            _removedItem = RG.removeStackedItems(_items[i], 1);
-            if (_items[i].count === 0) {_items.splice(i, 1);}
+        if (this._items[i].hasOwnProperty('count')) {
+            this._removedItem = RG.removeStackedItems(this._items[i], 1);
+            if (this._items[i].count === 0) {this._items.splice(i, 1);}
         }
         else {
-            _removedItem = item;
-            _items.splice(i, 1);
+            this._removedItem = item;
+            this._items.splice(i, 1);
         }
         return true;
-    };
+    }
 
     /* Returns last removed item if removeItem returned true.*/
-    this.getRemovedItem = function() {
-        return _removedItem;
-    };
+    getRemovedItem() {return this._removedItem;}
 
     /* Removes N items from the inventory of given type.*/
-    this.removeNItems = function(item, n) {
+    removeNItems(item, n) {
         let count = 0;
         while ((count < n) && this.removeItem(item)) {
             ++count;
         }
 
-        if (_removedItem !== null) {
-            _removedItem.count = count;
+        if (this._removedItem !== null) {
+            this._removedItem.count = count;
         }
         else {
             RG.err('ItemContainer', 'removeNItems',
-                '_removedItem was null. It should be a valid item.');
+                'this._removedItem was null. It should be a valid item.');
             return false;
         }
 
         if (count > 0) {return true;}
         return false;
-    };
+    }
 
     /* Returns first item or null for empty container.*/
-    this.first = function() {
-        if (_items.length > 0) {
-            _iter = 1;
-            return _items[0];
+    first() {
+        if (this._items.length > 0) {
+            this._iter = 1;
+            return this._items[0];
         }
         return null;
-    };
+    }
 
     /* Returns next item from container or null if there are no more items.*/
-    this.next = function() {
-        if (_iter < _items.length) {
-            return _items[_iter++];
+    next() {
+        if (this._iter < this._items.length) {
+            return this._items[this._iter++];
         }
         return null;
-    };
-
-    this.last = function() {
-        return _items[_items.length - 1];
-
-    };
-
-    /* Returns true for empty container.*/
-    this.isEmpty = function() {
-        return _items.length === 0;
-    };
-
-
-};
-RG.extend2(RG.Item.Container, RG.Item.Base);
-
-RG.Item.Container.prototype.toString = function() {
-    let str = 'Container: ' + this.getName() + '\n';
-    const items = this.getItems();
-    for (let i = 0; i < items.length; i++) {
-        str += items[i].toString() + '\n';
     }
-    return str;
-};
 
-RG.Item.Container.prototype.toJSON = function() {
-    const json = [];
-    const items = this.getItems();
-    for (let i = 0; i < items.length; i++) {
-        json.push(items[i].toJSON());
+    last() {
+        return this._items[this._items.length - 1];
     }
-    return json;
-};
 
-/* Gold items. */
-RG.Item.Gold = function(name) {
-    RG.Item.Base.call(this, name);
-    this.setType(RG.ITEM_GOLD);
-    this._purity = 1.0;
-};
-RG.extend2(RG.Item.Gold, RG.Item.Base);
+        /* Returns true for empty container.*/
+    isEmpty() {
+        return this._items.length === 0;
+    }
 
-RG.Item.Gold.prototype.getPurity = function() {
-    return this._purity;
-};
+    toString() {
+        let str = 'Container: ' + this.getName() + '\n';
+        const items = this.getItems();
+        for (let i = 0; i < items.length; i++) {
+            str += items[i].toString() + '\n';
+        }
+        return str;
+    }
 
-RG.Item.Gold.prototype.setPurity = function(purity) {
-    this._purity = purity;
-};
+    toJSON() {
+        const json = [];
+        const items = this.getItems();
+        for (let i = 0; i < items.length; i++) {
+            json.push(items[i].toJSON());
+        }
+        return json;
+    }
+}
+RG.Item.Container = RGItemContainer;
 
-RG.Item.Gold.prototype.toJSON = function() {
-    const json = RG.Item.Base.prototype.toJSON.call(this);
-    json.setType = this.getType();
-    json.setPurity = this._purity;
-    return json;
-};
+//----------------
+/* RGItemGold */
+//----------------
+class RGItemGold extends ItemBase {
+    constructor(name) {
+        super(name);
+        this.setType(RG.ITEM_GOLD);
+        this._purity = 1.0;
+    }
 
+    getPurity() {
+        return this._purity;
+    }
+
+    setPurity(purity) {
+        this._purity = purity;
+    }
+
+    toJSON() {
+        const json = super.toJSON();
+        json.setType = this.getType();
+        json.setPurity = this._purity;
+        return json;
+    }
+}
+
+RG.Item.Gold = RGItemGold;
+
+
+//-------------------------------------------
+/* RGItemGoldCoin because we need money. */
+//-------------------------------------------
 /* Gold coins have standard weight and are (usually) made of pure gold.*/
-RG.Item.GoldCoin = function(name) {
-    const _name = name || RG.GOLD_COIN_NAME;
-    RG.Item.Gold.call(this, _name);
-    this.setType(RG.ITEM_GOLD_COIN);
-    this._purity = 1.0;
-    this.setWeight(0.03);
+class RGItemGoldCoin extends RGItemGold {
+	constructor(name) {
+		const _name = name || RG.GOLD_COIN_NAME;
+		super(_name);
+		this.setType(RG.ITEM_GOLD_COIN);
+		this._purity = 1.0;
+		this.setWeight(0.03);
+	}
 };
-RG.extend2(RG.Item.GoldCoin, RG.Item.Gold);
+RG.Item.GoldCoin = RGItemGoldCoin;
 
+//-------------------------------------------
+/* RGItemSpiritGem for capturing spirits. */
+//-------------------------------------------
+class RGItemSpiritGem extends ItemBase {
 
-/* Spirit gems can capture spirits inside them.*/
-RG.Item.SpiritGem = function(name) {
-    RG.Item.Base.call(this, name);
-    this.setType(RG.ITEM_SPIRITGEM);
+    constructor(name) {
+        super(name);
+        this.setType(RG.ITEM_SPIRITGEM);
 
-    let _spirit = null;
-    let _hasSpirit = false;
-    this.getArmourType = function() {return 'spiritgem';};
+        this._spirit = null;
+        this._hasSpirit = false;
 
-    this.hasSpirit = function() {return _hasSpirit;};
-    this.getSpirit = function() {return _spirit;};
+        // Generate getters which access spirit's Stats component
+        const _getters =
+            ['getStrength', 'getWillpower', 'getAccuracy', 'getAgility'];
 
-    this.setSpirit = function(spirit) {
-        if (!_hasSpirit) {
-            _hasSpirit = true;
-            _spirit = spirit;
+        const createGetFunc = i => {
+            const funcName = _getters[i];
+            return () => {
+                if (!this._hasSpirit) {return 0;}
+                return this._spirit.get('Stats')[funcName]();
+            };
+        };
+
+        for (let i = 0; i < _getters.length; i++) {
+            this[_getters[i]] = createGetFunc(i);
+        }
+
+    }
+
+    getArmourType() {return 'spiritgem';}
+
+    hasSpirit() {return this._hasSpirit;}
+    getSpirit() {return this._spirit;}
+
+    setSpirit(spirit) {
+        if (!this._hasSpirit) {
+            this._hasSpirit = true;
+            this._spirit = spirit;
         }
         else {
             RG.err('Item.Spirit', 'setSpirit', 'Tried to overwrite spirit');
         }
-    };
+    }
 
     /* Used for capturing the spirits inside the gem.*/
-    this.useItem = function(obj) {
-        if (!_hasSpirit) {
+    useItem(obj) {
+        if (!this._hasSpirit) {
             const cell = obj.target;
             const spirits = cell.getPropType('spirit');
             if (spirits.length > 0) {
                 const spirit = spirits[0];
-                // spirit.remove("Action"); // Trapped spirit cannot act
                 spirit.get('Action').disable(); // Trapped spirit cannot act
-                // if (spirit.has("Movement")) spirit.remove("Movement");
                 const level = spirit.getLevel();
                 level.removeActor(spirit);
-                _spirit = spirit;
-                _hasSpirit = true;
+                this._spirit = spirit;
+                this._hasSpirit = true;
             }
             else if (cell.hasActors()) {
                     RG.gameWarn(
@@ -612,65 +681,47 @@ RG.Item.SpiritGem = function(name) {
         else {
             RG.gameWarn(this.getName() + ' already traps a spirit');
         }
-    };
-
-    // Generate getters which access spirit's Stats component
-    const _getters =
-        ['getStrength', 'getWillpower', 'getAccuracy', 'getAgility'];
-
-    const createGetFunc = function(i) {
-        const funcName = _getters[i];
-        return function() {
-            if (!_hasSpirit) {return 0;}
-            return _spirit.get('Stats')[funcName]();
-        };
-    };
-
-    for (let i = 0; i < _getters.length; i++) {
-        this[_getters[i]] = createGetFunc(i);
     }
 
-};
-RG.extend2(RG.Item.SpiritGem, RG.Item.Base);
-
-RG.Item.SpiritGem.prototype.clone = function() {
-    const gem = new RG.Item.SpiritGem(this.getName());
-    gem.copy(this);
-    return gem;
-};
-
-RG.Item.SpiritGem.prototype.copy = function(rhs) {
-    RG.Item.Base.prototype.copy.call(this, rhs);
-    if (rhs.hasSpirit()) {this.setSpirit(rhs.getSpirit());}
-};
-
-RG.Item.SpiritGem.prototype.equals = function(rhs) {
-    let res = RG.Item.Base.prototype.equals.call(this, rhs);
-    res = res && (this.getSpirit() === rhs.getSpirit());
-    return res;
-};
-
-RG.Item.SpiritGem.prototype.toString = function() {
-    let txt = RG.Item.Base.prototype.toString.call(this);
-    if (this.hasSpirit()) {
-        const stats = this.getSpirit().get('Stats');
-        txt += '(' + this.getSpirit().getName() + ')';
-        txt += ' Str: ' + stats.getStrength();
-        txt += ' Agi: ' + stats.getAgility();
-        txt += ' Acc: ' + stats.getAccuracy();
-        txt += ' Wil: ' + stats.getWillpower();
+    clone() {
+        const gem = new RGItemSpiritGem(this.getName());
+        gem.copy(this);
+        return gem;
     }
-    else {txt += '(Empty)';}
-    return txt;
-};
 
+    copy(rhs) {
+        super.copy(rhs);
+        if (rhs.hasSpirit()) {this.setSpirit(rhs.getSpirit());}
+    }
 
-RG.Item.SpiritGem.prototype.toJSON = function() {
-    const json = RG.Item.Base.prototype.toJSON.call(this);
-    json.hasSpirit = this.hasSpirit();
-    if (json.hasSpirit) {json.setSpirit = this.getSpirit().toJSON();}
-    return json;
-};
+    equals(rhs) {
+        let res = super.equals(rhs);
+        res = res && (this.getSpirit() === rhs.getSpirit());
+        return res;
+    }
 
+    toString() {
+        let txt = super.toString();
+        if (this.hasSpirit()) {
+            const stats = this.getSpirit().get('Stats');
+            txt += '(' + this.getSpirit().getName() + ')';
+            txt += ' Str: ' + stats.getStrength();
+            txt += ' Agi: ' + stats.getAgility();
+            txt += ' Acc: ' + stats.getAccuracy();
+            txt += ' Wil: ' + stats.getWillpower();
+        }
+        else {txt += '(Empty)';}
+        return txt;
+    }
+
+    toJSON() {
+        const json = super.toJSON();
+        json.hasSpirit = this.hasSpirit();
+        if (json.hasSpirit) {json.setSpirit = this.getSpirit().toJSON();}
+        return json;
+    }
+}
+
+RG.Item.SpiritGem = RGItemSpiritGem;
 
 module.exports = RG.Item;

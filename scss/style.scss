@@ -10,20 +10,20 @@ $cell-height: 17px;
 
 $padding-stats: 10px;
 
+$success-color-on-gray: #066;
+
 @import 'colors';
 
 @mixin fonts {
     font-family: 'Josefin Sans', sans-serif;
 }
 
-@mixin cell-font {
-    //font-family: 'VT323', monospace;
+@mixin cell-font($size) {
     font-family: monospace;
-    font-size: 16px;
+    font-size: $size;
 }
 
 @mixin cell-font-map {
-    //font-family: 'VT323', monospace;
     font-family: monospace;
     font-size: 8px;
 }
@@ -46,10 +46,6 @@ $padding-stats: 10px;
 // Defines the main gradient for the background
 @mixin gray-gradient {
     background: $main-color;
-    // background: -o-radial-gradient($main-color, $main-color-2, $main-color-3);
-    // background: -webkit-radial-gradient($main-color, $main-color-2, $main-color-3);
-    // background: -moz-radial-gradient($main-color, $main-color-2, $main-color-3);
-    // background: radial-gradient($main-color, $main-color-2, $main-color-3);
 }
 
 // Changes vertical list into a horizontal one
@@ -99,10 +95,9 @@ body {
     color: $black;
 };
 
-// Performs quite poorly in FF, but Chrome is fine
+// Cells out of FOV
 .cell-not-seen {
-    //filter: brightness(75%);
-    //opacity: 0.8;
+    filter: brightness(65%);
 }
 
 //---------------------------------------------------------------------
@@ -113,16 +108,22 @@ body {
     margin-top: 10px;
 }
 
+/* Game-play related messages. Naming is the same as in bootstrap. */
 .game-messages {
-    background-color: $ctrl-top-color;
+    background-color: $black;
     border: 1px solid $black;
-    border-radius: 5px;
-    font-size: 18px;
+    color: $white;
+    font-family: monospace;
+    font-size: 16px;
     height: 60px;
-    margin-bottom: 10px;
     overflow: auto;
     padding-left: 5px;
     padding-top: 2px;
+
+    .text-primary {
+        color: $white;
+    }
+
 }
 
 .btn-rg {
@@ -152,26 +153,52 @@ ul {
     @include ver-to-hor-list;
 };
 
-.game-board-player-view {
-    @include cell-font;
+// -----------------------------------
+// FONTSIZES for different board sizes
+// -----------------------------------
+
+.game-board-player-view-xl  {
+    font-size: 24px;
 };
 
-.cell-row-div-player-view {
-    margin-bottom: -5px;
+.game-board-player-view {
+    @include cell-font(16px);
 };
 
 .game-board-map-view {
     @include cell-font-map;
 };
 
+.game-board-map-view-xs {
+    font-size: 6px;
+};
+
+.game-board-map-view-xxxs {
+    font-size: 3px;
+};
+
+.game-board-map-view-xxxxs {
+    font-size: 1px;
+};
+
+// Row styling for different board sizes
+
+
+.cell-row-div-player-view {
+};
+
 .cell-row-div-map-view {
-    margin-bottom: -2px;
+}
+
+.cell-row-div-map-view-xxxs {
 }
 
 .game-board {
-    cursor: crosshair;
+    font-family: monospace;
+    line-height: 1.1;
     margin-left: 10px;
     margin-right: 10px;
+    margin-top: 20px;
 
     span {
         :hover {
@@ -181,23 +208,57 @@ ul {
     };
 }
 
+.game-board-div {
+    display: inline-block;
+
+    .game-board-row {
+        @media only screen and (max-width: 1090px) {
+            display: inline-block;
+        }
+        zoom: 1;
+    }
+
+}
+
+.game-editor-board-div {
+    .game-board {
+        cursor: pointer;
+    }
+
+    .game-board-row {
+        display: block;
+    }
+}
+
 .ctrl-bottom {
     @include ctrl-panel;
     margin-top: 10px;
 }
 
 .radio-buttons {
-
     button {
         margin-bottom: 5px;
         margin-right: 2px;
     }
-
 };
 
 .player-list-item {
     @include menu-list-item;
 };
+
+.game-overworld-map-pre {
+    font-family: monospace;
+    line-height: 1.1;
+}
+
+//---------------------------------------------------------------------
+// GAME MENU (for player command selection)
+//---------------------------------------------------------------------
+
+.game-menu-text-span {
+    background-color: $black;
+    color: $yellow;
+}
 
 //---------------------------------------------------------------------
 // HELP MENU
@@ -223,4 +284,11 @@ ul {
     height: 400px;
     overflow: auto;
 };
+
+//------------------------------------------------------------------
+// COMPONENT STYLING
+//------------------------------------------------------------------
+
+@import 'component.game-editor';
+
 

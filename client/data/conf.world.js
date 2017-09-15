@@ -1,7 +1,9 @@
 /* eslint comma-dangle: 0 */
+/* eslint max-len: 85 */
 
 const RG = require('../src/rg');
 
+const temple = require('./temple.json');
 
 // Note:
 // An object with key 'constraint' can be passed at any level. This contains
@@ -37,7 +39,15 @@ const dungeons = {
                 return (actor.type === 'animal');
             }
         },
-        branch: [{name: 'Animals', nLevels: 5, entranceLevel: 0}],
+        create: {
+            actor: [{name: 'goblin', target: 'Animals', nLevel: 4}]
+        },
+        branch: [
+            {
+                name: 'Animals', nLevels: 5, entranceLevel: 0,
+                create: {actor: [{name: 'goblin', nLevel: 4}]}
+            }
+        ],
     },
     smallDungeon: { x: 0, y: 0, name: 'Small dungeon', nBranches: 1,
         // constraint: {actor: actor => (actor.type === 'animal')},
@@ -50,13 +60,22 @@ const dungeons = {
 RG.WorldConf = {
     name: 'The North',
 
+    presetLevels: {
+        'Beast dungeon.Animals': [{nLevel: 0, level: temple}]
+        // for area: 'Area name': [levels], must match x by y, in this would
+        // be 5 by 5. No support for individual levels for areas.
+    },
+
+    // Specifies a tile where player is placed at the start
+    playerStart: {place: 'The North', x: 2, y: 4},
+
     nAreas: 1,
     area: [
         {
             name: 'Ravendark',
-            maxX: 4,
-            maxY: 4,
-            cols: 70, rows: 30,
+            maxX: 5,
+            maxY: 5,
+            cols: 100, rows: 100,
             // DUNGEONS
             nDungeons: 3,
             dungeon: [
@@ -94,11 +113,37 @@ RG.WorldConf = {
                 cities.Blashyrkh,
             ],
             // MOUNTAINS
-            nMountains: 1,
+            nMountains: 2,
             mountain: [
-                { x: 0, y: 0, name: 'IceThorn', nFaces: 1,
-                    face: [{name: 'north', nLevels: 1, x: 50, y: 200}]
+                { x: 1, y: 3, name: 'IceThorn', nFaces: 1,
+                    face: [
+                        {name: 'north', nLevels: 1, x: 50, y: 200, entranceLevel: 0}
+                    ],
                 },
+                { x: 2, y: 4, name: 'Perilous Needle', nFaces: 2,
+                    connect: [
+                        ['north', 'east', 0, 0]
+                    ],
+                    face: [
+                        {name: 'north', nLevels: 1, x: 100, y: 400, entranceLevel: 0},
+                        {name: 'east', nLevels: 1, x: 100, y: 400}
+                    ],
+                },
+                /*
+                {
+                    x: 2, y: 0, name: 'Spiral of Chaos', nFaces: 4,
+                    nSummits: 1,
+                    face: [
+                        {name: 'north', nLevels: 1, x: 50, y: 200},
+                        {name: 'south', nLevels: 1, x: 50, y: 200},
+                        {name: 'west', nLevels: 1, x: 50, y: 200},
+                        {name: 'east', nLevels: 1, x: 50, y: 200}
+                    ],
+                    summit: [
+
+                    ],
+                }
+                */
             ],
         },
     ],

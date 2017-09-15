@@ -1,13 +1,16 @@
 
+/* This file contains a long test case actual game scenarios to test the more
+ * complex interactions. */
+
 const expect = require('chai').expect;
 const RG = require('../../../client/src/battles');
 
 const RGObjects = require('../../../client/data/battles_objects');
 RG.Effects = require('../../../client/data/effects');
 
-const downKey = {code: RG.K_MOVE_S};
-const pickupKey = {code: RG.K_PICKUP};
-const confirmKey = {code: RG.K_YES};
+const downKey = {code: RG.KEY.MOVE_S};
+const pickupKey = {code: RG.KEY.PICKUP};
+const confirmKey = {code: RG.KEY.YES};
 
 /* AI for driving the player with commands. */
 RG.PlayerDriver = function(player) {
@@ -16,7 +19,6 @@ RG.PlayerDriver = function(player) {
 
     this.getNextCmdOrKey = function() {
         // const seenCells = this.getSeenCells();
-
     };
 
 };
@@ -61,7 +63,7 @@ describe('Function: All small game features', function() {
 
     beforeEach(() => {
         game = new RG.Game.Main();
-        parser = new RG.ObjectShellParser();
+        parser = new RG.ObjectShell.Parser();
         parser.parseShellData(RG.Effects);
         parser.parseShellData(RGObjects);
         fromJSON = new RG.Game.FromJSON();
@@ -87,7 +89,7 @@ describe('Function: All small game features', function() {
 
         l1.addItem(sword, 1, 1);
 
-        expect(shopkeeper.getBrain().getType()).to.equal('human');
+        expect(shopkeeper.getBrain().getType()).to.equal('Human');
         p1.setIsPlayer(true);
         game.addLevel(l1);
         game.addPlayer(p1);
@@ -102,7 +104,9 @@ describe('Function: All small game features', function() {
         expect(humanoid.isEnemy(p1), 'Humanoid is enemy').to.equal(true);
         expect(shopkeeper.isEnemy(p1), 'shopkeeper not enemy').to.equal(false);
 
+        //------------------------
         // Test selling of items
+        //------------------------
         const p1X = p1.getX();
         const p1Y = p1.getY();
         const magicSword = parser.createActualObj(RG.TYPE_ITEM, 'Magic sword');
@@ -120,7 +124,6 @@ describe('Function: All small game features', function() {
         game.update(dropCmd);
         game.update(confirmKey);
         expect(p1Inv.getItems(), 'Two items after selling').to.have.length(2);
-
 
         //-------------------------------------
         // Fun starts after restoring
@@ -142,8 +145,8 @@ describe('Function: All small game features', function() {
         p1 = findActor(l1, {getName: 'Player1'});
         const hum = findActor(l1, {getName: 'humanoid'});
 
-        expect(sk.getBrain().getType()).to.equal('human');
-        expect(hum.getBrain().getType()).to.equal('rogue');
+        expect(sk.getBrain().getType(), 'Brain type OK').to.equal('Human');
+        expect(hum.getBrain().getType(), 'Brain type OK').to.equal('Rogue');
 
         const inv = p1.getInvEq();
         expect(inv.getInventory().getItems(), 'Player has one item')

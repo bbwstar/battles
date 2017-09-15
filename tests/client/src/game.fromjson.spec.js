@@ -33,7 +33,7 @@ describe('RG.Game.FromJSON', function() {
     it('Converts level.map JSON back to RG.Map', () => {
         const level = RGTest.createLevel('arena', 20, 20);
         const json = level.toJSON();
-        const newLevel = fromJSON.createLevel(json);
+        const newLevel = fromJSON.restoreLevel(json);
         const newMap = newLevel.getMap();
         for (let x = 0; x < 20; x++) {
             expect(newMap.getCell(x, 0).isPassable(),
@@ -45,8 +45,18 @@ describe('RG.Game.FromJSON', function() {
     it('Converts level JSON back to RG.Map.Level', () => {
         const level = RGTest.createLevel('arena', 20, 20);
         const json = level.toJSON();
-        const newLevel = fromJSON.createLevel(json);
+        const newLevel = fromJSON.restoreLevel(json);
         expect(newLevel.getID()).to.equal(level.getID());
+    });
+
+    it('converts overworld JSON back to RG.OverWorld.Map', () => {
+        const conf = {};
+        const ow = RG.OW.createOverWorld(conf);
+        const json = ow.toJSON();
+        const newOw = fromJSON.restoreOverWorld(json);
+        expect(newOw).to.exist;
+
+        expect(newOw.getMap()).to.deep.equal(ow.getMap());
     });
 
 
@@ -54,6 +64,7 @@ describe('RG.Game.FromJSON', function() {
         const level = RGTest.createLevel('arena', 10, 10);
         const actor = new RG.Actor.Rogue('Urkh!');
         actor.setType('goblin');
+        actor.setFOVRange(21);
 
         const goblinEntID = actor.getID();
         const item = new RG.Item.Weapon('sword');
@@ -68,7 +79,8 @@ describe('RG.Game.FromJSON', function() {
         level.addItem(shopItem, 4, 4);
 
         const json = level.toJSON();
-        const newLevel = fromJSON.createLevel(json);
+        const newLevel = fromJSON.restoreLevel(json);
+        fromJSON.restoreEntityData();
 
         const actors = newLevel.getActors();
         const items = newLevel.getItems();
@@ -78,6 +90,7 @@ describe('RG.Game.FromJSON', function() {
         expect(actors).to.have.length(1);
         expect(newGoblin.getName()).to.equal('Urkh!');
         expect(newGoblin.getID()).to.equal(goblinEntID);
+        expect(newGoblin.getFOVRange()).to.equal(21);
         expect(items).to.have.length(2);
         expect(items[0].getName()).to.equal('sword');
         expect(items[0].getID()).to.equal(swordID);
@@ -130,6 +143,65 @@ describe('RG.Game.FromJSON', function() {
         const newGame = fromJSON.createGame(json);
         const newPlayer = newGame.getPlayer();
         expect(newPlayer.getName()).to.equal('MyPlayer');
+    });
+
+    it('converts a mountain to JSON and back to object', () => {
+        const mountain = new RG.World.Mountain('Mount doom');
+        const f1 = new RG.World.MountainFace('f1');
+        const f2 = new RG.World.MountainFace('f2');
+
+        const goblin = new RG.Actor.Rogue('Small goblin');
+        goblin.get('Stats').setAgility(17);
+        goblin.setType('goblin');
+
+        const l1 = RG.FACT.createLevel('mountain', 50, 100);
+        l1.addActor(goblin, 1, 3);
+        f1.addLevel(l1);
+        const l2 = RG.FACT.createLevel('mountain', 50, 100);
+        f2.addLevel(l2);
+        mountain.addFace(f1);
+        mountain.addFace(f2);
+        mountain.connectFaces('f1', 'f2', 0, 0);
+
+        const jsonL1 = l1.toJSON();
+        const jsonL2 = l2.toJSON();
+        const json = mountain.toJSON();
+
+        const newL1 = fromJSON.restoreLevel(jsonL1);
+        fromJSON.restoreEntityData();
+        const actorsL1 = newL1.getActors();
+        expect(actorsL1).to.have.length(1);
+
+        const newGoblin = actorsL1[0];
+        expect(newGoblin.get('Stats').getAgility()).to.equal(17);
+
+        const newL2 = fromJSON.restoreLevel(jsonL2);
+        const id2level = {};
+        id2level[newL1.getID()] = newL1;
+        id2level[newL2.getID()] = newL2;
+
+        const factWorld = new RG.Factory.World();
+        factWorld.setId2Level(id2level);
+        const newMountain = factWorld.createMountain(json);
+        expect(newMountain.getLevels()).to.have.length(2);
+    });
+
+    it('can convert spellcaster actors', () => {
+        const wizard = RGTest.getMeAWizard();
+        const json = wizard.toJSON();
+        expect(json).to.have.property('spellbook');
+        expect(json.spellbook.spells).to.have.length(1);
+
+        const restWizard = fromJSON.createActor(json);
+        fromJSON.restoreEntityData(restWizard, json);
+
+        expect(restWizard._spellbook, 'Spellbook exists').to.exist;
+        const restSpell = restWizard._spellbook.getSpells()[0];
+        expect(restSpell.getPower()).to.equal(11);
+        expect(restSpell.getRange()).to.equal(7);
+
+        const damageDie = restSpell.getDice()[0];
+        expect(damageDie.toJSON()).to.deep.equal([1, 2, 3]);
     });
 
 });

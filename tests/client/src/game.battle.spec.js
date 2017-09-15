@@ -6,11 +6,11 @@ const Game = require('../../..//client/src/game.js');
 const RGObjects = require('../../../client/data/battles_objects.js');
 RG.Effects = require('../../../client/data/effects.js');
 
-const globalParser = new RG.ObjectShellParser();
+const globalParser = new RG.ObjectShell.Parser();
 globalParser.parseShellData(RG.Effects);
 globalParser.parseShellData(RGObjects);
 
-const addActors = function(army, num, name) {
+const addActors = (army, num, name) => {
     for (let i = 0; i < num; i++) {
         const actor = globalParser.createActualObj('actors', name);
         actor.setFOVRange(10);
@@ -18,8 +18,8 @@ const addActors = function(army, num, name) {
     }
 };
 
-describe('Game.Battle', function() {
-    it('It is fought until end condition', function() {
+describe('Game.Battle', () => {
+    it('It is fought until end condition', () => {
         const game = new Game.Main();
         const battle = new Game.Battle('Battle of ice kingdoms');
         const army1 = new Game.Army('Blue army');
